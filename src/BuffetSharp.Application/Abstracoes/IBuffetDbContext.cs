@@ -1,0 +1,52 @@
+using BuffetSharp.Domain.Cadastros;
+using BuffetSharp.Domain.Cardapio;
+using BuffetSharp.Domain.Comercial;
+using BuffetSharp.Domain.Estoque;
+using BuffetSharp.Domain.Eventos;
+using BuffetSharp.Domain.Financeiro;
+using BuffetSharp.Domain.Seguranca;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+
+namespace BuffetSharp.Application.Abstracoes;
+
+/// <summary>
+/// Unidade de trabalho do EF Core usada pelos serviços (lado de escrita).
+/// Em aplicações desktop, cada operação cria e descarta o seu próprio contexto.
+/// </summary>
+public interface IBuffetDbContext : IDisposable, IAsyncDisposable
+{
+    DbSet<TipoEvento> TiposEvento { get; }
+    DbSet<CategoriaProduto> CategoriasProduto { get; }
+    DbSet<CategoriaCardapio> CategoriasCardapio { get; }
+    DbSet<UnidadeMedida> UnidadesMedida { get; }
+    DbSet<FormaPagamento> FormasPagamento { get; }
+    DbSet<Cargo> Cargos { get; }
+    DbSet<Cliente> Clientes { get; }
+    DbSet<Fornecedor> Fornecedores { get; }
+    DbSet<Funcionario> Funcionarios { get; }
+    DbSet<Espaco> Espacos { get; }
+    DbSet<ServicoAdicional> ServicosAdicionais { get; }
+    DbSet<Produto> Produtos { get; }
+    DbSet<MovimentacaoEstoque> MovimentacoesEstoque { get; }
+    DbSet<ItemCardapio> ItensCardapio { get; }
+    DbSet<Pacote> Pacotes { get; }
+    DbSet<Orcamento> Orcamentos { get; }
+    DbSet<Evento> Eventos { get; }
+    DbSet<Parcela> Parcelas { get; }
+    DbSet<ContaPagar> ContasPagar { get; }
+    DbSet<Usuario> Usuarios { get; }
+
+    ChangeTracker ChangeTracker { get; }
+
+    DbSet<TEntidade> Set<TEntidade>() where TEntidade : class;
+
+    EntityEntry<TEntidade> Entry<TEntidade>(TEntidade entidade) where TEntidade : class;
+
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+}
+
+public interface IBuffetDbContextFactory
+{
+    IBuffetDbContext Criar();
+}

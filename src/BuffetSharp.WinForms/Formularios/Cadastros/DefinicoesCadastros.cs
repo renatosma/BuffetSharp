@@ -1,0 +1,371 @@
+using BuffetSharp.Application.Consultas;
+using BuffetSharp.Domain.Cadastros;
+using BuffetSharp.Domain.Comum;
+using BuffetSharp.Domain.Estoque;
+using BuffetSharp.WinForms.Formularios.Comercial;
+using BuffetSharp.WinForms.Formularios.Estoque;
+using BuffetSharp.WinForms.Infra;
+using Microsoft.EntityFrameworkCore;
+
+namespace BuffetSharp.WinForms.Formularios.Cadastros;
+
+/// <summary>
+/// Declaração dos cadastros atendidos pela tela genérica, do mais simples (nível 1: tabelas de apoio)
+/// ao intermediário (nível 2: pessoas, produtos com estoque e relacionamentos).
+/// </summary>
+internal static class DefinicoesCadastros
+{
+    // =====================================================================
+    // Nível 1 - tabelas de apoio
+    // =====================================================================
+
+    public static readonly DefinicaoCadastro<TipoEvento> TiposEvento = new()
+    {
+        Titulo = "Tipos de evento",
+        Singular = "tipo de evento",
+        Descricao = "Classificação usada em orçamentos, eventos e relatórios de faturamento.",
+        Consulta = q => q.OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome, 40).Texto("Descrição", x => x.Descricao, 80).SimNao("Ativo", x => x.Ativo, 15),
+        TextoBusca = x => $"{x.Nome} {x.Descricao}",
+        Nome = x => x.Nome,
+        ColunasEditor = 1,
+        LarguraEditor = 520,
+        Campos = (e, x, _) =>
+        {
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 80);
+            e.Texto("Descrição", () => x.Descricao, v => x.Descricao = v, nameof(x.Descricao), 300, linhas: 3);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            return Task.CompletedTask;
+        }
+    };
+
+    public static readonly DefinicaoCadastro<CategoriaProduto> CategoriasProduto = new()
+    {
+        Titulo = "Categorias de produto",
+        Singular = "categoria",
+        Descricao = "Agrupamento dos insumos do estoque.",
+        Consulta = q => q.OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome).SimNao("Ativo", x => x.Ativo, 20),
+        TextoBusca = x => x.Nome,
+        Nome = x => x.Nome,
+        ColunasEditor = 1,
+        LarguraEditor = 460,
+        Campos = (e, x, _) =>
+        {
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 80);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            return Task.CompletedTask;
+        }
+    };
+
+    public static readonly DefinicaoCadastro<CategoriaCardapio> CategoriasCardapio = new()
+    {
+        Titulo = "Seções do cardápio",
+        Singular = "seção",
+        Descricao = "Seções exibidas na proposta (Entradas, Pratos principais...). A ordem define a sequência de impressão.",
+        Consulta = q => q.OrderBy(x => x.Ordem).ThenBy(x => x.Nome),
+        Colunas = g => g.Numero("Ordem", x => x.Ordem, peso: 15).Texto("Nome", x => x.Nome).SimNao("Ativo", x => x.Ativo, 20),
+        TextoBusca = x => x.Nome,
+        Nome = x => x.Nome,
+        LarguraEditor = 520,
+        Campos = (e, x, _) =>
+        {
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 80);
+            e.Inteiro("Ordem", () => x.Ordem, v => x.Ordem = v, nameof(x.Ordem), 0, 999);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            return Task.CompletedTask;
+        }
+    };
+
+    public static readonly DefinicaoCadastro<UnidadeMedida> UnidadesMedida = new()
+    {
+        Titulo = "Unidades de medida",
+        Singular = "unidade de medida",
+        Consulta = q => q.OrderBy(x => x.Sigla),
+        Colunas = g => g.Texto("Sigla", x => x.Sigla, 20).Texto("Descrição", x => x.Descricao).SimNao("Ativo", x => x.Ativo, 20),
+        TextoBusca = x => $"{x.Sigla} {x.Descricao}",
+        Nome = x => x.Sigla,
+        LarguraEditor = 520,
+        Campos = (e, x, _) =>
+        {
+            e.Texto("Sigla", () => x.Sigla, v => x.Sigla = (v ?? "").ToUpperInvariant(), nameof(x.Sigla), 10);
+            e.Texto("Descrição", () => x.Descricao, v => x.Descricao = v ?? "", nameof(x.Descricao), 60);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            return Task.CompletedTask;
+        }
+    };
+
+    public static readonly DefinicaoCadastro<FormaPagamento> FormasPagamento = new()
+    {
+        Titulo = "Formas de pagamento",
+        Singular = "forma de pagamento",
+        Descricao = "Meios aceitos no recebimento das parcelas e no pagamento de despesas.",
+        Consulta = q => q.OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome)
+            .Numero("Máx. parcelas", x => x.MaximoParcelas, peso: 25)
+            .Numero("Taxa (%)", x => x.TaxaPercentual, "N2", 25)
+            .SimNao("Ativo", x => x.Ativo, 20),
+        TextoBusca = x => x.Nome,
+        Nome = x => x.Nome,
+        LarguraEditor = 560,
+        Campos = (e, x, _) =>
+        {
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 60, span: 2);
+            e.Inteiro("Máximo de parcelas", () => x.MaximoParcelas, v => x.MaximoParcelas = v, nameof(x.MaximoParcelas), 1, 48);
+            e.Decimal("Taxa da operadora (%)", () => x.TaxaPercentual, v => x.TaxaPercentual = v, nameof(x.TaxaPercentual), 2, 0, 100);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            return Task.CompletedTask;
+        }
+    };
+
+    public static readonly DefinicaoCadastro<Cargo> Cargos = new()
+    {
+        Titulo = "Cargos",
+        Singular = "cargo",
+        Descricao = "Funções da equipe e valor de diária sugerido na escala dos eventos.",
+        Consulta = q => q.OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome).Moeda("Diária padrão", x => x.ValorDiariaPadrao, 30).SimNao("Ativo", x => x.Ativo, 20),
+        TextoBusca = x => x.Nome,
+        Nome = x => x.Nome,
+        LarguraEditor = 560,
+        Campos = (e, x, _) =>
+        {
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 80);
+            e.Decimal("Diária padrão (R$)", () => x.ValorDiariaPadrao, v => x.ValorDiariaPadrao = v, nameof(x.ValorDiariaPadrao));
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            return Task.CompletedTask;
+        }
+    };
+
+    public static readonly DefinicaoCadastro<Espaco> Espacos = new()
+    {
+        Titulo = "Espaços",
+        Singular = "espaço",
+        Descricao = "Salões e ambientes. A capacidade é validada nos orçamentos e a agenda impede reservas sobrepostas.",
+        Consulta = q => q.OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome, 40)
+            .Numero("Capacidade", x => x.CapacidadeMaxima, peso: 20)
+            .Moeda("Locação", x => x.ValorLocacao, 22)
+            .Texto("Descrição", x => x.Descricao, 70)
+            .SimNao("Ativo", x => x.Ativo, 15),
+        TextoBusca = x => $"{x.Nome} {x.Descricao}",
+        Nome = x => x.Nome,
+        Campos = (e, x, _) =>
+        {
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 100, span: 2);
+            e.Inteiro("Capacidade máxima (pessoas)", () => x.CapacidadeMaxima, v => x.CapacidadeMaxima = v, nameof(x.CapacidadeMaxima), 0, 10_000);
+            e.Decimal("Valor de locação (R$)", () => x.ValorLocacao, v => x.ValorLocacao = v, nameof(x.ValorLocacao));
+            e.Texto("Descrição", () => x.Descricao, v => x.Descricao = v, nameof(x.Descricao), 500, span: 2, linhas: 3);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            return Task.CompletedTask;
+        }
+    };
+
+    public static readonly DefinicaoCadastro<ServicoAdicional> ServicosAdicionais = new()
+    {
+        Titulo = "Serviços adicionais",
+        Singular = "serviço",
+        Descricao = "Itens opcionais do orçamento. Serviços \"por pessoa\" são multiplicados pelos convidados.",
+        Consulta = q => q.OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome, 40)
+            .Moeda("Preço", x => x.Preco, 20)
+            .Texto("Cobrança", x => x.CobradoPorPessoa ? "Por pessoa" : "Valor fixo", 20)
+            .Texto("Descrição", x => x.Descricao, 70)
+            .SimNao("Ativo", x => x.Ativo, 15),
+        TextoBusca = x => $"{x.Nome} {x.Descricao}",
+        Nome = x => x.Nome,
+        Campos = (e, x, _) =>
+        {
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 100, span: 2);
+            e.Decimal("Preço (R$)", () => x.Preco, v => x.Preco = v, nameof(x.Preco));
+            e.Marcador("Cobrado por pessoa", () => x.CobradoPorPessoa, v => x.CobradoPorPessoa = v);
+            e.Texto("Descrição", () => x.Descricao, v => x.Descricao = v, nameof(x.Descricao), 500, span: 2, linhas: 3);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            return Task.CompletedTask;
+        }
+    };
+
+    // =====================================================================
+    // Nível 2 - cadastros intermediários
+    // =====================================================================
+
+    private static void CamposEndereco(EditorCampos e, Endereco endereco)
+    {
+        e.Secao("Endereço");
+        e.Mascara("CEP", "00000-000", () => endereco.Cep, v => endereco.Cep = v);
+        e.Texto("Logradouro", () => endereco.Logradouro, v => endereco.Logradouro = v, maximo: 150, span: 2);
+        e.Texto("Número", () => endereco.Numero, v => endereco.Numero = v, maximo: 20);
+        e.Texto("Complemento", () => endereco.Complemento, v => endereco.Complemento = v, maximo: 80);
+        e.Texto("Bairro", () => endereco.Bairro, v => endereco.Bairro = v, maximo: 80);
+        e.Texto("Cidade", () => endereco.Cidade, v => endereco.Cidade = v, maximo: 80);
+        e.Texto("UF", () => endereco.Uf, v => endereco.Uf = v?.ToUpperInvariant(), maximo: 2);
+    }
+
+    public static readonly DefinicaoCadastro<Cliente> Clientes = new()
+    {
+        Titulo = "Clientes",
+        Singular = "cliente",
+        Descricao = "Pessoas físicas e jurídicas. Selecione um cliente e use \"Histórico\" para ver eventos, orçamentos e saldo.",
+        Consulta = q => q.OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome, 70)
+            .Texto("Tipo", x => x.TipoPessoa == TipoPessoa.Fisica ? "PF" : "PJ", 12)
+            .Texto("CPF/CNPJ", x => Documento.Formatar(x.Documento), 32)
+            .Texto("Celular", x => x.Celular ?? x.Telefone, 28)
+            .Texto("E-mail", x => x.Email, 50)
+            .Texto("Cidade", x => x.Endereco.Cidade, 30),
+        TextoBusca = x => $"{x.Nome} {x.NomeFantasia} {x.Documento} {x.Email} {x.Celular} {x.Telefone} {x.Endereco.Cidade}",
+        Nome = x => x.Nome,
+        ColunasEditor = 3,
+        LarguraEditor = 820,
+        Acoes =
+        [
+            new("Histórico", Icones.Historico, (cliente, ctx) =>
+            {
+                using var dialogo = ctx.Navegador.Criar<FormHistoricoCliente>(cliente.Id, cliente.Nome);
+                dialogo.ShowDialog(ctx.Dono);
+                return Task.CompletedTask;
+            }),
+            new("Novo orçamento", Icones.Documento, (cliente, ctx) =>
+            {
+                using var dialogo = ctx.Navegador.Criar<FormOrcamentoEdicao>(new AberturaOrcamento(0, cliente.Id));
+                dialogo.ShowDialog(ctx.Dono);
+                return Task.CompletedTask;
+            })
+        ],
+        Campos = (e, x, _) =>
+        {
+            e.Secao("Dados principais");
+            e.Opcoes("Tipo de pessoa", () => x.TipoPessoa, v => x.TipoPessoa = v, nameof(x.TipoPessoa));
+            e.Texto("Nome / Razão social", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 150, span: 2);
+            e.Documento("CPF / CNPJ", () => x.Documento, v => x.Documento = v, nameof(x.Documento));
+            e.Texto("Nome fantasia", () => x.NomeFantasia, v => x.NomeFantasia = v, nameof(x.NomeFantasia), 150);
+            e.Data("Nascimento", () => x.DataNascimento, v => x.DataNascimento = v, nameof(x.DataNascimento), opcional: true);
+            e.Secao("Contato");
+            e.Mascara("Celular", "(00) 00000-0000", () => x.Celular, v => x.Celular = v, nameof(x.Celular));
+            e.Mascara("Telefone", "(00) 0000-0000", () => x.Telefone, v => x.Telefone = v, nameof(x.Telefone));
+            e.Texto("E-mail", () => x.Email, v => x.Email = v, nameof(x.Email), 150);
+            CamposEndereco(e, x.Endereco);
+            e.Secao("Outros");
+            e.Texto("Observações", () => x.Observacoes, v => x.Observacoes = v, nameof(x.Observacoes), 1000, span: 3, linhas: 3);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            return Task.CompletedTask;
+        }
+    };
+
+    public static readonly DefinicaoCadastro<Fornecedor> Fornecedores = new()
+    {
+        Titulo = "Fornecedores",
+        Singular = "fornecedor",
+        Descricao = "Fornecedores de insumos e serviços, usados no estoque e nas contas a pagar.",
+        Consulta = q => q.OrderBy(x => x.RazaoSocial),
+        Colunas = g => g.Texto("Nome fantasia", x => x.NomeExibicao, 40)
+            .Texto("Razão social", x => x.RazaoSocial, 60)
+            .Texto("CNPJ/CPF", x => Documento.Formatar(x.Documento), 32)
+            .Texto("Contato", x => x.Contato, 25)
+            .Texto("Telefone", x => x.Telefone, 28)
+            .Texto("E-mail", x => x.Email, 45),
+        TextoBusca = x => $"{x.RazaoSocial} {x.NomeFantasia} {x.Documento} {x.Contato} {x.Email}",
+        Nome = x => x.NomeExibicao,
+        ColunasEditor = 3,
+        LarguraEditor = 820,
+        Campos = (e, x, _) =>
+        {
+            e.Secao("Dados principais");
+            e.Texto("Razão social", () => x.RazaoSocial, v => x.RazaoSocial = v ?? "", nameof(x.RazaoSocial), 150, span: 2);
+            e.Documento("CNPJ / CPF", () => x.Documento, v => x.Documento = v, nameof(x.Documento));
+            e.Texto("Nome fantasia", () => x.NomeFantasia, v => x.NomeFantasia = v, nameof(x.NomeFantasia), 150);
+            e.Texto("Contato", () => x.Contato, v => x.Contato = v, nameof(x.Contato), 100);
+            e.Mascara("Telefone", "(00) 0000-0000", () => x.Telefone, v => x.Telefone = v, nameof(x.Telefone));
+            e.Texto("E-mail", () => x.Email, v => x.Email = v, nameof(x.Email), 150, span: 3);
+            CamposEndereco(e, x.Endereco);
+            e.Secao("Outros");
+            e.Texto("Observações", () => x.Observacoes, v => x.Observacoes = v, nameof(x.Observacoes), 1000, span: 3, linhas: 3);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            return Task.CompletedTask;
+        }
+    };
+
+    public static readonly DefinicaoCadastro<Funcionario> Funcionarios = new()
+    {
+        Titulo = "Funcionários",
+        Singular = "funcionário",
+        Descricao = "Equipe fixa e freelancers escalados nos eventos.",
+        Consulta = q => q.Include(x => x.Cargo).OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome, 60)
+            .Texto("Cargo", x => x.Cargo?.Nome, 35)
+            .Moeda("Diária", x => x.ValorDiaria, 22)
+            .Texto("Telefone", x => x.Telefone, 28)
+            .Data("Admissão", x => x.DataAdmissao?.ToDateTime(TimeOnly.MinValue), peso: 22)
+            .SimNao("Ativo", x => x.Ativo, 15),
+        TextoBusca = x => $"{x.Nome} {x.Cargo?.Nome} {x.Cpf} {x.Telefone}",
+        Nome = x => x.Nome,
+        Campos = async (e, x, lookups) =>
+        {
+            var cargos = await lookups.ListarAsync(TipoLookup.Cargos, somenteAtivos: false);
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 150, span: 2);
+            var cargo = e.Lista("Cargo", cargos, () => x.CargoId, v => x.CargoId = v ?? 0, nameof(x.CargoId));
+            var diaria = e.Decimal("Valor da diária (R$)", () => x.ValorDiaria, v => x.ValorDiaria = v, nameof(x.ValorDiaria));
+            // Sugere a diária padrão do cargo para novos funcionários.
+            cargo.SelectionChangeCommitted += (_, _) =>
+            {
+                if (cargo.SelectedItem is ItemLookup item && diaria.Value == 0)
+                    diaria.Value = item.Valor;
+            };
+            e.Documento("CPF", () => x.Cpf, v => x.Cpf = v, nameof(x.Cpf));
+            e.Data("Admissão", () => x.DataAdmissao, v => x.DataAdmissao = v, nameof(x.DataAdmissao), opcional: true);
+            e.Mascara("Telefone", "(00) 00000-0000", () => x.Telefone, v => x.Telefone = v, nameof(x.Telefone));
+            e.Texto("E-mail", () => x.Email, v => x.Email = v, nameof(x.Email), 150);
+            e.Texto("Observações", () => x.Observacoes, v => x.Observacoes = v, nameof(x.Observacoes), 1000, span: 2, linhas: 3);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+        }
+    };
+
+    public static readonly DefinicaoCadastro<Produto> Produtos = new()
+    {
+        Titulo = "Produtos e insumos",
+        Singular = "produto",
+        Descricao = "Saldo e custo médio são atualizados pelas movimentações (entrada, saída, ajuste e consumo dos eventos).",
+        Consulta = q => q.Include(x => x.CategoriaProduto).Include(x => x.UnidadeMedida).Include(x => x.Fornecedor).OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Código", x => x.Codigo, 18)
+            .Texto("Produto", x => x.Nome, 55)
+            .Texto("Categoria", x => x.CategoriaProduto?.Nome, 30)
+            .Texto("Un.", x => x.UnidadeMedida?.Sigla, 12)
+            .Numero("Custo médio", x => x.CustoMedio, "C4", 25)
+            .Numero("Estoque", x => x.EstoqueAtual, "N3", 22, x => x.AbaixoDoMinimo ? Tema.Perigo : null)
+            .Numero("Mínimo", x => x.EstoqueMinimo, "N3", 20)
+            .Moeda("Valor em estoque", x => x.ValorEmEstoque, 28)
+            .Texto("Situação", x => x.AbaixoDoMinimo ? "Repor" : "OK", 15, x => x.AbaixoDoMinimo ? Tema.Perigo : Tema.Sucesso),
+        TextoBusca = x => $"{x.Codigo} {x.Nome} {x.CategoriaProduto?.Nome} {x.Fornecedor?.RazaoSocial} {(x.AbaixoDoMinimo ? "repor" : "")}",
+        Nome = x => x.Nome,
+        Rodape = itens => $"{itens.Count} produto(s)  •  {itens.Count(p => p.AbaixoDoMinimo)} abaixo do mínimo  •  " +
+                          $"valor em estoque: {Textos.Moeda(itens.Sum(p => p.ValorEmEstoque))}",
+        Acoes =
+        [
+            new("Entrada", Icones.Adicionar, (p, ctx) => FormMovimentarEstoque.AbrirAsync(ctx, p, TipoMovimentacao.Entrada)),
+            new("Saída", Icones.Enviar, (p, ctx) => FormMovimentarEstoque.AbrirAsync(ctx, p, TipoMovimentacao.Saida)),
+            new("Inventário", Icones.Calculadora, (p, ctx) => FormMovimentarEstoque.AbrirAsync(ctx, p, TipoMovimentacao.Ajuste)),
+            new("Movimentações", Icones.Historico, (p, ctx) =>
+            {
+                ctx.Navegador.Abrir($"movimentacoes:{p.Id}", () => ctx.Navegador.Criar<FormMovimentacoes>(p.Id));
+                return Task.CompletedTask;
+            })
+        ],
+        Campos = async (e, x, lookups) =>
+        {
+            var categorias = await lookups.ListarAsync(TipoLookup.CategoriasProduto, somenteAtivos: false);
+            var unidades = await lookups.ListarAsync(TipoLookup.UnidadesMedida, somenteAtivos: false);
+            var fornecedores = await lookups.ListarAsync(TipoLookup.Fornecedores, somenteAtivos: false);
+
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 120, span: 2);
+            e.Texto("Código (SKU)", () => x.Codigo, v => x.Codigo = v, nameof(x.Codigo), 30);
+            e.Lista("Categoria", categorias, () => x.CategoriaProdutoId, v => x.CategoriaProdutoId = v ?? 0, nameof(x.CategoriaProdutoId));
+            e.Lista("Unidade de medida", unidades, () => x.UnidadeMedidaId, v => x.UnidadeMedidaId = v ?? 0, nameof(x.UnidadeMedidaId));
+            e.Lista("Fornecedor padrão", fornecedores, () => x.FornecedorId, v => x.FornecedorId = v, nameof(x.FornecedorId), permitirVazio: true);
+            e.Secao("Custos e estoque");
+            e.Decimal("Custo médio (R$)", () => x.CustoMedio, v => x.CustoMedio = v, nameof(x.CustoMedio), 4);
+            e.Decimal("Estoque mínimo", () => x.EstoqueMinimo, v => x.EstoqueMinimo = v, nameof(x.EstoqueMinimo), 3);
+            e.Informacao("Saldo atual (via movimentações)", () => x.EstoqueAtual.ToString("N3"));
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+        }
+    };
+}

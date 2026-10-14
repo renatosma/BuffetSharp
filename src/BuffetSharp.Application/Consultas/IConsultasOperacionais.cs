@@ -1,0 +1,192 @@
+using BuffetSharp.Domain.Comercial;
+using BuffetSharp.Domain.Estoque;
+using BuffetSharp.Domain.Eventos;
+using BuffetSharp.Domain.Financeiro;
+
+namespace BuffetSharp.Application.Consultas;
+
+// ============================ Comercial ============================
+
+public sealed record FiltroOrcamentos
+{
+    public DateTime? De { get; init; }
+    public DateTime? Ate { get; init; }
+    public StatusOrcamento? Status { get; init; }
+    public string? Texto { get; init; }
+}
+
+public sealed record OrcamentoResumo
+{
+    public int Id { get; init; }
+    public string Cliente { get; init; } = string.Empty;
+    public string TipoEvento { get; init; } = string.Empty;
+    public string? Pacote { get; init; }
+    public string? Espaco { get; init; }
+    public DateTime Inicio { get; init; }
+    public int QuantidadeConvidados { get; init; }
+    public decimal ValorTotal { get; init; }
+    public StatusOrcamento Status { get; init; }
+    public DateTime ValidoAte { get; init; }
+    public int? EventoId { get; init; }
+    public DateTime CriadoEm { get; init; }
+    public string Codigo => $"ORC-{Id:D5}";
+}
+
+public sealed record HistoricoCliente
+{
+    public int QuantidadeEventos { get; init; }
+    public decimal TotalContratado { get; init; }
+    public decimal TotalRecebido { get; init; }
+    public decimal SaldoEmAberto { get; init; }
+    public DateTime? UltimoEvento { get; init; }
+    public IReadOnlyList<OrcamentoResumo> Orcamentos { get; init; } = [];
+    public IReadOnlyList<EventoResumo> Eventos { get; init; } = [];
+}
+
+public interface IConsultasComercial
+{
+    Task<IReadOnlyList<OrcamentoResumo>> ListarOrcamentosAsync(FiltroOrcamentos filtro, CancellationToken ct = default);
+    Task<HistoricoCliente> HistoricoClienteAsync(int clienteId, CancellationToken ct = default);
+}
+
+// ============================ Eventos ============================
+
+public sealed record FiltroEventos
+{
+    public DateTime? De { get; init; }
+    public DateTime? Ate { get; init; }
+    public StatusEvento? Status { get; init; }
+    public int? EspacoId { get; init; }
+    public string? Texto { get; init; }
+}
+
+public sealed record EventoResumo
+{
+    public int Id { get; init; }
+    public string Titulo { get; init; } = string.Empty;
+    public string Cliente { get; init; } = string.Empty;
+    public string TipoEvento { get; init; } = string.Empty;
+    public string Espaco { get; init; } = string.Empty;
+    public DateTime Inicio { get; init; }
+    public int QuantidadeConvidados { get; init; }
+    public decimal ValorTotal { get; init; }
+    public decimal Recebido { get; init; }
+    public decimal SaldoAReceber { get; init; }
+    public StatusEvento Status { get; init; }
+    public string Codigo => $"EVT-{Id:D5}";
+}
+
+public interface IConsultasEventos
+{
+    Task<IReadOnlyList<EventoResumo>> ListarAsync(FiltroEventos filtro, CancellationToken ct = default);
+}
+
+// ============================ Financeiro ============================
+
+public sealed record FiltroTitulos
+{
+    public DateTime? VencimentoDe { get; init; }
+    public DateTime? VencimentoAte { get; init; }
+    public StatusTitulo? Status { get; init; }
+    public bool SomenteVencidos { get; init; }
+    public string? Texto { get; init; }
+}
+
+public sealed record ParcelaResumo
+{
+    public int Id { get; init; }
+    public int EventoId { get; init; }
+    public string EventoTitulo { get; init; } = string.Empty;
+    public string Cliente { get; init; } = string.Empty;
+    public int Numero { get; init; }
+    public string Descricao { get; init; } = string.Empty;
+    public DateTime Vencimento { get; init; }
+    public decimal Valor { get; init; }
+    public StatusTitulo Status { get; init; }
+    public DateTime? DataPagamento { get; init; }
+    public decimal? ValorPago { get; init; }
+    public string? FormaPagamento { get; init; }
+    public int DiasAtraso { get; init; }
+    public string EventoCodigo => $"EVT-{EventoId:D5}";
+}
+
+public sealed record ContaPagarResumo
+{
+    public int Id { get; init; }
+    public string Descricao { get; init; } = string.Empty;
+    public CategoriaDespesa Categoria { get; init; }
+    public string? Fornecedor { get; init; }
+    public int? EventoId { get; init; }
+    public string? Evento { get; init; }
+    public DateTime Vencimento { get; init; }
+    public decimal Valor { get; init; }
+    public StatusTitulo Status { get; init; }
+    public DateTime? DataPagamento { get; init; }
+    public decimal? ValorPago { get; init; }
+    public string? FormaPagamento { get; init; }
+    public int DiasAtraso { get; init; }
+}
+
+public interface IConsultasFinanceiro
+{
+    Task<IReadOnlyList<ParcelaResumo>> ListarParcelasAsync(FiltroTitulos filtro, DateOnly hoje, CancellationToken ct = default);
+    Task<IReadOnlyList<ContaPagarResumo>> ListarContasPagarAsync(FiltroTitulos filtro, DateOnly hoje, CancellationToken ct = default);
+}
+
+// ============================ Estoque e Cardápio ============================
+
+public sealed record MovimentacaoResumo
+{
+    public int Id { get; init; }
+    public DateTime Data { get; init; }
+    public int ProdutoId { get; init; }
+    public string Produto { get; init; } = string.Empty;
+    public string Unidade { get; init; } = string.Empty;
+    public TipoMovimentacao Tipo { get; init; }
+    public decimal Quantidade { get; init; }
+    public decimal CustoUnitario { get; init; }
+    public decimal SaldoApos { get; init; }
+    public string? Observacao { get; init; }
+    public int? EventoId { get; init; }
+    public decimal ValorTotal => Math.Round(Math.Abs(Quantidade) * CustoUnitario, 2);
+}
+
+public sealed record ItemCardapioResumo
+{
+    public int Id { get; init; }
+    public string Nome { get; init; } = string.Empty;
+    public string Categoria { get; init; } = string.Empty;
+    public int OrdemCategoria { get; init; }
+    public int QuantidadeIngredientes { get; init; }
+    public decimal CustoPorPessoa { get; init; }
+    public bool Ativo { get; init; }
+}
+
+public sealed record PacoteResumo
+{
+    public int Id { get; init; }
+    public string Nome { get; init; } = string.Empty;
+    public decimal PrecoPorPessoa { get; init; }
+    public decimal CustoPorPessoa { get; init; }
+    public int MinimoConvidados { get; init; }
+    public int QuantidadeItens { get; init; }
+    public bool Ativo { get; init; }
+    public decimal MargemPercentual => PrecoPorPessoa == 0 ? 0 : Math.Round((PrecoPorPessoa - CustoPorPessoa) / PrecoPorPessoa * 100, 1);
+}
+
+public sealed record ItemComposicao
+{
+    public string Categoria { get; init; } = string.Empty;
+    public string Item { get; init; } = string.Empty;
+    public string? Descricao { get; init; }
+}
+
+public interface IConsultasEstoqueCardapio
+{
+    Task<IReadOnlyList<MovimentacaoResumo>> ListarMovimentacoesAsync(DateTime de, DateTime ate, int? produtoId = null,
+        TipoMovimentacao? tipo = null, CancellationToken ct = default);
+
+    Task<IReadOnlyList<ItemCardapioResumo>> ListarItensCardapioAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<PacoteResumo>> ListarPacotesAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<ItemComposicao>> ComposicaoPacoteAsync(int pacoteId, CancellationToken ct = default);
+}

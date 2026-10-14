@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BuffetSharp.Application/BuffetSharp.Application.csproj" />
+    <Project Path="src/BuffetSharp.Domain/BuffetSharp.Domain.csproj" />
+    <Project Path="src/BuffetSharp.Infrastructure/BuffetSharp.Infrastructure.csproj" />
+    <Project Path="src/BuffetSharp.WinForms/BuffetSharp.WinForms.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BuffetSharp.Tests/BuffetSharp.Tests.csproj" />
+  </Folder>
+</Solution>
