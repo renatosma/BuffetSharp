@@ -41,6 +41,7 @@ internal sealed class UsuarioConfig : IEntityTypeConfiguration<Usuario>
         b.Property(x => x.Nome).HasMaxLength(100).IsRequired();
         b.Property(x => x.Login).HasMaxLength(60).IsRequired();
         b.Property(x => x.SenhaHash).HasMaxLength(200).IsRequired();
+        b.Property(x => x.PercentualComissao).HasPrecision(5, 2);
         b.HasIndex(x => x.Login).IsUnique();
     }
 }

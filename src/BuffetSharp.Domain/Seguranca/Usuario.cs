@@ -36,6 +36,11 @@ public class Usuario : Entidade
     public bool Ativo { get; private set; } = true;
     public DateTime? UltimoAcessoEm { get; private set; }
 
+    /// <summary>Comissão (%) sobre os valores recebidos dos eventos vendidos por este usuário.</summary>
+    public decimal PercentualComissao { get; private set; }
+
+    public const decimal ComissaoMaximaPercentual = 20m;
+
     public void Alterar(string nome, string login, PerfilUsuario perfil, bool ativo)
     {
         Validador.Garantir(!string.IsNullOrWhiteSpace(nome), "Informe o nome do usuário.");
@@ -54,6 +59,16 @@ public class Usuario : Entidade
     }
 
     public void RegistrarAcesso(DateTime agora) => UltimoAcessoEm = agora;
+
+    public void DefinirComissao(decimal percentual)
+    {
+        Validador.Garantir(percentual is >= 0 and <= ComissaoMaximaPercentual,
+            $"A comissão deve estar entre 0% e {ComissaoMaximaPercentual}%.");
+        PercentualComissao = percentual;
+    }
+
+    /// <summary>Somente usuários comerciais (e administradores) podem ser vendedores de orçamentos.</summary>
+    public bool PodeVender => Ativo && Perfil is PerfilUsuario.Comercial or PerfilUsuario.Administrador;
 
     /// <summary>Regra mínima de senha forte, aplicada antes de gerar o hash.</summary>
     public static void ValidarForcaSenha(string senha)

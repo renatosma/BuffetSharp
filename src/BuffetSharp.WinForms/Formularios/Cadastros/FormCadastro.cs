@@ -1,3 +1,4 @@
+using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Comum;
@@ -58,6 +59,18 @@ internal sealed class FormCadastro<T> : FormListagem<T> where T : Entidade, new(
         Botao("Novo", Icones.Adicionar, NovoAsync, $"Cadastrar {definicao.Singular}", destaque: true);
         Botao("Editar", Icones.Editar, () => Selecionado() is { } item ? EditarAsync(item) : Task.CompletedTask);
         Botao("Excluir", Icones.Excluir, ExcluirAsync);
+
+        if (navegador.Servico<ISessaoUsuario>().Usuario?.EhAdministrador == true)
+        {
+            Botao("Alterações", Icones.Escudo, () =>
+            {
+                if (Selecionado() is { } item)
+                    navegador.Abrir($"auditoria:{typeof(T).Name}:{item.Id}", () => navegador.Criar<Seguranca.FormAuditoria>(
+                        new Seguranca.FiltroAuditoriaInicial($"Alterações - {definicao.Nome(item)}", Entidade: typeof(T).Name,
+                            RegistroId: item.Id.ToString())));
+                return Task.CompletedTask;
+            }, "Histórico de alterações do registro selecionado (auditoria)");
+        }
 
         if (definicao.Acoes.Count > 0)
         {

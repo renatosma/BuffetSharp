@@ -67,6 +67,7 @@ internal static class Program
 
         var opcoes = builder.Configuration.GetSection(BuffetOptions.Secao).Get<BuffetOptions>() ?? new BuffetOptions();
         builder.Services.AddSingleton(opcoes);
+        builder.Services.AddSingleton(builder.Configuration.GetSection(EmailOptions.Secao).Get<EmailOptions>() ?? new EmailOptions());
         builder.Services.AddAplicacao();
         builder.Services.AddInfraestrutura(builder.Configuration.GetConnectionString("Buffet"));
         builder.Services.AddSingleton<Navegador>();

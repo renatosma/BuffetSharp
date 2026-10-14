@@ -8,11 +8,15 @@ namespace BuffetSharp.Infrastructure.Persistencia.Seed;
 /// Aplica as migrations pendentes e cria os dados iniciais (usuário administrador e,
 /// opcionalmente, uma base de demonstração completa).
 /// </summary>
-public sealed class InicializadorBanco(IDbContextFactory<BuffetDbContext> fabrica, IHasherSenha hasher, TimeProvider relogio)
+public sealed class InicializadorBanco(IDbContextFactory<BuffetDbContext> fabrica, IHasherSenha hasher, BuffetOptions opcoes,
+    TimeProvider relogio)
 {
     public async Task InicializarAsync(bool dadosDemonstracao, IProgress<string>? progresso = null, CancellationToken ct = default)
     {
         await using var db = await fabrica.CreateDbContextAsync(ct);
+
+        // A carga inicial não gera histórico de auditoria (milhares de registros sem valor para o usuário).
+        db.AuditoriaHabilitada = false;
 
         progresso?.Report("Atualizando estrutura do banco de dados...");
         await db.Database.MigrateAsync(ct);
@@ -31,7 +35,7 @@ public sealed class InicializadorBanco(IDbContextFactory<BuffetDbContext> fabric
         if (dadosDemonstracao && !await db.Clientes.AnyAsync(ct))
         {
             progresso?.Report("Gerando dados de demonstração (cadastros, eventos, financeiro)...");
-            await new DadosDemonstracao(db, relogio).PopularAsync(ct);
+            await new DadosDemonstracao(db, relogio, hasher, opcoes).PopularAsync(ct);
         }
     }
 }

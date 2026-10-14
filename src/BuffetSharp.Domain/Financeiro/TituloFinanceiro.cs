@@ -20,7 +20,13 @@ public enum CategoriaDespesa
     Impostos,
     Manutencao,
     Marketing,
-    Outros
+    Outros,
+
+    /// <summary>Comissões de vendedores (geradas pelo fechamento de comissões).</summary>
+    Comissoes,
+
+    /// <summary>Locação de louças, enxoval e mobiliário de terceiros para um evento.</summary>
+    LocacaoMateriais
 }
 
 /// <summary>

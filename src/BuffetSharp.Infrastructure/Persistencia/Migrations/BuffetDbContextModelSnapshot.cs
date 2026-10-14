@@ -23,6 +23,57 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("BuffetSharp.Domain.Auditoria.RegistroAuditoria", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Acao")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Alteracoes")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DataHora")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Entidade")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("RegistroId")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Usuario")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int?>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataHora");
+
+                    b.HasIndex("Entidade", "RegistroId");
+
+                    b.ToTable("Auditoria", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Cargo", b =>
                 {
                     b.Property<int>("Id")
@@ -667,6 +718,177 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                     b.ToTable("PacoteItens", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.Contrato", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AssinadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("AssinaturaCliente")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<byte[]>("AssinaturaEmpresa")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CanceladoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Conteudo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DocumentoSignatario")
+                        .HasMaxLength(14)
+                        .HasColumnType("nvarchar(14)");
+
+                    b.Property<DateTime>("EmitidoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HashConteudo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nchar(64)")
+                        .IsFixedLength();
+
+                    b.Property<string>("MotivoCancelamento")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("NomeRepresentante")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("NomeSignatario")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventoId")
+                        .IsUnique()
+                        .HasFilter("[Status] <> 'Cancelado'");
+
+                    b.ToTable("Contratos", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.Degustacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("Avaliacao")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ClienteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Comentario")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DataHora")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MotivoCancelamento")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int?>("OrcamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PacoteId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Pessoas")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("DataHora");
+
+                    b.HasIndex("OrcamentoId");
+
+                    b.HasIndex("PacoteId");
+
+                    b.HasIndex("Status", "DataHora");
+
+                    b.ToTable("Degustacoes", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.EnvioProposta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Canal")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Destinatario")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime>("EnviadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("OrcamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Usuario")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrcamentoId", "EnviadoEm");
+
+                    b.ToTable("EnviosProposta", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.Orcamento", b =>
                 {
                     b.Property<int>("Id")
@@ -740,6 +962,9 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("VendedorId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClienteId");
@@ -753,6 +978,8 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                     b.HasIndex("Status");
 
                     b.HasIndex("TipoEventoId");
+
+                    b.HasIndex("VendedorId");
 
                     b.ToTable("Orcamentos", (string)null);
                 });
@@ -791,6 +1018,61 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                     b.HasIndex("ServicoAdicionalId");
 
                     b.ToTable("OrcamentoServicos", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.Material", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("CustoLocacao")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("FornecedorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("QuantidadePropria")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ValorReposicao")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FornecedorId");
+
+                    b.HasIndex("Nome")
+                        .IsUnique();
+
+                    b.ToTable("Materiais", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", b =>
@@ -1001,6 +1283,10 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                     b.Property<int?>("PacoteId")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("PercentualComissao")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("int");
 
@@ -1028,6 +1314,9 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("VendedorId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClienteId");
@@ -1043,6 +1332,8 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                     b.HasIndex("Status");
 
                     b.HasIndex("TipoEventoId");
+
+                    b.HasIndex("VendedorId");
 
                     b.HasIndex("EspacoId", "Inicio");
 
@@ -1083,6 +1374,53 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                         .IsUnique();
 
                     b.ToTable("EventoEquipe", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoMaterial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("CustoLocacaoUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("DevolvidoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaterialId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantidade")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuantidadeAlugada")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("QuantidadeDevolvida")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuantidadePerdida")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ValorReposicaoUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaterialId");
+
+                    b.HasIndex("EventoId", "MaterialId")
+                        .IsUnique();
+
+                    b.ToTable("EventoMateriais", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoServico", b =>
@@ -1192,6 +1530,50 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                     b.ToTable("ContasPagar", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.FechamentoComissao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("Ate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("BaseCalculo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ContaPagarId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("De")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("VendedorId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContaPagarId")
+                        .IsUnique();
+
+                    b.HasIndex("VendedorId", "De", "Ate");
+
+                    b.ToTable("FechamentosComissao", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Parcela", b =>
                 {
                     b.Property<int>("Id")
@@ -1283,6 +1665,10 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<decimal>("PercentualComissao")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<string>("Perfil")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -1360,6 +1746,51 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                     b.Navigation("ItemCardapio");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.Contrato", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", "Evento")
+                        .WithMany()
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Evento");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.Degustacao", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Cliente", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BuffetSharp.Domain.Comercial.Orcamento", "Orcamento")
+                        .WithMany()
+                        .HasForeignKey("OrcamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BuffetSharp.Domain.Cardapio.Pacote", "Pacote")
+                        .WithMany()
+                        .HasForeignKey("PacoteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Orcamento");
+
+                    b.Navigation("Pacote");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.EnvioProposta", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Comercial.Orcamento", null)
+                        .WithMany("Envios")
+                        .HasForeignKey("OrcamentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.Orcamento", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Cadastros.Cliente", "Cliente")
@@ -1384,6 +1815,11 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("BuffetSharp.Domain.Seguranca.Usuario", "Vendedor")
+                        .WithMany()
+                        .HasForeignKey("VendedorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Cliente");
 
                     b.Navigation("Espaco");
@@ -1391,6 +1827,8 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                     b.Navigation("Pacote");
 
                     b.Navigation("TipoEvento");
+
+                    b.Navigation("Vendedor");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.OrcamentoServico", b =>
@@ -1405,6 +1843,16 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                         .WithMany()
                         .HasForeignKey("ServicoAdicionalId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.Material", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Fornecedor");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", b =>
@@ -1488,6 +1936,11 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("BuffetSharp.Domain.Seguranca.Usuario", "Vendedor")
+                        .WithMany()
+                        .HasForeignKey("VendedorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Cliente");
 
                     b.Navigation("Espaco");
@@ -1497,6 +1950,8 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                     b.Navigation("Pacote");
 
                     b.Navigation("TipoEvento");
+
+                    b.Navigation("Vendedor");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFuncionario", b =>
@@ -1514,6 +1969,23 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                         .IsRequired();
 
                     b.Navigation("Funcionario");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoMaterial", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany("Materiais")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.Material", "Material")
+                        .WithMany()
+                        .HasForeignKey("MaterialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Material");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoServico", b =>
@@ -1554,6 +2026,25 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                     b.Navigation("Fornecedor");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.FechamentoComissao", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ContaPagar", "ContaPagar")
+                        .WithOne()
+                        .HasForeignKey("BuffetSharp.Domain.Financeiro.FechamentoComissao", "ContaPagarId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BuffetSharp.Domain.Seguranca.Usuario", "Vendedor")
+                        .WithMany()
+                        .HasForeignKey("VendedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ContaPagar");
+
+                    b.Navigation("Vendedor");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Parcela", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", "Evento")
@@ -1584,6 +2075,8 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
 
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.Orcamento", b =>
                 {
+                    b.Navigation("Envios");
+
                     b.Navigation("Evento");
 
                     b.Navigation("Servicos");
@@ -1594,6 +2087,8 @@ namespace BuffetSharp.Infrastructure.Persistencia.Migrations
                     b.Navigation("Convidados");
 
                     b.Navigation("Equipe");
+
+                    b.Navigation("Materiais");
 
                     b.Navigation("Parcelas");
 

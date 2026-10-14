@@ -1,3 +1,6 @@
+using BuffetSharp.Application.Abstracoes;
+using BuffetSharp.Application.Consultas;
+using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Comercial;
@@ -5,6 +8,7 @@ using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
+using BuffetSharp.Domain.Seguranca;
 using Microsoft.EntityFrameworkCore;
 
 namespace BuffetSharp.Infrastructure.Persistencia.Seed;
@@ -12,9 +16,10 @@ namespace BuffetSharp.Infrastructure.Persistencia.Seed;
 /// <summary>
 /// Gera uma base fictícia coerente (~1 ano de operação) usando as próprias regras do domínio:
 /// orçamentos enviados/aprovados/recusados, eventos realizados com baixa de estoque, check-in de
-/// convidados, parcelas pagas e em atraso e despesas mensais. Todos os nomes e documentos são fictícios.
+/// convidados, parcelas pagas e em atraso, despesas mensais, materiais enviados e devolvidos, degustações,
+/// contratos assinados e comissões. Todos os nomes e documentos são fictícios.
 /// </summary>
-internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio)
+internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio, IHasherSenha hasher, BuffetOptions empresa)
 {
     private readonly Random _rnd = new(2026);
     private DateTime Agora => relogio.GetLocalNow().DateTime;
@@ -31,12 +36,19 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
     private List<Cliente> _clientesPf = [];
     private List<Cliente> _clientesPj = [];
     private List<Funcionario> _funcionarios = [];
+    private List<Usuario> _vendedores = [];
+    private Dictionary<string, Material> _materiais = [];
+    private readonly List<(DateOnly Data, int MaterialId, int Proprias, EventoMaterial Reserva)> _reservas = [];
+    private readonly List<(Orcamento Orcamento, Destino Destino, DateOnly Criacao)> _negociacoes = [];
+    private readonly List<Evento> _eventos = [];
 
     public async Task PopularAsync(CancellationToken ct)
     {
         await CriarCadastrosBasicosAsync(ct);
         await CriarCatalogoAsync(ct);
         await CriarPessoasAsync(ct);
+        await CriarVendedoresAsync(ct);
+        await CriarMateriaisAsync(ct);
 
         var plano = PlanejarEventos();
         await CriarEstoqueInicialAsync(plano, ct);
@@ -45,6 +57,8 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
 
         await CriarDespesasMensaisAsync(ct);
         await RegistrarComprasRecentesAsync(ct);
+        await CriarDegustacoesAsync(ct);
+        await FecharComissoesAsync(ct);
     }
 
     // =====================================================================
@@ -138,7 +152,8 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             ("Distribuidora de Bebidas Gelada Ltda", "Gelada Bebidas", "Marcos"),
             ("Laticínios Serra Azul Ltda", "Serra Azul", "Cláudia"),
             ("Atacadão Central Alimentos Ltda", "Atacadão Central", "Paulo"),
-            ("Festa & Cia Descartáveis Ltda", "Festa & Cia", "Denise")
+            ("Festa & Cia Descartáveis Ltda", "Festa & Cia", "Denise"),
+            ("Loca Festas Locação de Materiais Ltda", "Loca Festas", "Rubens")
         }.Select((f, i) => new Fornecedor
         {
             RazaoSocial = f.Item1,
@@ -474,7 +489,10 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         orcamento.DefinirEspaco(p.Espaco);
         orcamento.DefinirServicos(SortearServicos(p));
         orcamento.AplicarDesconto(Escolher([0m, 0m, 3m, 5m, 5m, 8m, 10m]));
+        var vendedor = _rnd.NextDouble() < 0.6 ? _vendedores[0] : _vendedores[1];
+        orcamento.DefinirVendedor(vendedor.Id);
         db.Orcamentos.Add(orcamento);
+        _negociacoes.Add((orcamento, p.Destino, criacao));
 
         if (p.Destino == Destino.Rascunho)
         {
@@ -483,7 +501,9 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         }
 
         var envio = criacao.AddDays(1).ToDateTime(new TimeOnly(14, 0));
-        orcamento.Enviar(envio);
+        var canal = _rnd.NextDouble() < 0.5 || p.Cliente.Email is null ? CanalEnvio.WhatsApp : CanalEnvio.Email;
+        orcamento.RegistrarEnvio(canal, canal == CanalEnvio.Email ? p.Cliente.Email! : p.Cliente.Celular ?? p.Cliente.Telefone!,
+            vendedor.Login, envio);
 
         if (p.Destino == Destino.Enviado)
         {
@@ -513,9 +533,10 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             _ => $"{p.Tipo.Nome} de {PrimeiroNome(p.Cliente)}"
         };
 
-        var evento = orcamento.Aprovar(titulo, momentoDecisao);
+        var evento = orcamento.Aprovar(titulo, momentoDecisao, vendedor.PercentualComissao);
         evento.CriadoEm = momentoDecisao;
         db.Eventos.Add(evento);
+        _eventos.Add(evento);
 
         // Plano de pagamento: 30% de entrada e o restante em parcelas mensais até o evento.
         var forma = Escolher([_formas["PIX"], _formas["Boleto Bancário"], _formas["Cartão de Crédito"], _formas["Transferência Bancária"]]);
@@ -537,9 +558,17 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         if (p.Destino == Destino.Realizado || (p.Destino == Destino.Confirmado && dias <= 45))
             EscalarEquipe(evento, p);
 
+        // Materiais (louça, enxoval, mobiliário) para eventos passados e próximos.
+        if (p.Destino == Destino.Realizado || (p.Destino == Destino.Confirmado && dias <= 45))
+            ReservarMateriais(evento, p);
+
         // Lista de convidados (amostra) - precisa de Id para o check-in, por isso salva antes.
         AdicionarConvidados(evento);
         await db.SaveChangesAsync(ct);
+
+        // Contrato: assinado para eventos realizados recentes e para a maioria dos confirmados.
+        if ((p.Destino == Destino.Realizado && dias > -120) || p.Destino == Destino.Confirmado)
+            EmitirContrato(evento, p, decisao, vendedor, assinar: p.Destino == Destino.Realizado || _rnd.NextDouble() < 0.6);
 
         if (p.Destino == Destino.Confirmado)
         {
@@ -571,6 +600,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                     $"Consumo do evento EVT-{evento.Id:D5}", evento.Id, permitirSaldoNegativo: true));
             }
             evento.MarcarEstoqueBaixado();
+            DevolverMateriais(evento, encerramento);
 
             // Despesas vinculadas ao evento.
             var dataPagamentoEquipe = DateOnly.FromDateTime(encerramento).AddDays(2);
@@ -580,14 +610,14 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                 equipe.RegistrarPagamento(dataPagamentoEquipe, equipe.Valor, _formas["PIX"].Id);
             db.ContasPagar.Add(equipe);
 
-            if (_rnd.NextDouble() < 0.4)
+            var locacao = evento.Materiais.Sum(m => m.CustoLocacao);
+            if (locacao > 0)
             {
-                var extra = new ContaPagar($"Locação de louças e mobiliário extra - EVT-{evento.Id:D5}", CategoriaDespesa.Servicos,
-                    Math.Round(p.Convidados * (decimal)(4 + _rnd.NextDouble() * 6), 2), DateOnly.FromDateTime(encerramento).AddDays(7),
-                    eventoId: evento.Id);
-                if (extra.Vencimento <= Hoje)
-                    extra.RegistrarPagamento(extra.Vencimento, extra.Valor, _formas["Boleto Bancário"].Id);
-                db.ContasPagar.Add(extra);
+                var conta = new ContaPagar($"Locação de materiais - EVT-{evento.Id:D5}", CategoriaDespesa.LocacaoMateriais,
+                    locacao, DateOnly.FromDateTime(encerramento).AddDays(7), _fornecedores["Loca Festas"].Id, evento.Id);
+                if (conta.Vencimento <= Hoje)
+                    conta.RegistrarPagamento(conta.Vencimento, conta.Valor, _formas["Boleto Bancário"].Id);
+                db.ContasPagar.Add(conta);
             }
 
             await db.SaveChangesAsync(ct);
@@ -710,6 +740,200 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             var custo = Math.Round(produto.CustoMedio * 1.06m, 2);
             db.MovimentacoesEstoque.Add(produto.RegistrarEntrada(quantidade, custo, Agora.AddDays(-_rnd.Next(2, 20)),
                 "Reposição de estoque (preço reajustado)"));
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    // =====================================================================
+    // Comercial e operação: vendedores, materiais, contratos, degustações e comissões
+    // =====================================================================
+
+    private async Task CriarVendedoresAsync(CancellationToken ct)
+    {
+        var carla = await db.Usuarios.FirstAsync(u => u.Login == "comercial", ct);
+        carla.DefinirComissao(3m);
+        var vitor = await db.Usuarios.FirstOrDefaultAsync(u => u.Login == "vendas", ct);
+        if (vitor is null)
+        {
+            vitor = new Usuario("Vítor Vendas", "vendas", PerfilUsuario.Comercial, hasher.Gerar("Vendas@123"));
+            db.Usuarios.Add(vitor);
+        }
+        vitor.DefinirComissao(2.5m);
+        await db.SaveChangesAsync(ct);
+        _vendedores = [carla, vitor];
+    }
+
+    private async Task CriarMateriaisAsync(CancellationToken ct)
+    {
+        var locador = _fornecedores["Loca Festas"].Id;
+        (string Nome, CategoriaMaterial Categoria, int Quantidade, decimal Reposicao, decimal Locacao)[] materiais =
+        [
+            ("Prato raso de porcelana", CategoriaMaterial.Louca, 260, 28, 2.50m),
+            ("Prato de sobremesa", CategoriaMaterial.Louca, 260, 18, 1.80m),
+            ("Jogo de talheres (garfo e faca)", CategoriaMaterial.Talheres, 260, 22, 2.00m),
+            ("Taça de cristal", CategoriaMaterial.CoposETacas, 220, 35, 3.00m),
+            ("Copo long drink", CategoriaMaterial.CoposETacas, 300, 12, 1.20m),
+            ("Guardanapo de tecido", CategoriaMaterial.Enxoval, 300, 9, 1.00m),
+            ("Toalha de mesa redonda", CategoriaMaterial.Enxoval, 32, 90, 15m),
+            ("Mesa redonda (8 lugares)", CategoriaMaterial.Mobiliario, 28, 650, 45m),
+            ("Cadeira Tiffany", CategoriaMaterial.Mobiliario, 180, 180, 12m),
+            ("Sousplat dourado", CategoriaMaterial.Decoracao, 150, 25, 2.50m)
+        ];
+        _materiais = materiais.Select(m => new Material
+        {
+            Nome = m.Nome,
+            Categoria = m.Categoria,
+            QuantidadePropria = m.Quantidade,
+            ValorReposicao = m.Reposicao,
+            CustoLocacao = m.Locacao,
+            FornecedorId = locador
+        }).ToDictionary(m => m.Nome);
+        db.Materiais.AddRange(_materiais.Values);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Reserva louça, enxoval e mobiliário pelo número de convidados; o que faltar no patrimônio é alugado.</summary>
+    private void ReservarMateriais(Evento evento, PlanoEvento p)
+    {
+        var mesas = (int)Math.Ceiling(p.Convidados / 8m);
+        var itens = new List<(string Nome, int Quantidade)>
+        {
+            ("Prato raso de porcelana", p.Convidados),
+            ("Prato de sobremesa", p.Convidados),
+            ("Jogo de talheres (garfo e faca)", p.Convidados),
+            ("Guardanapo de tecido", p.Convidados),
+            (p.Tipo.Nome == "Aniversário Infantil" ? "Copo long drink" : "Taça de cristal", p.Convidados),
+            ("Toalha de mesa redonda", mesas),
+            ("Mesa redonda (8 lugares)", mesas),
+            ("Cadeira Tiffany", p.Convidados)
+        };
+        if (p.Tipo.Nome is "Casamento" or "15 Anos")
+            itens.Add(("Sousplat dourado", p.Convidados));
+
+        foreach (var (nome, quantidade) in itens)
+        {
+            var material = _materiais[nome];
+            var reservadas = _reservas.Where(r => r.MaterialId == material.Id && !r.Reserva.Devolvido &&
+                                                  Math.Abs(r.Data.DayNumber - p.Data.DayNumber) <= 1).Sum(r => r.Proprias);
+            var alugadas = Math.Max(0, quantidade - Math.Max(0, material.QuantidadePropria - reservadas));
+            var reserva = evento.ReservarMaterial(material, quantidade, alugadas);
+            _reservas.Add((p.Data, material.Id, quantidade - alugadas, reserva));
+        }
+    }
+
+    /// <summary>Devolução no dia seguinte, com algumas quebras de louça e taças.</summary>
+    private void DevolverMateriais(Evento evento, DateTime encerramento)
+    {
+        foreach (var item in evento.Materiais.ToList())
+        {
+            var fragil = item.Material!.Categoria is CategoriaMaterial.Louca or CategoriaMaterial.CoposETacas;
+            var perdidas = fragil ? _rnd.Next(0, item.Quantidade / 60 + 2) : _rnd.NextDouble() < 0.08 ? 1 : 0;
+            perdidas = Math.Min(perdidas, item.Quantidade);
+            var proprias = evento.RegistrarDevolucao(item.MaterialId, item.Quantidade - perdidas, perdidas, encerramento.AddHours(10));
+            if (proprias > 0)
+                item.Material.AjustarPatrimonio(-proprias);
+        }
+    }
+
+    /// <summary>Emite o contrato (texto do modelo oficial) e, opcionalmente, registra as assinaturas.</summary>
+    private void EmitirContrato(Evento evento, PlanoEvento p, DateOnly decisao, Usuario vendedor, bool assinar)
+    {
+        var composicao = p.Pacote.Itens.Select(i => i.ItemCardapio!)
+            .OrderBy(i => i.CategoriaCardapio!.Ordem).ThenBy(i => i.Nome)
+            .Select(i => new ItemComposicao { Categoria = i.CategoriaCardapio!.Nome, Item = i.Nome, Descricao = i.Descricao })
+            .ToList();
+
+        var emissao = Min(decisao.AddDays(1).ToDateTime(new TimeOnly(11, 0)), Agora.AddHours(-2));
+        var contrato = new Contrato(evento.Id, ModeloContrato.Gerar(empresa, evento, composicao, DateOnly.FromDateTime(emissao)), emissao)
+        {
+            CriadoEm = emissao
+        };
+
+        if (assinar)
+        {
+            var cliente = p.Cliente;
+            var signatario = cliente.TipoPessoa == TipoPessoa.Fisica ? cliente.Nome : $"Representante de {cliente.NomeFantasia ?? cliente.Nome}";
+            var assinatura = Min(emissao.AddDays(_rnd.Next(1, 6)).Date.AddHours(15), Agora.AddHours(-1));
+            contrato.Assinar(signatario, cliente.Documento!, AssinaturaSintetica.Gerar(evento.Id), vendedor.Nome,
+                AssinaturaSintetica.Gerar(10_000 + vendedor.Id), assinatura);
+        }
+        db.Contratos.Add(contrato);
+
+        static DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
+    }
+
+    private async Task CriarDegustacoesAsync(CancellationToken ct)
+    {
+        int[] horarios = [10, 11, 14, 15, 16, 17, 18, 19];
+        string[] comentarios =
+        [
+            "Adoraram o risoto e as sobremesas.", "Pediram para trocar a entrada por uma opção vegetariana.",
+            "Gostaram muito do prato principal.", "Acharam o valor alto, mas elogiaram o cardápio.",
+            "Querem incluir a mesa de doces finos.", "Elogiaram o atendimento e a apresentação dos pratos."
+        ];
+
+        DateTime Horario(DateOnly dia)
+        {
+            while (dia.DayOfWeek == DayOfWeek.Sunday)
+                dia = dia.AddDays(1);
+            return dia.ToDateTime(new TimeOnly(Escolher(horarios), 0));
+        }
+
+        var atendidos = new HashSet<int>();
+        foreach (var (orcamento, destino, criacao) in _negociacoes.Where(n => n.Destino != Destino.Rascunho && n.Criacao >= Hoje.AddMonths(-8)))
+        {
+            if (_rnd.NextDouble() > 0.4)
+                continue;
+            var quando = Horario(criacao.AddDays(_rnd.Next(3, 11)));
+            if (quando >= orcamento.Inicio.AddDays(-7) || (quando > Agora && destino != Destino.Enviado))
+                continue;
+
+            var degustacao = new Degustacao(orcamento.ClienteId, quando, _rnd.Next(2, 6), orcamento.PacoteId, orcamento.Id, null,
+                quando.AddDays(-5));
+            if (quando < Agora)
+            {
+                if (_rnd.NextDouble() < 0.1)
+                    degustacao.RegistrarAusencia(quando.AddHours(2));
+                else
+                    degustacao.Realizar(destino == Destino.Recusado ? _rnd.Next(2, 5) : _rnd.Next(4, 6), Escolher(comentarios), quando.AddHours(1));
+            }
+            db.Degustacoes.Add(degustacao);
+            atendidos.Add(orcamento.Id);
+        }
+
+        // Agenda das próximas duas semanas para propostas ainda em negociação.
+        foreach (var (orcamento, _, _) in _negociacoes.Where(n => n.Destino == Destino.Enviado && !atendidos.Contains(n.Orcamento.Id) &&
+                                                                  n.Orcamento.Inicio > Agora.AddDays(30)).Take(6))
+        {
+            var quando = Horario(Hoje.AddDays(_rnd.Next(1, 15)));
+            db.Degustacoes.Add(new Degustacao(orcamento.ClienteId, quando, _rnd.Next(2, 6), orcamento.PacoteId, orcamento.Id,
+                "Confirmar presença por WhatsApp na véspera.", Agora));
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Comissões de dois meses atrás já fechadas e pagas; o mês passado fica em aberto para fechamento.</summary>
+    private async Task FecharComissoesAsync(CancellationToken ct)
+    {
+        var de = new DateOnly(Hoje.Year, Hoje.Month, 1).AddMonths(-2);
+        var ate = de.AddMonths(1).AddDays(-1);
+        foreach (var vendedor in _vendedores)
+        {
+            var recebidos = _eventos.Where(e => e.VendedorId == vendedor.Id)
+                .SelectMany(e => e.Parcelas
+                    .Where(p => p.Status == StatusTitulo.Pago && p.DataPagamento >= de && p.DataPagamento <= ate)
+                    .Select(p => (Valor: p.ValorPago!.Value, Percentual: e.PercentualComissao)))
+                .ToList();
+            var comissao = recebidos.Sum(r => Math.Round(r.Valor * r.Percentual / 100, 2, MidpointRounding.AwayFromZero));
+            if (comissao <= 0)
+                continue;
+
+            var fechamento = new FechamentoComissao(vendedor, de, ate, recebidos.Sum(r => r.Valor), comissao, ate.AddDays(5))
+            {
+                CriadoEm = ate.AddDays(1).ToDateTime(new TimeOnly(9, 0))
+            };
+            fechamento.ContaPagar!.RegistrarPagamento(ate.AddDays(5), comissao, _formas["PIX"].Id);
+            db.FechamentosComissao.Add(fechamento);
         }
         await db.SaveChangesAsync(ct);
     }

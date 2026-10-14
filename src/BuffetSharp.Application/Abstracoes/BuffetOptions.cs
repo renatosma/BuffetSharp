@@ -17,4 +17,13 @@ public sealed class BuffetOptions
     public int IntervaloMinimoEntreEventosMinutos { get; set; } = 120;
 
     public int DiasValidadeOrcamento { get; set; } = 15;
+
+    /// <summary>Foro de eleição citado no contrato.</summary>
+    public string CidadeForo { get; set; } = "São Paulo/SP";
+
+    /// <summary>Antecedência para o cliente confirmar o número final de convidados (cláusula do contrato).</summary>
+    public int DiasConfirmacaoConvidados { get; set; } = 10;
+
+    /// <summary>Degustações simultâneas permitidas (mesmo horário, com tolerância de 1 hora).</summary>
+    public int LimiteDegustacoesPorHorario { get; set; } = 3;
 }

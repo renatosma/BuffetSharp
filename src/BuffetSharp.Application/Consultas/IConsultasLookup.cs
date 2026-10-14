@@ -16,14 +16,17 @@ public enum TipoLookup
     UnidadesMedida,
     Produtos,
     ItensCardapio,
-    EventosConfirmados
+    EventosConfirmados,
+    Vendedores,
+    Materiais
 }
 
 /// <summary>
 /// Item genérico para combos e listas de seleção. Os campos auxiliares variam por tipo:
 /// Espaços (Valor = locação, Numero = capacidade), Pacotes (Valor = preço/pessoa, Numero = mínimo),
 /// Serviços (Valor = preço, Marcador = cobrado por pessoa), Funcionários (Valor = diária, Info = cargo),
-/// Produtos (Valor = custo médio, Info = unidade), Formas de pagamento (Numero = máx. parcelas).
+/// Produtos (Valor = custo médio, Info = unidade), Formas de pagamento (Numero = máx. parcelas),
+/// Vendedores (Valor = comissão %), Materiais (Valor = custo de locação, Numero = patrimônio, Info = categoria).
 /// </summary>
 public sealed record ItemLookup
 {

@@ -2,6 +2,7 @@ using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Eventos;
+using BuffetSharp.Domain.Seguranca;
 
 namespace BuffetSharp.Domain.Comercial;
 
@@ -13,6 +14,12 @@ public enum StatusOrcamento
     Recusado
 }
 
+public enum CanalEnvio
+{
+    Email,
+    WhatsApp
+}
+
 /// <summary>
 /// Nível 3 - Entidade rica: proposta comercial com ciclo de vida
 /// (Rascunho → Enviado → Aprovado/Recusado). Ao ser aprovada, gera um <see cref="Evento"/>.
@@ -20,6 +27,7 @@ public enum StatusOrcamento
 public class Orcamento : Entidade
 {
     private readonly List<OrcamentoServico> _servicos = [];
+    private readonly List<EnvioProposta> _envios = [];
 
     private Orcamento()
     {
@@ -45,6 +53,10 @@ public class Orcamento : Entidade
     public int? PacoteId { get; private set; }
     public Pacote? Pacote { get; private set; }
 
+    /// <summary>Usuário responsável pela venda (recebe a comissão quando o evento é pago).</summary>
+    public int? VendedorId { get; private set; }
+    public Usuario? Vendedor { get; private set; }
+
     public DateTime Inicio { get; private set; }
     public DateTime Fim { get; private set; }
     public int QuantidadeConvidados { get; private set; }
@@ -65,6 +77,9 @@ public class Orcamento : Entidade
     public Evento? Evento { get; private set; }
 
     public IReadOnlyCollection<OrcamentoServico> Servicos => _servicos;
+
+    /// <summary>Histórico de envios da proposta ao cliente (e-mail e WhatsApp).</summary>
+    public IReadOnlyCollection<EnvioProposta> Envios => _envios;
 
     public DateOnly DataEvento => DateOnly.FromDateTime(Inicio);
     public TimeOnly HoraInicio => TimeOnly.FromDateTime(Inicio);
@@ -155,6 +170,13 @@ public class Orcamento : Entidade
         Recalcular();
     }
 
+    public void DefinirVendedor(int? vendedorId)
+    {
+        GarantirEditavel();
+        Validador.Garantir(vendedorId is null or > 0, "Vendedor inválido.");
+        VendedorId = vendedorId;
+    }
+
     public void AplicarDesconto(decimal percentual)
     {
         GarantirEditavel();
@@ -174,10 +196,26 @@ public class Orcamento : Entidade
     }
 
     /// <summary>
+    /// Registra o envio da proposta ao cliente. Um orçamento em rascunho passa a "Enviado".
+    /// </summary>
+    public EnvioProposta RegistrarEnvio(CanalEnvio canal, string destinatario, string? usuario, DateTime agora)
+    {
+        Validador.Garantir(PodeEditar, "Somente orçamentos em rascunho ou enviados podem ser enviados ao cliente.");
+        Validador.Garantir(!string.IsNullOrWhiteSpace(destinatario), "Informe o destinatário.");
+        if (Status == StatusOrcamento.Rascunho)
+            Enviar(agora);
+
+        var envio = new EnvioProposta(canal, destinatario.Trim(), usuario, agora);
+        _envios.Add(envio);
+        return envio;
+    }
+
+    /// <summary>
     /// Aprova o orçamento e cria o evento correspondente. A verificação de disponibilidade do
     /// espaço (que depende do banco) é feita pelo serviço de aplicação antes desta chamada.
     /// </summary>
-    public Evento Aprovar(string tituloEvento, DateTime agora)
+    /// <param name="percentualComissao">Comissão atual do vendedor, congelada no evento.</param>
+    public Evento Aprovar(string tituloEvento, DateTime agora, decimal percentualComissao = 0)
     {
         Validador.Garantir(Status is StatusOrcamento.Rascunho or StatusOrcamento.Enviado,
             "Este orçamento não pode mais ser aprovado.");
@@ -189,7 +227,7 @@ public class Orcamento : Entidade
 
         Status = StatusOrcamento.Aprovado;
         DecididoEm = agora;
-        Evento = Evento.CriarDeOrcamento(this, tituloEvento);
+        Evento = Evento.CriarDeOrcamento(this, tituloEvento, percentualComissao);
         return Evento;
     }
 
@@ -221,6 +259,7 @@ public class Orcamento : Entidade
         {
             PacoteId = PacoteId,
             EspacoId = EspacoId,
+            VendedorId = VendedorId,
             ValorPorPessoa = ValorPorPessoa,
             ValorEspaco = ValorEspaco,
             PercentualDesconto = PercentualDesconto,
@@ -259,4 +298,31 @@ public class OrcamentoServico
     public decimal Quantidade { get; private set; }
     public decimal ValorUnitario { get; private set; }
     public decimal Total => Math.Round(Quantidade * ValorUnitario, 2);
+}
+
+public class EnvioProposta
+{
+    private EnvioProposta()
+    {
+    }
+
+    internal EnvioProposta(CanalEnvio canal, string destinatario, string? usuario, DateTime enviadoEm)
+    {
+        Canal = canal;
+        Destinatario = destinatario;
+        Usuario = usuario;
+        EnviadoEm = enviadoEm;
+    }
+
+    public int Id { get; private set; }
+    public int OrcamentoId { get; private set; }
+    public CanalEnvio Canal { get; private set; }
+
+    /// <summary>E-mail ou telefone de destino.</summary>
+    public string Destinatario { get; private set; } = string.Empty;
+
+    /// <summary>Login de quem enviou.</summary>
+    public string? Usuario { get; private set; }
+
+    public DateTime EnviadoEm { get; private set; }
 }

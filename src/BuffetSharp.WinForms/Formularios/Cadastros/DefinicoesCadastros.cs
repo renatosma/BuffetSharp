@@ -1,4 +1,5 @@
 using BuffetSharp.Application.Consultas;
+using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
@@ -319,6 +320,61 @@ internal static class DefinicoesCadastros
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
         }
     };
+
+    public static readonly DefinicaoCadastro<Material> Materiais = new()
+    {
+        Titulo = "Materiais (louça, enxoval e mobiliário)",
+        Singular = "material",
+        Descricao = "Patrimônio enviado aos eventos. A reserva verifica o que está livre na data; o que faltar é alugado de terceiros. Perdas na devolução baixam o patrimônio.",
+        Consulta = q => q.Include(x => x.Fornecedor).OrderBy(x => x.Categoria).ThenBy(x => x.Nome),
+        Colunas = g => g.Texto("Material", x => x.Nome, 50)
+            .Texto("Categoria", x => Textos.Exibir(x.Categoria), 22)
+            .Numero("Patrimônio", x => x.QuantidadePropria, peso: 18)
+            .Moeda("Reposição (un.)", x => x.ValorReposicao, 20)
+            .Moeda("Locação (un.)", x => x.CustoLocacao, 20)
+            .Moeda("Valor do patrimônio", x => x.ValorPatrimonio, 25)
+            .Texto("Locador", x => x.Fornecedor?.NomeExibicao, 30)
+            .SimNao("Ativo", x => x.Ativo, 14),
+        TextoBusca = x => $"{x.Nome} {Textos.Exibir(x.Categoria)} {x.Fornecedor?.NomeExibicao}",
+        Nome = x => x.Nome,
+        Rodape = itens => $"{itens.Count} material(is)  •  {itens.Sum(m => m.QuantidadePropria):N0} peças  •  " +
+                          $"valor do patrimônio: {Textos.Moeda(itens.Sum(m => m.ValorPatrimonio))}",
+        Acoes =
+        [
+            new("Compra", Icones.Adicionar, (m, ctx) => AjustarPatrimonioAsync(ctx, m, entrada: true)),
+            new("Baixa", Icones.Excluir, (m, ctx) => AjustarPatrimonioAsync(ctx, m, entrada: false))
+        ],
+        Campos = async (e, x, lookups) =>
+        {
+            var fornecedores = await lookups.ListarAsync(TipoLookup.Fornecedores, somenteAtivos: false);
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 100, span: 2);
+            e.Opcoes("Categoria", () => x.Categoria, v => x.Categoria = v, nameof(x.Categoria));
+            if (x.EhNovo)
+                e.Inteiro("Quantidade no patrimônio", () => x.QuantidadePropria, v => x.QuantidadePropria = v, nameof(x.QuantidadePropria), 0, 1_000_000);
+            else
+                e.Informacao("Patrimônio (via compras, baixas e perdas)", () => x.QuantidadePropria.ToString("N0"));
+            e.Decimal("Valor de reposição por unidade (R$)", () => x.ValorReposicao, v => x.ValorReposicao = v, nameof(x.ValorReposicao));
+            e.Decimal("Custo de locação por unidade (R$)", () => x.CustoLocacao, v => x.CustoLocacao = v, nameof(x.CustoLocacao));
+            e.Lista("Locador padrão (fornecedor)", fornecedores, () => x.FornecedorId, v => x.FornecedorId = v, nameof(x.FornecedorId),
+                permitirVazio: true, span: 2);
+            e.Texto("Observações", () => x.Observacoes, v => x.Observacoes = v, nameof(x.Observacoes), 500, span: 2, linhas: 2);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+        }
+    };
+
+    private static async Task AjustarPatrimonioAsync(ContextoCadastro contexto, Material material, bool entrada)
+    {
+        var quantidade = 1;
+        var e = new EditorCampos(1);
+        e.Informacao("Material", () => $"{material.Nome} - patrimônio atual: {material.QuantidadePropria:N0}");
+        e.Inteiro(entrada ? "Quantidade comprada" : "Quantidade baixada (descarte, quebra fora de evento...)", () => quantidade,
+            v => quantidade = v, minimo: 1, maximo: 1_000_000);
+        using var dialogo = new FormEdicao(entrada ? "Compra de material" : "Baixa de material",
+            "A alteração fica registrada na auditoria.", e,
+            () => contexto.Navegador.Servico<EstoqueService>().AjustarPatrimonioAsync(material.Id, entrada ? quantidade : -quantidade), 520);
+        if (dialogo.ShowDialog(contexto.Dono) == DialogResult.OK)
+            await contexto.Recarregar();
+    }
 
     public static readonly DefinicaoCadastro<Produto> Produtos = new()
     {

@@ -149,6 +149,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
         {
             var clientes = await _lookups.ListarAsync(TipoLookup.Clientes);
             var tipos = await _lookups.ListarAsync(TipoLookup.TiposEvento);
+            var vendedores = await _lookups.ListarAsync(TipoLookup.Vendedores);
             _pacotes = await _lookups.ListarAsync(TipoLookup.Pacotes);
             _espacos = await _lookups.ListarAsync(TipoLookup.Espacos);
             _catalogoServicos = await _lookups.ListarAsync(TipoLookup.ServicosAdicionais);
@@ -157,7 +158,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
             if (_abertura.OrcamentoId == 0 && _abertura.ClienteId > 0)
                 _input.ClienteId = _abertura.ClienteId;
 
-            MontarCampos(clientes, tipos);
+            MontarCampos(clientes, tipos, vendedores);
             _editor.Carregar();
             foreach (var s in _input.Servicos)
                 _servicos.Add(s);
@@ -171,7 +172,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
             Close();
     }
 
-    private void MontarCampos(IReadOnlyList<ItemLookup> clientes, IReadOnlyList<ItemLookup> tipos)
+    private void MontarCampos(IReadOnlyList<ItemLookup> clientes, IReadOnlyList<ItemLookup> tipos, IReadOnlyList<ItemLookup> vendedores)
     {
         var i = _input;
         _editor = new EditorCampos(3);
@@ -185,6 +186,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
         _fim = e.Hora("Término (pode passar da meia-noite)", () => i.HoraFim, v => i.HoraFim = v);
         _convidados = e.Inteiro("Convidados", () => i.Convidados, v => i.Convidados = v, nameof(i.Convidados), 1, 10_000);
         e.Data("Proposta válida até", () => i.ValidoAte, v => i.ValidoAte = v ?? i.ValidoAte, nameof(i.ValidoAte));
+        e.Lista("Vendedor (comissão)", vendedores, () => i.VendedorId, v => i.VendedorId = v, nameof(i.VendedorId), permitirVazio: true);
 
         e.Secao("Cardápio e espaço");
         _pacote = e.Lista("Pacote", _pacotes, () => i.PacoteId, v => i.PacoteId = v, nameof(i.PacoteId), permitirVazio: true, span: 2);
@@ -375,7 +377,10 @@ internal sealed class FormOrcamentoEdicao : FormBase
         _titulo.Text = _input.Id == 0 ? "Novo orçamento" : $"Orçamento {_input.Codigo}";
         Text = _titulo.Text;
         _status.Text = Textos.Exibir(_input.Status).ToUpperInvariant() + (_input.EventoId is { } ev ? $"  →  EVT-{ev:D5}" : "")
-                       + (_input.MotivoRecusa is { } motivo ? $"  ({motivo})" : "");
+                       + (_input.MotivoRecusa is { } motivo ? $"  ({motivo})" : "")
+                       + (_input.Envios.FirstOrDefault() is { } envio
+                           ? $"  •  último envio: {Textos.Exibir(envio.Canal)} em {envio.EnviadoEm:dd/MM/yyyy HH:mm} ({envio.Destinatario})"
+                           : "");
         _status.ForeColor = Textos.Cor(_input.Status);
 
         var editavel = _input.PodeEditar;

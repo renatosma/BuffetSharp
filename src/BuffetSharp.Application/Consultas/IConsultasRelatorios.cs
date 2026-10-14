@@ -31,8 +31,12 @@ public sealed record LucratividadeEvento
     public decimal Receita { get; init; }
     public decimal CustoInsumos { get; init; }
     public decimal CustoEquipe { get; init; }
+
+    /// <summary>Locação de materiais de terceiros + perdas na devolução.</summary>
+    public decimal CustoMateriais { get; init; }
+
     public decimal Despesas { get; init; }
-    public decimal Lucro => Receita - CustoInsumos - CustoEquipe - Despesas;
+    public decimal Lucro => Receita - CustoInsumos - CustoEquipe - CustoMateriais - Despesas;
     public decimal MargemPercentual => Receita == 0 ? 0 : Math.Round(Lucro / Receita * 100, 1);
     public string Codigo => $"EVT-{Id:D5}";
 }

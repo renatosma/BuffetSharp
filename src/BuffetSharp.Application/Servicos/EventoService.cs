@@ -1,4 +1,5 @@
 using BuffetSharp.Application.Abstracoes;
+using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Eventos;
@@ -10,9 +11,16 @@ namespace BuffetSharp.Application.Servicos;
 public sealed class EventoService(
     IBuffetDbContextFactory fabrica,
     DisponibilidadeService disponibilidade,
+    IConsultasEstoqueCardapio estoque,
     TimeProvider relogio)
 {
     private DateTime Agora => relogio.GetLocalNow().DateTime;
+
+    /// <summary>
+    /// Despesas que não entram em "despesas vinculadas" porque o próprio evento já as custeia: a equipe
+    /// (pela escala) e a locação de materiais (pela reserva de materiais).
+    /// </summary>
+    private static readonly CategoriaDespesa[] CategoriasCusteadasPeloEvento = [CategoriaDespesa.Pessoal, CategoriaDespesa.LocacaoMateriais];
 
     // ------------------------- Consulta -------------------------
 
@@ -24,6 +32,8 @@ public sealed class EventoService(
                          .Include(e => e.TipoEvento)
                          .Include(e => e.Espaco)
                          .Include(e => e.Orcamento)
+                         .Include(e => e.Vendedor)
+                         .Include(e => e.Materiais).ThenInclude(m => m.Material)
                          .Include(e => e.Pacote!).ThenInclude(p => p.Itens).ThenInclude(i => i.ItemCardapio!)
                          .ThenInclude(i => i.Ingredientes).ThenInclude(f => f.Produto!).ThenInclude(p => p.UnidadeMedida)
                          .Include(e => e.Servicos)
@@ -34,7 +44,7 @@ public sealed class EventoService(
                      ?? throw new RegraNegocioException("Evento não encontrado.");
 
         var despesas = await db.ContasPagar
-            .Where(c => c.EventoId == id && c.Status != StatusTitulo.Cancelado && c.Categoria != CategoriaDespesa.Pessoal)
+            .Where(c => c.EventoId == id && c.Status != StatusTitulo.Cancelado && !CategoriasCusteadasPeloEvento.Contains(c.Categoria))
             .SumAsync(c => (decimal?)c.Valor, ct) ?? 0;
 
         return new EventoDetalhe
@@ -57,6 +67,7 @@ public sealed class EventoService(
             ClienteId = e.ClienteId,
             TipoEventoId = e.TipoEventoId,
             EspacoId = e.EspacoId,
+            VendedorId = e.VendedorId,
             Data = e.DataEvento,
             HoraInicio = e.HoraInicio,
             HoraFim = e.HoraFim,
@@ -96,6 +107,19 @@ public sealed class EventoService(
                 input.Convidados, input.Observacoes);
             if (evento.ValorTotal != input.ValorTotal)
                 evento.AjustarValorTotal(input.ValorTotal);
+        }
+
+        // A comissão fica congelada na venda; muda somente se o vendedor for trocado.
+        if (evento.EhNovo || evento.VendedorId != input.VendedorId)
+        {
+            var percentual = 0m;
+            if (input.VendedorId is { } vendedorId)
+            {
+                var vendedor = await db.Usuarios.FindAsync([vendedorId], ct);
+                Validador.Garantir(vendedor?.PodeVender == true, "O vendedor deve ser um usuário ativo com perfil Comercial ou Administrador.");
+                percentual = vendedor!.PercentualComissao;
+            }
+            evento.DefinirVendedor(input.VendedorId, percentual);
         }
 
         await db.SaveChangesAsync(ct);
@@ -171,6 +195,80 @@ public sealed class EventoService(
         AlterarAsync(eventoId, q => q.Include(e => e.Parcelas), (_, e) =>
             e.GerarParcelas(plano.Quantidade, plano.PrimeiroVencimento, plano.ValorEntrada, plano.VencimentoEntrada,
                 plano.FormaPagamentoId), ct);
+
+    // ------------------------- Materiais -------------------------
+
+    /// <summary>
+    /// Reserva o material para o evento. As unidades próprias precisam estar livres na data (veja
+    /// <see cref="IConsultasEstoqueCardapio.DisponibilidadeMateriaisAsync"/>); o que faltar deve ser informado como alugado.
+    /// </summary>
+    public Task ReservarMaterialAsync(int eventoId, int materialId, int quantidade, int alugada, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Materiais), async (db, evento) =>
+        {
+            var material = await db.Materiais.FirstOrDefaultAsync(m => m.Id == materialId, ct)
+                           ?? throw new RegraNegocioException("Material não encontrado.");
+
+            var proprias = quantidade - alugada;
+            if (proprias > 0)
+            {
+                var situacao = (await estoque.DisponibilidadeMateriaisAsync(evento.DataEvento, eventoId, ct))
+                    .FirstOrDefault(d => d.Id == materialId);
+                var disponivel = situacao?.Disponivel ?? material.QuantidadePropria;
+                Validador.Garantir(proprias <= disponivel,
+                    $"Patrimônio insuficiente de '{material.Nome}' em {evento.DataEvento:dd/MM/yyyy}: " +
+                    $"{disponivel} disponível(is) de {material.QuantidadePropria} ({situacao?.Reservada ?? 0} reservada(s) em eventos próximos). " +
+                    $"Informe ao menos {quantidade - disponivel} unidade(s) como alugadas.");
+            }
+
+            evento.ReservarMaterial(material, quantidade, alugada);
+        }, ct);
+
+    public Task RemoverMaterialAsync(int eventoId, int materialId, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Materiais), (_, e) => e.RemoverMaterial(materialId), ct);
+
+    /// <summary>Registra a devolução; as perdas de itens próprios são baixadas do patrimônio.</summary>
+    public Task RegistrarDevolucaoMaterialAsync(int eventoId, int materialId, int devolvidas, int perdidas,
+        CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Materiais), async (db, evento) =>
+        {
+            var perdasProprias = evento.RegistrarDevolucao(materialId, devolvidas, perdidas, Agora);
+            if (perdasProprias > 0)
+            {
+                var material = await db.Materiais.FirstAsync(m => m.Id == materialId, ct);
+                material.AjustarPatrimonio(-perdasProprias);
+            }
+        }, ct);
+
+    /// <summary>
+    /// Gera as contas a pagar da locação de materiais de terceiros (uma por locador). Retorna o total lançado.
+    /// </summary>
+    public async Task<decimal> LancarLocacaoMateriaisAsync(int eventoId, CancellationToken ct = default)
+    {
+        var total = 0m;
+        await AlterarAsync(eventoId, q => q.Include(e => e.Materiais).ThenInclude(m => m.Material), async (db, evento) =>
+        {
+            Validador.Garantir(evento.Status != StatusEvento.Cancelado, "Evento cancelado.");
+            var alugados = evento.Materiais.Where(m => m.QuantidadeAlugada > 0).ToList();
+            Validador.Garantir(alugados.Count > 0, "Não há materiais alugados de terceiros neste evento.");
+            Validador.Garantir(!await db.ContasPagar.AnyAsync(c => c.EventoId == eventoId &&
+                                                                   c.Categoria == CategoriaDespesa.LocacaoMateriais &&
+                                                                   c.Status != StatusTitulo.Cancelado, ct),
+                "A locação de materiais deste evento já foi lançada em contas a pagar. Cancele a conta existente para lançar novamente.");
+
+            foreach (var locador in alugados.GroupBy(m => m.Material!.FornecedorId))
+            {
+                var valor = locador.Sum(m => m.CustoLocacao);
+                if (valor <= 0)
+                    continue;
+                var itens = string.Join(", ", locador.Select(m => $"{m.QuantidadeAlugada} {m.Material!.Nome}"));
+                db.ContasPagar.Add(new ContaPagar($"Locação de materiais - {evento.Codigo}", CategoriaDespesa.LocacaoMateriais,
+                    valor, evento.DataEvento, locador.Key, eventoId) { Observacao = itens.Length > 500 ? itens[..500] : itens });
+                total += valor;
+            }
+            Validador.Garantir(total > 0, "Os materiais alugados não têm custo de locação cadastrado.");
+        }, ct);
+        return total;
+    }
 
     // ------------------------- Ciclo de vida -------------------------
 

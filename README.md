@@ -22,15 +22,20 @@ Todos os nomes e documentos dessa base são fictícios.
 | Usuário       | Senha            | Perfil                                              |
 |---------------|------------------|-----------------------------------------------------|
 | `admin`       | `Admin@123`      | Administrador (acesso total)                        |
-| `comercial`   | `Comercial@123`  | Orçamentos, clientes, eventos                       |
+| `comercial`   | `Comercial@123`  | Orçamentos, clientes, eventos (vendedora, 3% de comissão) |
+| `vendas`      | `Vendas@123`     | Comercial (vendedor da base de demonstração, 2,5%)  |
 | `financeiro`  | `Financeiro@123` | Contas a receber/pagar, relatórios                  |
 | `operacional` | `Operacional@123`| Eventos, cardápio, estoque, equipe                  |
 
 As configurações ficam em `src/BuffetSharp.WinForms/appsettings.json`:
 
 - `ConnectionStrings:Buffet`: banco de dados.
-- `Buffet`: dados da empresa (impressos na proposta), intervalo mínimo entre eventos no mesmo espaço
-  e validade padrão dos orçamentos.
+- `Buffet`: dados da empresa (impressos na proposta e no contrato), intervalo mínimo entre eventos no
+  mesmo espaço, validade padrão dos orçamentos, foro do contrato, prazo para confirmar convidados e
+  limite de degustações por horário.
+- `Email`: envio de propostas e contratos. No modo `Pasta` (padrão) cada e-mail vira um arquivo `.eml`
+  em `EmailsEnviados`, sem sair da máquina. Para enviar de verdade, use `"Modo": "Smtp"` e preencha
+  `Servidor`, `Porta`, `UsarSsl`, `Usuario`, `Senha` e `Remetente`.
 - `Inicializacao:CriarDadosDemonstracao`: use `false` em produção. Assim, só os usuários iniciais são criados.
 
 ## Arquitetura
@@ -50,7 +55,8 @@ BuffetSharp.Domain           Entidades e regras de negócio (sem dependências e
 - **EF Core 10** grava tudo que tem regra: as entidades carregam os invariantes (status, valores,
   limites) e o EF persiste o agregado inteiro. Também cuida das migrations. Os enums são gravados
   como texto, para o banco ficar legível. Erros de integridade (duplicidade, FK) viram mensagens de
-  negócio.
+  negócio. A auditoria é gravada pelo próprio `DbContext` a partir do ChangeTracker, na mesma transação
+  dos dados.
 - **Dapper** atende listagens, painel, agenda e relatórios com SQL explícito. Um exemplo: o painel
   inteiro sai de **uma ida ao banco** (`QueryMultiple` com 5 resultados).
 - No desktop, cada operação cria e descarta o próprio `DbContext` (`IDbContextFactory`). Isso evita
@@ -88,6 +94,24 @@ BuffetSharp.Domain           Entidades e regras de negócio (sem dependências e
   estorno e despesas recorrentes. Despesas podem ser vinculadas a um evento.
 - **Relatórios**: faturamento por tipo de evento, ranking de pacotes, lucratividade por evento
   (com o custo real do estoque após a realização), fluxo de caixa e conversão de orçamentos.
+- **Envio da proposta**: por e-mail (corpo em HTML e proposta em PDF anexa) ou por WhatsApp (abre o
+  WhatsApp com o resumo pronto). Cada envio fica no histórico e o rascunho passa a "Enviado".
+- **Degustações**: agenda com limite de degustações por horário, avaliação de 1 a 5, faltas,
+  cancelamento e taxa de conversão (clientes que fecharam depois da degustação).
+- **Contratos com assinatura**: o contrato é gerado do evento (partes, data, cardápio, serviços,
+  parcelas, rescisão e foro), revisado e emitido. O texto fica protegido por um código SHA-256. A
+  assinatura do contratante (e do representante do buffet) é desenhada na tela com mouse, caneta ou
+  toque. O contrato sai impresso ou em PDF com as assinaturas, e pode ser enviado por e-mail. Também é
+  possível cancelar ou registrar o distrato e emitir um novo.
+- **Materiais (louça, talheres, taças, enxoval, mobiliário)**: patrimônio próprio, reserva por evento
+  com checagem do que está livre na data e aluguel de terceiros para o que faltar. A locação vira conta
+  a pagar. Na devolução, as quebras e extravios entram no custo do evento e baixam o patrimônio.
+- **Comissão de vendedores**: vendedor no orçamento e no evento, percentual por usuário (congelado na
+  venda), apuração sobre os valores efetivamente recebidos e fechamento do período, que gera a conta a
+  pagar.
+- **Auditoria**: todo registro incluído, alterado ou excluído fica no histórico, com o usuário, a data
+  e o valor anterior e o novo de cada campo. Senhas aparecem como "(oculto)". O administrador consulta
+  tudo na tela de Auditoria ou o histórico de um registro pelo botão "Alterações".
 - **Usuários e perfis**: o menu é filtrado pelo perfil e as senhas usam hash PBKDF2-SHA256.
 - Em todas as listagens: pesquisa instantânea, ordenação, **impressão** e **exportação CSV** (Excel).
 
@@ -102,6 +126,12 @@ BuffetSharp.Domain           Entidades e regras de negócio (sem dependências e
   parcela.
 - Cancelar o evento cancela as parcelas em aberto. Evento realizado ou cancelado não pode mais ser
   alterado.
+- Só existe um contrato vigente por evento. Um contrato cujo texto não confere com o código de
+  integridade não pode ser assinado. A assinatura exige CPF/CNPJ válido e a imagem da assinatura.
+- O material próprio fica comprometido do dia anterior ao dia seguinte ao evento (ou até a devolução).
+  A devolução precisa fechar com o enviado (devolvidos + perdas).
+- A comissão incide sobre o que foi recebido, com o percentual vigente na venda. Períodos fechados de um
+  mesmo vendedor não podem se sobrepor, e só se desfaz um fechamento cuja conta ainda não foi paga.
 - Não há convidado duplicado nem funcionário escalado duas vezes. O check-in só vale no horário do
   evento.
 
@@ -111,7 +141,7 @@ BuffetSharp.Domain           Entidades e regras de negócio (sem dependências e
 dotnet test
 ```
 
-São **56 testes** (xUnit v3):
+São **82 testes** (xUnit v3):
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote.
 - **Integração**: criam um banco temporário no LocalDB, aplicam as migrations, carregam a base de

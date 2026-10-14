@@ -30,8 +30,9 @@ internal sealed class ConsultasRelatorios(FabricaConexao conexoes) : IConsultasR
 
     /// <summary>
     /// Receita x custos por evento. Para eventos com estoque já baixado, usa o custo real das
-    /// movimentações; para os demais, estima pela ficha técnica do pacote. Despesas da categoria
-    /// Pessoal não entram em "Despesas" porque a equipe já é custeada pela escala do evento.
+    /// movimentações; para os demais, estima pela ficha técnica do pacote. Despesas das categorias
+    /// Pessoal e Locação de materiais não entram em "Despesas" porque já são custeadas pela escala e
+    /// pela reserva de materiais do evento.
     /// </summary>
     public Task<IReadOnlyList<LucratividadeEvento>> LucratividadeAsync(DateTime de, DateTime ate, CancellationToken ct = default) =>
         ListarAsync<LucratividadeEvento>("""
@@ -49,8 +50,10 @@ internal sealed class ConsultasRelatorios(FabricaConexao conexoes) : IConsultasR
                                              WHERE m.EventoId = e.Id AND m.Tipo = 'Saida'), 0)
                              ELSE COALESCE(cp.CustoPorPessoa, 0) * e.QuantidadeConvidados END AS decimal(18, 2)) AS CustoInsumos,
                    COALESCE((SELECT SUM(q.ValorDiaria) FROM EventoEquipe q WHERE q.EventoId = e.Id), 0) AS CustoEquipe,
+                   COALESCE((SELECT SUM(m.QuantidadeAlugada * m.CustoLocacaoUnitario + m.QuantidadePerdida * m.ValorReposicaoUnitario)
+                               FROM EventoMateriais m WHERE m.EventoId = e.Id), 0) AS CustoMateriais,
                    COALESCE((SELECT SUM(d.Valor) FROM ContasPagar d WHERE d.EventoId = e.Id AND d.Status <> 'Cancelado'
-                               AND d.Categoria <> 'Pessoal'), 0) AS Despesas
+                               AND d.Categoria NOT IN ('Pessoal', 'LocacaoMateriais')), 0) AS Despesas
               FROM Eventos e
               JOIN Clientes c ON c.Id = e.ClienteId
               LEFT JOIN CustoPacote cp ON cp.PacoteId = e.PacoteId

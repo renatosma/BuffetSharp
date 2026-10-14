@@ -2,7 +2,9 @@ using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
+using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Financeiro;
+using BuffetSharp.Domain.Seguranca;
 
 namespace BuffetSharp.Domain.Eventos;
 
@@ -23,6 +25,7 @@ public class Evento : Entidade
     private readonly List<EventoFuncionario> _equipe = [];
     private readonly List<Convidado> _convidados = [];
     private readonly List<Parcela> _parcelas = [];
+    private readonly List<EventoMaterial> _materiais = [];
 
     private Evento()
     {
@@ -60,6 +63,13 @@ public class Evento : Entidade
     public int? OrcamentoId { get; private set; }
     public Orcamento? Orcamento { get; private set; }
 
+    /// <summary>Usuário que vendeu o evento (base da comissão).</summary>
+    public int? VendedorId { get; private set; }
+    public Usuario? Vendedor { get; private set; }
+
+    /// <summary>Comissão (%) vigente na venda, aplicada sobre cada valor recebido.</summary>
+    public decimal PercentualComissao { get; private set; }
+
     public DateTime Inicio { get; private set; }
     public DateTime Fim { get; private set; }
     public int QuantidadeConvidados { get; private set; }
@@ -77,6 +87,7 @@ public class Evento : Entidade
     public IReadOnlyCollection<EventoFuncionario> Equipe => _equipe;
     public IReadOnlyCollection<Convidado> Convidados => _convidados;
     public IReadOnlyCollection<Parcela> Parcelas => _parcelas;
+    public IReadOnlyCollection<EventoMaterial> Materiais => _materiais;
 
     public DateOnly DataEvento => DateOnly.FromDateTime(Inicio);
     public TimeOnly HoraInicio => TimeOnly.FromDateTime(Inicio);
@@ -85,6 +96,11 @@ public class Evento : Entidade
     // ---------------- Indicadores ----------------
 
     public decimal TotalEquipe => _equipe.Sum(e => e.ValorDiaria);
+
+    /// <summary>Locação de materiais de terceiros + perdas (quebras e extravios) registradas na devolução.</summary>
+    public decimal CustoMateriais => _materiais.Sum(m => m.CustoLocacao + m.CustoPerdas);
+
+    public int MateriaisPendentesDeDevolucao => _materiais.Count(m => !m.Devolvido);
 
     /// <summary>Valor efetivamente recebido (inclui juros/multa pagos).</summary>
     public decimal TotalRecebido => _parcelas.Where(p => p.Status == StatusTitulo.Pago).Sum(p => p.ValorPago ?? p.Valor);
@@ -102,7 +118,7 @@ public class Evento : Entidade
 
     // ---------------- Criação e dados ----------------
 
-    internal static Evento CriarDeOrcamento(Orcamento orcamento, string titulo)
+    internal static Evento CriarDeOrcamento(Orcamento orcamento, string titulo, decimal percentualComissao)
     {
         var evento = new Evento
         {
@@ -112,7 +128,9 @@ public class Evento : Entidade
             TipoEventoId = orcamento.TipoEventoId,
             PacoteId = orcamento.PacoteId,
             ValorPorPessoa = orcamento.ValorPorPessoa,
-            ValorTotal = orcamento.ValorTotal
+            ValorTotal = orcamento.ValorTotal,
+            VendedorId = orcamento.VendedorId,
+            PercentualComissao = orcamento.VendedorId is null ? 0 : percentualComissao
         };
         evento.AlterarDados(titulo, orcamento.EspacoId ?? 0, orcamento.DataEvento, orcamento.HoraInicio,
             orcamento.HoraFim, orcamento.QuantidadeConvidados, orcamento.Observacoes);
@@ -147,6 +165,16 @@ public class Evento : Entidade
         Validador.Garantir(novoValor >= jaFaturado,
             $"O valor total não pode ser menor que o já recebido ({jaFaturado:C}).");
         ValorTotal = novoValor;
+    }
+
+    /// <param name="percentual">Comissão do vendedor no momento da venda (ignorada quando não há vendedor).</param>
+    public void DefinirVendedor(int? vendedorId, decimal percentual)
+    {
+        GarantirConfirmado();
+        Validador.Garantir(percentual is >= 0 and <= Usuario.ComissaoMaximaPercentual,
+            $"A comissão deve estar entre 0% e {Usuario.ComissaoMaximaPercentual}%.");
+        VendedorId = vendedorId;
+        PercentualComissao = vendedorId is null ? 0 : percentual;
     }
 
     // ---------------- Equipe ----------------
@@ -217,6 +245,61 @@ public class Evento : Entidade
     }
 
     public void DesfazerCheckIn(int convidadoId) => ObterConvidado(convidadoId).CheckInEm = null;
+
+    // ---------------- Materiais ----------------
+
+    /// <summary>
+    /// Reserva (ou altera a reserva de) um material. A disponibilidade do patrimônio na data depende de
+    /// outros eventos e é verificada pelo serviço de aplicação.
+    /// </summary>
+    /// <param name="alugada">Quantas unidades virão de locação de terceiros.</param>
+    public EventoMaterial ReservarMaterial(Material material, int quantidade, int alugada = 0)
+    {
+        GarantirConfirmado();
+        Validador.Garantir(quantidade > 0, "Informe a quantidade do material.");
+        Validador.Garantir(alugada >= 0 && alugada <= quantidade,
+            "A quantidade alugada deve estar entre zero e a quantidade total.");
+
+        var existente = _materiais.FirstOrDefault(m => m.MaterialId == material.Id);
+        if (existente is not null)
+        {
+            Validador.Garantir(!existente.Devolvido, $"A devolução de '{material.Nome}' já foi registrada.");
+            existente.Alterar(material, quantidade, alugada);
+            return existente;
+        }
+
+        Validador.Garantir(material.Ativo, $"O material '{material.Nome}' está inativo.");
+        var reserva = new EventoMaterial(material, quantidade, alugada);
+        _materiais.Add(reserva);
+        return reserva;
+    }
+
+    public void RemoverMaterial(int materialId)
+    {
+        GarantirConfirmado();
+        var item = ObterMaterial(materialId);
+        Validador.Garantir(!item.Devolvido, "Materiais já devolvidos não podem ser removidos.");
+        _materiais.Remove(item);
+    }
+
+    /// <summary>
+    /// Registra o retorno do material. Devolvidas + perdidas deve fechar com o enviado. Retorna quantas das
+    /// perdas saem do patrimônio próprio (considera-se que as unidades próprias se perdem antes das alugadas,
+    /// cujas perdas são indenizadas ao locador).
+    /// </summary>
+    public int RegistrarDevolucao(int materialId, int devolvidas, int perdidas, DateTime agora)
+    {
+        Validador.Garantir(Status != StatusEvento.Cancelado, "Evento cancelado não tem materiais a devolver.");
+        Validador.Garantir(agora >= Inicio, "A devolução só pode ser registrada depois do início do evento.");
+        var item = ObterMaterial(materialId);
+        Validador.Garantir(!item.Devolvido, "A devolução deste material já foi registrada.");
+        Validador.Garantir(devolvidas >= 0 && perdidas >= 0, "As quantidades não podem ser negativas.");
+        Validador.Garantir(devolvidas + perdidas == item.Quantidade,
+            $"Devolvidas + perdidas deve somar {item.Quantidade} (quantidade enviada).");
+
+        item.RegistrarDevolucao(devolvidas, perdidas, agora);
+        return Math.Min(perdidas, item.QuantidadePropria);
+    }
 
     // ---------------- Financeiro ----------------
 
@@ -303,6 +386,10 @@ public class Evento : Entidade
 
     private Convidado ObterConvidado(int id) =>
         _convidados.FirstOrDefault(c => c.Id == id) ?? throw new RegraNegocioException("Convidado não encontrado.");
+
+    private EventoMaterial ObterMaterial(int materialId) =>
+        _materiais.FirstOrDefault(m => m.MaterialId == materialId)
+        ?? throw new RegraNegocioException("Material não reservado para este evento.");
 
     private EventoFuncionario ObterEscala(int funcionarioId) =>
         _equipe.FirstOrDefault(e => e.FuncionarioId == funcionarioId)

@@ -17,14 +17,18 @@ internal sealed class FormOrcamentos : FormListagem<OrcamentoResumo>
     private readonly IConsultasEstoqueCardapio _cardapio;
     private readonly BuffetOptions _opcoes;
     private readonly Navegador _navegador;
+    private readonly PropostaService _propostas;
+    private readonly IEnvioEmail _email;
     private readonly DateTimePicker _de;
     private readonly DateTimePicker _ate;
     private readonly ComboBox _status = new() { Width = 140, DropDownStyle = ComboBoxStyle.DropDownList };
 
     public FormOrcamentos(IConsultasComercial consultas, OrcamentoService servico, IConsultasLookup lookups,
-        IConsultasEstoqueCardapio cardapio, BuffetOptions opcoes, Navegador navegador)
-        : base("Orçamentos", "Propostas comerciais. Ao aprovar, o evento é criado automaticamente e a data do espaço é reservada.")
+        IConsultasEstoqueCardapio cardapio, BuffetOptions opcoes, Navegador navegador, PropostaService propostas, IEnvioEmail email)
+        : base("Orçamentos", "Propostas comerciais. Envie por e-mail ou WhatsApp; ao aprovar, o evento é criado e a data do espaço é reservada.")
     {
+        _propostas = propostas;
+        _email = email;
         _consultas = consultas;
         _servico = servico;
         _lookups = lookups;
@@ -44,7 +48,9 @@ internal sealed class FormOrcamentos : FormListagem<OrcamentoResumo>
         Botao("Abrir", Icones.Editar, () => Selecionado() is { } o ? AoAbrirAsync(o) : Task.CompletedTask);
         Botao("Duplicar", Icones.Copiar, DuplicarAsync, "Cria uma cópia em rascunho");
         Separador();
-        Botao("Enviar", Icones.Enviar, () => AlterarAsync(o => _servico.EnviarAsync(o.Id)), "Marca como enviado ao cliente");
+        Botao("E-mail", Icones.Email, EnviarEmailAsync, "Envia a proposta por e-mail com o PDF anexo");
+        Botao("WhatsApp", Icones.Mensagem, EnviarWhatsAppAsync, "Abre o WhatsApp com o resumo da proposta");
+        Botao("Marcar enviado", Icones.Enviar, () => AlterarAsync(o => _servico.EnviarAsync(o.Id)), "Marca como enviado por outro meio");
         Botao("Aprovar", Icones.Aceitar, AprovarAsync, "Aprova e gera o evento");
         Botao("Recusar", Icones.Cancelar, RecusarAsync);
         Botao("Reabrir", Icones.Desfazer, () => AlterarAsync(o => _servico.ReabrirAsync(o.Id)), "Volta para rascunho");
@@ -52,18 +58,20 @@ internal sealed class FormOrcamentos : FormListagem<OrcamentoResumo>
         Botao("Imprimir", Icones.Imprimir, ImprimirAsync, "Proposta comercial");
         Botao("Excluir", Icones.Excluir, ExcluirAsync);
 
-        Grade.Texto("Código", o => o.Codigo, 20)
-            .Texto("Cliente", o => o.Cliente, 55)
-            .Texto("Tipo", o => o.TipoEvento, 30)
-            .Data("Data do evento", o => o.Inicio, "dd/MM/yyyy HH:mm", 30)
-            .Numero("Conv.", o => o.QuantidadeConvidados, peso: 14)
-            .Texto("Pacote", o => o.Pacote, 25)
-            .Texto("Espaço", o => o.Espaco, 25)
-            .Moeda("Valor total", o => o.ValorTotal, 25)
-            .Data("Validade", o => o.ValidoAte, peso: 20, cor: o => o.Status == StatusOrcamento.Enviado && o.ValidoAte < DateTime.Today ? Tema.Perigo : null)
-            .Status("Status", o => o.Status, 18)
-            .Texto("Evento", o => o.EventoId is { } id ? $"EVT-{id:D5}" : "", 24)
-            .Busca(o => $"{o.Codigo} {o.Cliente} {o.TipoEvento} {o.Pacote} {o.Espaco}");
+        Grade.Texto("Código", o => o.Codigo, 22)
+            .Texto("Cliente", o => o.Cliente, 42)
+            .Texto("Tipo", o => o.TipoEvento, 26)
+            .Data("Data do evento", o => o.Inicio, "dd/MM/yyyy HH:mm", 31)
+            .Numero("Conv.", o => o.QuantidadeConvidados, peso: 12)
+            .Texto("Pacote", o => o.Pacote, 22)
+            .Texto("Espaço", o => o.Espaco, 24)
+            .Moeda("Valor total", o => o.ValorTotal, 26)
+            .Data("Validade", o => o.ValidoAte, "dd/MM/yy", 19, cor: o => o.Status == StatusOrcamento.Enviado && o.ValidoAte < DateTime.Today ? Tema.Perigo : null)
+            .Status("Status", o => o.Status, 21)
+            .Texto("Evento", o => o.EventoId is { } id ? $"EVT-{id:D5}" : "", 21)
+            .Texto("Vendedor", o => o.Vendedor?.Split(' ')[0], 17)
+            .Texto("Último envio", o => o.UltimoEnvio is { } envio ? $"{Textos.Exibir(o.CanalUltimoEnvio!.Value)} {envio:dd/MM}" : "", 27)
+            .Busca(o => $"{o.Codigo} {o.Cliente} {o.TipoEvento} {o.Pacote} {o.Espaco} {o.Vendedor}");
     }
 
     protected override async Task CarregarAsync()
@@ -150,6 +158,37 @@ internal sealed class FormOrcamentos : FormListagem<OrcamentoResumo>
             return;
         await _servico.ExcluirAsync(item.Id);
         await CarregarAsync();
+    }
+
+    private async Task EnviarEmailAsync()
+    {
+        if (Selecionado() is not { } item)
+            return;
+        var email = await _propostas.PrepararEmailAsync(item.Id);
+        var orcamento = await _servico.ObterAsync(item.Id);
+        var documento = await ImpressaoProposta.MontarAsync(orcamento, _lookups, _cardapio, _opcoes);
+        if (DialogosEnvio.Email(this, $"Enviar proposta {item.Codigo}", email, "proposta",
+                () => DialogosEnvio.Pdf($"Proposta {item.Codigo}", documento.GerarPdf()), e => _propostas.EnviarEmailAsync(item.Id, e), _email.Destino))
+        {
+            await CarregarAsync();
+            Grade.Selecionar(o => o.Id == item.Id);
+            Mensagens.Info(this, $"Proposta {item.Codigo} enviada para {email.Para}.", "E-mail enviado");
+        }
+    }
+
+    private async Task EnviarWhatsAppAsync()
+    {
+        if (Selecionado() is not { } item)
+            return;
+        var mensagem = await _propostas.PrepararWhatsAppAsync(item.Id);
+        if (DialogosEnvio.WhatsApp(this, mensagem, $"a proposta {item.Codigo}") is not { } telefone)
+            return;
+        if (Mensagens.Confirmar(this, "A mensagem foi enviada pelo WhatsApp? Ao confirmar, o envio fica registrado no orçamento.", "WhatsApp"))
+        {
+            await _propostas.RegistrarWhatsAppAsync(item.Id, telefone);
+            await CarregarAsync();
+            Grade.Selecionar(o => o.Id == item.Id);
+        }
     }
 
     private async Task ImprimirAsync()

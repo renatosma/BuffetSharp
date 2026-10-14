@@ -39,6 +39,7 @@ public sealed class UsuarioService(IBuffetDbContextFactory fabrica, IHasherSenha
                 Login = u.Login,
                 Perfil = u.Perfil,
                 Ativo = u.Ativo,
+                PercentualComissao = u.PercentualComissao,
                 UltimoAcessoEm = u.UltimoAcessoEm
             }).ToListAsync(ct);
     }
@@ -55,6 +56,7 @@ public sealed class UsuarioService(IBuffetDbContextFactory fabrica, IHasherSenha
             var usuario = new Usuario(input.Nome, input.Login, input.Perfil, hasher.Gerar(input.NovaSenha!));
             if (!input.Ativo)
                 usuario.Alterar(input.Nome, input.Login, input.Perfil, false);
+            usuario.DefinirComissao(input.PercentualComissao);
             db.Usuarios.Add(usuario);
         }
         else
@@ -69,6 +71,7 @@ public sealed class UsuarioService(IBuffetDbContextFactory fabrica, IHasherSenha
             Validador.Garantir(!removendoUltimoAdmin, "Deve existir ao menos um administrador ativo.");
 
             usuario.Alterar(input.Nome, input.Login, input.Perfil, input.Ativo);
+            usuario.DefinirComissao(input.PercentualComissao);
             if (!string.IsNullOrEmpty(input.NovaSenha))
             {
                 Usuario.ValidarForcaSenha(input.NovaSenha);

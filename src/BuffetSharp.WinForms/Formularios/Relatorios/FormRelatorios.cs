@@ -35,6 +35,7 @@ internal sealed class FormRelatorios : FormBase
         _lucro.Texto("Código", l => l.Codigo, 16).Data("Data", l => l.Inicio, peso: 16).Texto("Evento", l => l.Titulo, 50)
             .Texto("Situação", l => l.Status, 16).Numero("Conv.", l => l.Convidados, peso: 12)
             .Moeda("Receita", l => l.Receita, 22).Moeda("Insumos", l => l.CustoInsumos, 22).Moeda("Equipe", l => l.CustoEquipe, 20)
+            .Moeda("Materiais", l => l.CustoMateriais, 20)
             .Moeda("Despesas", l => l.Despesas, 20).Moeda("Lucro", l => l.Lucro, 22, l => l.Lucro < 0 ? Tema.Perigo : Tema.Sucesso)
             .Numero("Margem %", l => l.MargemPercentual, "N1", 15, l => l.MargemPercentual < 30 ? Tema.Alerta : null)
             .Busca(l => $"{l.Codigo} {l.Titulo} {l.Cliente}");

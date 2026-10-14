@@ -1,4 +1,5 @@
 using BuffetSharp.Application.Consultas;
+using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Infrastructure.Persistencia;
 using Dapper;
@@ -14,14 +15,18 @@ internal static class Filtros
 internal sealed class ConsultasComercial(FabricaConexao conexoes) : IConsultasComercial
 {
     private const string SelectOrcamento = """
-        SELECT o.Id, c.Nome AS Cliente, t.Nome AS TipoEvento, p.Nome AS Pacote, es.Nome AS Espaco, o.Inicio,
-               o.QuantidadeConvidados, o.ValorTotal, o.Status, o.ValidoAte, ev.Id AS EventoId, o.CriadoEm
+        SELECT o.Id, o.ClienteId, c.Nome AS Cliente, t.Nome AS TipoEvento, p.Nome AS Pacote, es.Nome AS Espaco, o.Inicio,
+               o.QuantidadeConvidados, o.ValorTotal, o.Status, o.ValidoAte, ev.Id AS EventoId, o.CriadoEm,
+               u.Nome AS Vendedor, ue.EnviadoEm AS UltimoEnvio, ue.Canal AS CanalUltimoEnvio
           FROM Orcamentos o
           JOIN Clientes c ON c.Id = o.ClienteId
           JOIN TiposEvento t ON t.Id = o.TipoEventoId
           LEFT JOIN Pacotes p ON p.Id = o.PacoteId
           LEFT JOIN Espacos es ON es.Id = o.EspacoId
           LEFT JOIN Eventos ev ON ev.OrcamentoId = o.Id
+          LEFT JOIN Usuarios u ON u.Id = o.VendedorId
+          OUTER APPLY (SELECT TOP 1 x.EnviadoEm, x.Canal FROM EnviosProposta x
+                        WHERE x.OrcamentoId = o.Id ORDER BY x.EnviadoEm DESC) ue
         """;
 
     public async Task<IReadOnlyList<OrcamentoResumo>> ListarOrcamentosAsync(FiltroOrcamentos filtro, CancellationToken ct = default)
@@ -75,6 +80,51 @@ internal sealed class ConsultasComercial(FabricaConexao conexoes) : IConsultasCo
             Eventos = (await multi.ReadAsync<EventoResumo>()).AsList()
         };
     }
+
+    public async Task<IReadOnlyList<DegustacaoResumo>> ListarDegustacoesAsync(FiltroDegustacoes filtro, CancellationToken ct = default)
+    {
+        const string sql = """
+            SELECT d.Id, d.DataHora, d.ClienteId, c.Nome AS Cliente, COALESCE(c.Celular, c.Telefone, c.Email) AS Contato,
+                   d.Pessoas, p.Nome AS Pacote, d.OrcamentoId, d.Status, d.Avaliacao, d.Comentario, d.Observacoes,
+                   CAST(CASE WHEN EXISTS (SELECT 1 FROM Orcamentos o
+                                           WHERE o.ClienteId = d.ClienteId AND o.Status = 'Aprovado'
+                                             AND o.DecididoEm >= CAST(d.DataHora AS date))
+                             THEN 1 ELSE 0 END AS bit) AS Convertida
+              FROM Degustacoes d
+              JOIN Clientes c ON c.Id = d.ClienteId
+              LEFT JOIN Pacotes p ON p.Id = d.PacoteId
+             WHERE (@De IS NULL OR d.DataHora >= @De)
+               AND (@Ate IS NULL OR d.DataHora < DATEADD(DAY, 1, @Ate))
+               AND (@Status IS NULL OR d.Status = @Status)
+             ORDER BY d.DataHora DESC;
+            """;
+
+        await using var conexao = conexoes.Criar();
+        var itens = await conexao.QueryAsync<DegustacaoResumo>(new CommandDefinition(sql, new
+        {
+            filtro.De,
+            filtro.Ate,
+            Status = filtro.Status?.ToString()
+        }, cancellationToken: ct));
+        return itens.AsList();
+    }
+
+    public async Task<IReadOnlyList<ContratoResumo>> ListarContratosAsync(StatusContrato? status, CancellationToken ct = default)
+    {
+        const string sql = """
+            SELECT k.Id, k.EventoId, e.Titulo AS Evento, c.Nome AS Cliente, e.Inicio AS DataEvento, k.Status,
+                   k.EmitidoEm, k.AssinadoEm, k.NomeSignatario, k.MotivoCancelamento
+              FROM Contratos k
+              JOIN Eventos e ON e.Id = k.EventoId
+              JOIN Clientes c ON c.Id = e.ClienteId
+             WHERE @Status IS NULL OR k.Status = @Status
+             ORDER BY k.EmitidoEm DESC;
+            """;
+
+        await using var conexao = conexoes.Criar();
+        var itens = await conexao.QueryAsync<ContratoResumo>(new CommandDefinition(sql, new { Status = status?.ToString() }, cancellationToken: ct));
+        return itens.AsList();
+    }
 }
 
 internal sealed class ConsultasEventos(FabricaConexao conexoes) : IConsultasEventos
@@ -83,13 +133,15 @@ internal sealed class ConsultasEventos(FabricaConexao conexoes) : IConsultasEven
         SELECT e.Id, e.Titulo, c.Nome AS Cliente, t.Nome AS TipoEvento, es.Nome AS Espaco, e.Inicio,
                e.QuantidadeConvidados, e.ValorTotal, e.Status,
                COALESCE(pg.Recebido, 0) AS Recebido,
-               CASE WHEN e.Status = 'Cancelado' THEN 0 ELSE e.ValorTotal - COALESCE(pg.Quitado, 0) END AS SaldoAReceber
+               CASE WHEN e.Status = 'Cancelado' THEN 0 ELSE e.ValorTotal - COALESCE(pg.Quitado, 0) END AS SaldoAReceber,
+               ct.Status AS Contrato
           FROM Eventos e
           JOIN Clientes c ON c.Id = e.ClienteId
           JOIN TiposEvento t ON t.Id = e.TipoEventoId
           JOIN Espacos es ON es.Id = e.EspacoId
           OUTER APPLY (SELECT SUM(p.ValorPago) AS Recebido, SUM(p.Valor) AS Quitado
                          FROM Parcelas p WHERE p.EventoId = e.Id AND p.Status = 'Pago') pg
+          OUTER APPLY (SELECT TOP 1 k.Status FROM Contratos k WHERE k.EventoId = e.Id AND k.Status <> 'Cancelado') ct
         """;
 
     public async Task<IReadOnlyList<EventoResumo>> ListarAsync(FiltroEventos filtro, CancellationToken ct = default)
@@ -178,6 +230,28 @@ internal sealed class ConsultasFinanceiro(FabricaConexao conexoes) : IConsultasF
 
 internal sealed class ConsultasEstoqueCardapio(FabricaConexao conexoes) : IConsultasEstoqueCardapio
 {
+    public async Task<IReadOnlyList<DisponibilidadeMaterial>> DisponibilidadeMateriaisAsync(DateOnly data, int? ignorarEventoId,
+        CancellationToken ct = default)
+    {
+        const string sql = """
+            SELECT m.Id, m.Nome, m.Categoria, m.QuantidadePropria, m.CustoLocacao,
+                   COALESCE((SELECT SUM(em.Quantidade - em.QuantidadeAlugada)
+                               FROM EventoMateriais em
+                               JOIN Eventos e ON e.Id = em.EventoId
+                              WHERE em.MaterialId = m.Id AND em.DevolvidoEm IS NULL AND e.Status <> 'Cancelado'
+                                AND (@Ignorar IS NULL OR e.Id <> @Ignorar)
+                                AND CAST(e.Inicio AS date) BETWEEN DATEADD(DAY, -1, @Data) AND DATEADD(DAY, 1, @Data)), 0) AS Reservada
+              FROM Materiais m
+             WHERE m.Ativo = 1
+             ORDER BY m.Categoria, m.Nome;
+            """;
+
+        await using var conexao = conexoes.Criar();
+        var itens = await conexao.QueryAsync<DisponibilidadeMaterial>(new CommandDefinition(sql,
+            new { Data = data.ToDateTime(TimeOnly.MinValue), Ignorar = ignorarEventoId }, cancellationToken: ct));
+        return itens.AsList();
+    }
+
     public async Task<IReadOnlyList<MovimentacaoResumo>> ListarMovimentacoesAsync(DateTime de, DateTime ate, int? produtoId = null,
         TipoMovimentacao? tipo = null, CancellationToken ct = default)
     {

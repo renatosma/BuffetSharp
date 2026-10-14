@@ -10,6 +10,11 @@ namespace BuffetSharp.WinForms.Impressao;
 internal static class ImpressaoProposta
 {
     public static async Task VisualizarAsync(IWin32Window dono, OrcamentoInput o, IConsultasLookup lookups,
+        IConsultasEstoqueCardapio cardapio, BuffetOptions empresa) =>
+        (await MontarAsync(o, lookups, cardapio, empresa)).Visualizar(dono);
+
+    /// <summary>Monta o documento (para visualizar ou gerar o PDF anexado ao e-mail).</summary>
+    public static async Task<DocumentoImpresso> MontarAsync(OrcamentoInput o, IConsultasLookup lookups,
         IConsultasEstoqueCardapio cardapio, BuffetOptions empresa)
     {
         string Nome(IReadOnlyList<ItemLookup> itens, int? id) => itens.FirstOrDefault(i => i.Id == id)?.Nome ?? "-";
@@ -75,7 +80,6 @@ internal static class ImpressaoProposta
             doc.Paragrafo("Observações: " + o.Observacoes);
         doc.Espaco(30);
         doc.Assinaturas(empresa.NomeEmpresa, Nome(clientes, o.ClienteId));
-
-        doc.Visualizar(dono);
+        return doc;
     }
 }

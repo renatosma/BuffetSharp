@@ -18,6 +18,7 @@ internal sealed class FormUsuarios : FormListagem<UsuarioInput>
         Grade.Texto("Nome", u => u.Nome, 50)
             .Texto("Login", u => u.Login, 30)
             .Texto("Perfil", u => Textos.Exibir(u.Perfil), 25)
+            .Numero("Comissão %", u => u.PercentualComissao, "N2", 15)
             .SimNao("Ativo", u => u.Ativo, 15)
             .Data("Último acesso", u => u.UltimoAcessoEm, "dd/MM/yyyy HH:mm", 25)
             .CorDaLinha(u => u.Ativo ? null : Tema.Neutro)
@@ -36,7 +37,8 @@ internal sealed class FormUsuarios : FormListagem<UsuarioInput>
             Nome = usuario.Nome,
             Login = usuario.Login,
             Perfil = usuario.Perfil,
-            Ativo = usuario.Ativo
+            Ativo = usuario.Ativo,
+            PercentualComissao = usuario.PercentualComissao
         };
 
         var e = new EditorCampos();
@@ -44,6 +46,8 @@ internal sealed class FormUsuarios : FormListagem<UsuarioInput>
         e.Texto("Login", () => input.Login, v => input.Login = v ?? "", maximo: 60);
         e.Opcoes("Perfil", () => input.Perfil, v => input.Perfil = v);
         e.Marcador("Ativo", () => input.Ativo, v => input.Ativo = v);
+        e.Decimal("Comissão sobre vendas (%)", () => input.PercentualComissao, v => input.PercentualComissao = v, casas: 2,
+            maximo: Domain.Seguranca.Usuario.ComissaoMaximaPercentual, span: 2);
         e.Senha(input.Id == 0 ? "Senha" : "Nova senha (deixe em branco para manter)", v => input.NovaSenha = v, span: 2,
             dica: "Mínimo 6 caracteres, com letras e números");
 

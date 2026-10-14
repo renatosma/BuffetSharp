@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Auditoria;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Comercial;
@@ -36,6 +37,11 @@ public interface IBuffetDbContext : IDisposable, IAsyncDisposable
     DbSet<Parcela> Parcelas { get; }
     DbSet<ContaPagar> ContasPagar { get; }
     DbSet<Usuario> Usuarios { get; }
+    DbSet<Material> Materiais { get; }
+    DbSet<Contrato> Contratos { get; }
+    DbSet<Degustacao> Degustacoes { get; }
+    DbSet<FechamentoComissao> FechamentosComissao { get; }
+    DbSet<RegistroAuditoria> RegistrosAuditoria { get; }
 
     ChangeTracker ChangeTracker { get; }
 

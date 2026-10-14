@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
+using BuffetSharp.Domain.Auditoria;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Estoque;
@@ -37,6 +39,27 @@ internal static class Textos
         TipoMovimentacao.Ajuste => "Ajuste",
         CategoriaDespesa.Manutencao => "Manutenção",
         CategoriaDespesa.Servicos => "Serviços",
+        CategoriaDespesa.Comissoes => "Comissões",
+        CategoriaDespesa.LocacaoMateriais => "Locação de materiais",
+        StatusContrato.AguardandoAssinatura => "Aguardando assinatura",
+        StatusContrato.Assinado => "Assinado",
+        StatusContrato.Cancelado => "Cancelado",
+        StatusDegustacao.Agendada => "Agendada",
+        StatusDegustacao.Realizada => "Realizada",
+        StatusDegustacao.NaoCompareceu => "Não compareceu",
+        StatusDegustacao.Cancelada => "Cancelada",
+        CanalEnvio.Email => "E-mail",
+        CanalEnvio.WhatsApp => "WhatsApp",
+        CategoriaMaterial.Louca => "Louça",
+        CategoriaMaterial.Talheres => "Talheres",
+        CategoriaMaterial.CoposETacas => "Copos e taças",
+        CategoriaMaterial.Enxoval => "Enxoval",
+        CategoriaMaterial.Mobiliario => "Mobiliário",
+        CategoriaMaterial.Decoracao => "Decoração",
+        CategoriaMaterial.Utensilios => "Utensílios",
+        AcaoAuditoria.Inclusao => "Inclusão",
+        AcaoAuditoria.Alteracao => "Alteração",
+        AcaoAuditoria.Exclusao => "Exclusão",
         PerfilUsuario.Administrador => "Administrador",
         PerfilUsuario.Comercial => "Comercial",
         PerfilUsuario.Financeiro => "Financeiro",
@@ -61,8 +84,46 @@ internal static class Textos
         TipoMovimentacao.Entrada => Tema.Sucesso,
         TipoMovimentacao.Saida => Tema.Perigo,
         TipoMovimentacao.Ajuste => Tema.Alerta,
+        StatusContrato.AguardandoAssinatura => Tema.Alerta,
+        StatusContrato.Assinado => Tema.Sucesso,
+        StatusContrato.Cancelado => Tema.Neutro,
+        StatusDegustacao.Agendada => Tema.Info,
+        StatusDegustacao.Realizada => Tema.Sucesso,
+        StatusDegustacao.NaoCompareceu => Tema.Alerta,
+        StatusDegustacao.Cancelada => Tema.Neutro,
+        AcaoAuditoria.Inclusao => Tema.Sucesso,
+        AcaoAuditoria.Alteracao => Tema.Info,
+        AcaoAuditoria.Exclusao => Tema.Perigo,
         _ => Tema.Texto
     };
+
+    /// <summary>Converte o texto do enum (como gravado no banco) para exibição, ex.: "CoposETacas" → "Copos e taças".</summary>
+    public static string Exibir<TEnum>(string? valor) where TEnum : struct, Enum =>
+        Enum.TryParse<TEnum>(valor, out var convertido) ? Exibir(convertido) : valor ?? string.Empty;
+
+    private static readonly Dictionary<string, string> NomesEntidades = new()
+    {
+        ["TipoEvento"] = "Tipo de evento", ["CategoriaProduto"] = "Categoria de produto", ["CategoriaCardapio"] = "Seção do cardápio",
+        ["UnidadeMedida"] = "Unidade de medida", ["FormaPagamento"] = "Forma de pagamento", ["Cargo"] = "Cargo",
+        ["Cliente"] = "Cliente", ["Fornecedor"] = "Fornecedor", ["Funcionario"] = "Funcionário", ["Espaco"] = "Espaço",
+        ["ServicoAdicional"] = "Serviço adicional", ["Produto"] = "Produto", ["MovimentacaoEstoque"] = "Movimentação de estoque",
+        ["ItemCardapio"] = "Item do cardápio", ["FichaTecnica"] = "Ficha técnica", ["Pacote"] = "Pacote", ["PacoteItem"] = "Item do pacote",
+        ["Orcamento"] = "Orçamento", ["OrcamentoServico"] = "Serviço do orçamento", ["EnvioProposta"] = "Envio de proposta",
+        ["Evento"] = "Evento", ["EventoServico"] = "Serviço do evento", ["EventoFuncionario"] = "Equipe do evento",
+        ["Convidado"] = "Convidado", ["EventoMaterial"] = "Material do evento", ["Parcela"] = "Parcela (a receber)",
+        ["ContaPagar"] = "Conta a pagar", ["Usuario"] = "Usuário", ["Material"] = "Material", ["Contrato"] = "Contrato",
+        ["Degustacao"] = "Degustação", ["FechamentoComissao"] = "Fechamento de comissão"
+    };
+
+    /// <summary>Nome amigável da entidade gravado na auditoria.</summary>
+    public static string Entidade(string nome) => NomesEntidades.GetValueOrDefault(nome, nome);
+
+    /// <summary>"QuantidadeConvidados" → "Quantidade convidados"; "Endereco.Cep" → "Endereço › Cep".</summary>
+    public static string Campo(string nome) => string.Join(" › ", nome.Split('.').Select(parte =>
+    {
+        var palavras = Regex.Replace(parte, "(?<=[a-z])(?=[A-Z])", " ").ToLowerInvariant();
+        return char.ToUpperInvariant(palavras[0]) + palavras[1..];
+    }));
 
     /// <summary>Itens para combos de enum, na ordem de declaração.</summary>
     public static List<OpcaoEnum<TEnum>> Opcoes<TEnum>() where TEnum : struct, Enum =>

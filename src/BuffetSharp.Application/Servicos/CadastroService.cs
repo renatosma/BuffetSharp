@@ -1,6 +1,7 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Domain.Comum;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace BuffetSharp.Application.Servicos;
 
@@ -39,24 +40,53 @@ internal sealed class CadastroService<T>(IBuffetDbContextFactory fabrica) : ICad
 
         await using var db = fabrica.Criar();
         if (entidade.EhNovo)
-            db.Set<T>().Add(entidade);
-        else
-            db.Set<T>().Update(entidade);
-
-        // Somente o cadastro em edição é gravado; entidades relacionadas carregadas para exibição
-        // (ex.: Funcionario.Cargo) não devem ser alteradas.
-        foreach (var relacionada in db.ChangeTracker.Entries().Where(e => !ReferenceEquals(e.Entity, entidade)))
-            relacionada.State = EntityState.Unchanged;
-
-        if (!entidade.EhNovo && entidade is ICamposControlados controlados)
         {
-            var entry = db.Entry(entidade);
-            foreach (var campo in controlados.CamposControladosPeloSistema)
-                entry.Property(campo).IsModified = false;
+            db.Set<T>().Add(entidade);
+
+            // Somente o cadastro em edição é gravado; entidades relacionadas carregadas para exibição
+            // (ex.: Funcionario.Cargo) não devem ser inseridas.
+            foreach (var relacionada in db.ChangeTracker.Entries().Where(e => !ReferenceEquals(e.Entity, entidade)))
+                relacionada.State = EntityState.Unchanged;
+        }
+        else
+        {
+            // Os valores da tela são copiados para a versão do banco: o EF grava somente o que mudou e a
+            // auditoria registra o valor anterior de cada campo. Campos controlados pelo sistema
+            // (ex.: saldo de estoque) mantêm o valor atual do banco.
+            var atual = await db.Set<T>().FirstOrDefaultAsync(e => e.Id == entidade.Id, ct)
+                        ?? throw new RegraNegocioException("O registro não existe mais. Atualize a lista.");
+            var controlados = (entidade as ICamposControlados)?.CamposControladosPeloSistema ?? [];
+            CopiarValores(db.Entry(atual), entidade, controlados);
         }
 
         await db.SaveChangesAsync(ct);
         return entidade;
+    }
+
+    private static readonly string[] CamposDoSistema = [nameof(Entidade.CriadoEm), nameof(Entidade.AtualizadoEm)];
+
+    private static void CopiarValores(EntityEntry destino, object origem, IReadOnlyCollection<string> ignorar)
+    {
+        foreach (var propriedade in destino.Properties)
+        {
+            var nome = propriedade.Metadata.Name;
+            if (propriedade.Metadata.IsPrimaryKey() || propriedade.Metadata.PropertyInfo is not { } info ||
+                CamposDoSistema.Contains(nome) || ignorar.Contains(nome))
+                continue;
+            propriedade.CurrentValue = info.GetValue(origem);
+        }
+
+        foreach (var complexa in destino.ComplexProperties)
+        {
+            var valor = complexa.Metadata.PropertyInfo?.GetValue(origem);
+            if (valor is null)
+                continue;
+            foreach (var propriedade in complexa.Properties)
+            {
+                if (propriedade.Metadata.PropertyInfo is { } info)
+                    propriedade.CurrentValue = info.GetValue(valor);
+            }
+        }
     }
 
     public async Task ExcluirAsync(int id, CancellationToken ct = default)

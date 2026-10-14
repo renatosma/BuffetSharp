@@ -50,7 +50,7 @@ internal sealed class EditorCampos
             caixa.AcceptsReturn = true;
         }
         Adicionar(rotulo, caixa, propriedade, span);
-        _carregar.Add(() => caixa.Text = obter() ?? string.Empty);
+        _carregar.Add(() => caixa.Text = linhas > 1 ? obter()?.ReplaceLineEndings() ?? string.Empty : obter() ?? string.Empty);
         _aplicar.Add(() => definir(string.IsNullOrWhiteSpace(caixa.Text) ? null : caixa.Text.Trim()));
         return caixa;
     }

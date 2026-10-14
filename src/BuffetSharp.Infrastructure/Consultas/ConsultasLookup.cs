@@ -63,6 +63,14 @@ internal sealed class ConsultasLookup(FabricaConexao conexoes) : IConsultasLooku
             SELECT Id, CONCAT('EVT-', FORMAT(Id, 'D5'), ' - ', Titulo, ' (', FORMAT(Inicio, 'dd/MM/yyyy'), ')') AS Nome
             FROM Eventos
             WHERE @Todos = 1 OR Status <> 'Cancelado' ORDER BY Inicio DESC
+            """,
+        [TipoLookup.Vendedores] = """
+            SELECT Id, Nome, PercentualComissao AS Valor, Login AS Info FROM Usuarios
+            WHERE (@Todos = 1 OR Ativo = 1) AND Perfil IN ('Comercial', 'Administrador') ORDER BY Nome
+            """,
+        [TipoLookup.Materiais] = """
+            SELECT Id, Nome, CustoLocacao AS Valor, QuantidadePropria AS Numero, Categoria AS Info FROM Materiais
+            WHERE @Todos = 1 OR Ativo = 1 ORDER BY Categoria, Nome
             """
     };
 

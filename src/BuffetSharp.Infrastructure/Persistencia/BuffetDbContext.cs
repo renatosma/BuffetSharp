@@ -1,4 +1,5 @@
 using BuffetSharp.Application.Abstracoes;
+using BuffetSharp.Domain.Auditoria;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Comercial;
@@ -12,7 +13,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BuffetSharp.Infrastructure.Persistencia;
 
-public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options) : DbContext(options), IBuffetDbContext
+/// <param name="sessao">Usuário logado, gravado na auditoria (nulo em tempo de design/migrations).</param>
+public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, ISessaoUsuario? sessao = null)
+    : DbContext(options), IBuffetDbContext
 {
     public DbSet<TipoEvento> TiposEvento => Set<TipoEvento>();
     public DbSet<CategoriaProduto> CategoriasProduto => Set<CategoriaProduto>();
@@ -34,6 +37,16 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options) :
     public DbSet<Parcela> Parcelas => Set<Parcela>();
     public DbSet<ContaPagar> ContasPagar => Set<ContaPagar>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<Material> Materiais => Set<Material>();
+    public DbSet<Contrato> Contratos => Set<Contrato>();
+    public DbSet<Degustacao> Degustacoes => Set<Degustacao>();
+    public DbSet<FechamentoComissao> FechamentosComissao => Set<FechamentoComissao>();
+    public DbSet<RegistroAuditoria> RegistrosAuditoria => Set<RegistroAuditoria>();
+
+    /// <summary>
+    /// Desligada somente em cargas em massa (base de demonstração), em que o histórico não tem valor.
+    /// </summary>
+    public bool AuditoriaHabilitada { get; set; } = true;
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -49,10 +62,20 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options) :
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
-        AplicarAuditoria();
+        PreencherDatas();
+        var pendentes = AuditoriaHabilitada ? Auditoria.Coletar(this) : [];
         try
         {
-            return base.SaveChanges(acceptAllChangesOnSuccess);
+            if (pendentes.Count == 0)
+                return base.SaveChanges(acceptAllChangesOnSuccess);
+
+            // Dados e histórico na mesma transação: ou grava tudo, ou nada.
+            using var transacao = Database.CurrentTransaction is null ? Database.BeginTransaction() : null;
+            var resultado = base.SaveChanges(acceptAllChangesOnSuccess);
+            RegistrosAuditoria.AddRange(Auditoria.Finalizar(pendentes, sessao?.Usuario, DateTime.Now));
+            base.SaveChanges(acceptAllChangesOnSuccess);
+            transacao?.Commit();
+            return resultado;
         }
         catch (DbUpdateException ex) when (Traduzir(ex) is { } traduzida)
         {
@@ -62,10 +85,23 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options) :
 
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
-        AplicarAuditoria();
+        PreencherDatas();
+        var pendentes = AuditoriaHabilitada ? Auditoria.Coletar(this) : [];
         try
         {
-            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            if (pendentes.Count == 0)
+                return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+
+            // Dados e histórico na mesma transação: ou grava tudo, ou nada.
+            await using var transacao = Database.CurrentTransaction is null
+                ? await Database.BeginTransactionAsync(cancellationToken)
+                : null;
+            var resultado = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            RegistrosAuditoria.AddRange(Auditoria.Finalizar(pendentes, sessao?.Usuario, DateTime.Now));
+            await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            if (transacao is not null)
+                await transacao.CommitAsync(cancellationToken);
+            return resultado;
         }
         catch (DbUpdateException ex) when (Traduzir(ex) is { } traduzida)
         {
@@ -73,7 +109,7 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options) :
         }
     }
 
-    private void AplicarAuditoria()
+    private void PreencherDatas()
     {
         var agora = DateTime.UtcNow;
         foreach (var entry in ChangeTracker.Entries<Entidade>())

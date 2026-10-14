@@ -1,11 +1,13 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Infrastructure.Consultas;
+using BuffetSharp.Infrastructure.Email;
 using BuffetSharp.Infrastructure.Persistencia;
 using BuffetSharp.Infrastructure.Persistencia.Seed;
 using BuffetSharp.Infrastructure.Seguranca;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace BuffetSharp.Infrastructure;
 
@@ -33,6 +35,12 @@ public static class DependencyInjection
         services.AddSingleton<IConsultasFinanceiro, ConsultasFinanceiro>();
         services.AddSingleton<IConsultasEstoqueCardapio, ConsultasEstoqueCardapio>();
         services.AddSingleton<IConsultasRelatorios, ConsultasRelatorios>();
+        services.AddSingleton<IConsultasComissoes, ConsultasComissoes>();
+        services.AddSingleton<IConsultasAuditoria, ConsultasAuditoria>();
+
+        // E-mail: usa a configuração registrada pela aplicação ou, na falta dela, grava em pasta local.
+        services.TryAddSingleton(new EmailOptions());
+        services.AddSingleton<IEnvioEmail, EnvioEmailSmtp>();
 
         services.AddSingleton<IHasherSenha, HasherSenhaPbkdf2>();
         services.AddTransient<InicializadorBanco>();

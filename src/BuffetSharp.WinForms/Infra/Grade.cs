@@ -128,7 +128,7 @@ internal sealed class Grade<T> where T : class
         {
             var item = visiveis[i];
             var linha = new DataGridViewRow { Tag = item };
-            linha.CreateCells(Controle, _colunas.Select(c => c.Valor(item)).ToArray());
+            linha.CreateCells(Controle, _colunas.Select(c => c.Valor(item)).ToArray()!);
             if (_corLinha?.Invoke(item) is { } cor)
                 linha.DefaultCellStyle.ForeColor = cor;
             linhas[i] = linha;

@@ -16,11 +16,12 @@ internal sealed class DocumentoImpresso
     private sealed record BlocoTabela(string[] Cabecalho, List<string[]> Linhas, float[]? Pesos, bool[]? Direita) : Bloco;
     private sealed record BlocoEspaco(float Altura) : Bloco;
     private sealed record BlocoTotal(string Rotulo, string Valor) : Bloco;
-    private sealed record BlocoAssinaturas(string[] Nomes) : Bloco;
+    private sealed record BlocoAssinaturas(string[] Nomes, byte[]?[] Imagens, string[] Legendas) : Bloco;
 
     private readonly string _titulo;
     private readonly string? _empresa;
     private readonly List<Bloco> _blocos = [];
+    private string? _rodape;
 
     private int _blocoAtual;
     private int _linhaTabela;
@@ -53,7 +54,20 @@ internal sealed class DocumentoImpresso
 
     public DocumentoImpresso Espaco(float altura = 12) => Add(new BlocoEspaco(altura));
 
-    public DocumentoImpresso Assinaturas(params string[] nomes) => Add(new BlocoAssinaturas(nomes));
+    public DocumentoImpresso Assinaturas(params string[] nomes) =>
+        Add(new BlocoAssinaturas(nomes, new byte[]?[nomes.Length], Enumerable.Repeat(string.Empty, nomes.Length).ToArray()));
+
+    /// <summary>Assinaturas com a imagem capturada (PNG) sobre a linha e uma legenda (ex.: data e documento).</summary>
+    public DocumentoImpresso Assinaturas(params (string Nome, byte[]? Imagem, string? Legenda)[] assinantes) =>
+        Add(new BlocoAssinaturas(assinantes.Select(a => a.Nome).ToArray(), assinantes.Select(a => a.Imagem).ToArray(),
+            assinantes.Select(a => a.Legenda ?? string.Empty).ToArray()));
+
+    /// <summary>Texto fixo no rodapé de todas as páginas (ex.: código de integridade do contrato).</summary>
+    public DocumentoImpresso Rodape(string texto)
+    {
+        _rodape = texto;
+        return this;
+    }
 
     private DocumentoImpresso Add(Bloco bloco)
     {
@@ -63,9 +77,11 @@ internal sealed class DocumentoImpresso
 
     // ------------------------- Impressão -------------------------
 
-    public void Visualizar(IWin32Window dono, bool paisagem = false)
+    private const string ImpressoraPdf = "Microsoft Print to PDF";
+
+    private PrintDocument CriarDocumento(bool paisagem)
     {
-        using var documento = new PrintDocument { DocumentName = _titulo };
+        var documento = new PrintDocument { DocumentName = _titulo };
         documento.DefaultPageSettings.Landscape = paisagem;
         documento.DefaultPageSettings.Margins = new Margins(50, 50, 50, 50);
         documento.BeginPrint += (_, _) =>
@@ -75,6 +91,66 @@ internal sealed class DocumentoImpresso
             _pagina = 0;
         };
         documento.PrintPage += ImprimirPagina;
+        return documento;
+    }
+
+    /// <summary>
+    /// Gera o PDF pela impressora "Microsoft Print to PDF" do Windows (sem diálogos) e retorna o conteúdo.
+    /// </summary>
+    public byte[] GerarPdf(bool paisagem = false)
+    {
+        if (!PrinterSettings.InstalledPrinters.Cast<string>().Contains(ImpressoraPdf, StringComparer.OrdinalIgnoreCase))
+            throw new Domain.Comum.RegraNegocioException(
+                $"A impressora \"{ImpressoraPdf}\" não está instalada. Ative-a em Configurações do Windows > Impressoras para gerar PDFs.");
+
+        var arquivo = Path.Combine(Path.GetTempPath(), $"BuffetSharp_{Guid.NewGuid():N}.pdf");
+        try
+        {
+            using (var documento = CriarDocumento(paisagem))
+            {
+                documento.PrintController = new StandardPrintController();
+                documento.PrinterSettings = new PrinterSettings
+                {
+                    PrinterName = ImpressoraPdf,
+                    PrintToFile = true,
+                    PrintFileName = arquivo
+                };
+                documento.Print();
+            }
+
+            // O spooler grava o arquivo logo após a impressão; aguarda até ele estar completo.
+            for (var tentativa = 0; tentativa < 100; tentativa++)
+            {
+                if (File.Exists(arquivo) && new FileInfo(arquivo).Length > 0)
+                {
+                    try
+                    {
+                        return File.ReadAllBytes(arquivo);
+                    }
+                    catch (IOException)
+                    {
+                        // Ainda em uso pelo spooler.
+                    }
+                }
+                Thread.Sleep(100);
+            }
+            throw new Domain.Comum.RegraNegocioException("O PDF não foi gerado a tempo pela impressora do Windows. Tente novamente.");
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(arquivo);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
+
+    public void Visualizar(IWin32Window dono, bool paisagem = false)
+    {
+        using var documento = CriarDocumento(paisagem);
 
         using var visualizacao = new PrintPreviewDialog
         {
@@ -137,6 +213,9 @@ internal sealed class DocumentoImpresso
         var texto = $"BuffetSharp  •  Página {_pagina}  •  {DateTime.Now:dd/MM/yyyy HH:mm}";
         var tamanho = g.MeasureString(texto, FontePequena);
         g.DrawString(texto, FontePequena, Brushes.Gray, area.Right - tamanho.Width, area.Bottom + 10);
+        if (_rodape is not null)
+            g.DrawString(_rodape, FontePequena, Brushes.Gray,
+                new RectangleF(area.Left, area.Bottom + 10, area.Width - tamanho.Width - 12, FontePequena.GetHeight(g) * 2 + 2));
     }
 
     /// <summary>Desenha o bloco a partir de y. Retorna (novo y, concluído?). Tabelas podem continuar na próxima página.</summary>
@@ -161,7 +240,8 @@ internal sealed class DocumentoImpresso
             {
                 var fonte = texto.Negrito ? FonteNegrito : FonteTexto;
                 var tamanho = g.MeasureString(texto.Texto, fonte, area.Width);
-                if (y + tamanho.Height > area.Bottom)
+                // Um parágrafo maior que a página inteira é cortado em vez de ficar adiando para a próxima.
+                if (y + tamanho.Height > area.Bottom && y > area.Top + 80)
                     return (y, false);
                 using var pincel = new SolidBrush(texto.Cor);
                 g.DrawString(texto.Texto, fonte, pincel, new RectangleF(area.Left, y, area.Width, tamanho.Height + 2));
@@ -201,17 +281,27 @@ internal sealed class DocumentoImpresso
 
             case BlocoAssinaturas assinaturas:
             {
-                var altura = 70f;
+                var altura = 100f;
                 if (y + altura > area.Bottom)
                     return (y, false);
                 var largura = area.Width / (float)assinaturas.Nomes.Length;
+                var formato = new StringFormat { Alignment = StringAlignment.Center };
                 for (var i = 0; i < assinaturas.Nomes.Length; i++)
                 {
                     var x = area.Left + i * largura + 20;
-                    g.DrawLine(Pens.Gray, x, y + 45, x + largura - 40, y + 45);
-                    var formato = new StringFormat { Alignment = StringAlignment.Center };
-                    g.DrawString(assinaturas.Nomes[i], FontePequena, Brushes.DimGray,
-                        new RectangleF(x, y + 50, largura - 40, 20), formato);
+                    var linha = y + 60;
+                    if (assinaturas.Imagens[i] is { Length: > 0 } png)
+                    {
+                        using var imagem = Image.FromStream(new MemoryStream(png));
+                        var escala = Math.Min((largura - 40) / imagem.Width, 56f / imagem.Height);
+                        var w = imagem.Width * escala;
+                        var h = imagem.Height * escala;
+                        g.DrawImage(imagem, x + (largura - 40 - w) / 2, linha - h - 2, w, h);
+                    }
+                    g.DrawLine(Pens.Gray, x, linha, x + largura - 40, linha);
+                    g.DrawString(assinaturas.Nomes[i], FontePequena, Brushes.DimGray, new RectangleF(x, linha + 4, largura - 40, 16), formato);
+                    if (assinaturas.Legendas[i].Length > 0)
+                        g.DrawString(assinaturas.Legendas[i], FontePequena, Brushes.Gray, new RectangleF(x, linha + 18, largura - 40, 16), formato);
                 }
                 return (y + altura, true);
             }

@@ -1,3 +1,4 @@
+using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Eventos;
@@ -11,14 +12,17 @@ internal sealed class FormEventos : FormListagem<EventoResumo>
     private readonly IConsultasLookup _lookups;
     private readonly EventoService _servico;
     private readonly Navegador _navegador;
+    private readonly ISessaoUsuario _sessao;
     private readonly DateTimePicker _de;
     private readonly DateTimePicker _ate;
     private readonly ComboBox _status = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly ComboBox _espaco = new() { Width = 170, DropDownStyle = ComboBoxStyle.DropDownList };
 
-    public FormEventos(IConsultasEventos consultas, IConsultasLookup lookups, EventoService servico, Navegador navegador)
-        : base("Eventos", "Eventos contratados. Abra um evento para gerenciar equipe, convidados, pagamentos e encerramento.")
+    public FormEventos(IConsultasEventos consultas, IConsultasLookup lookups, EventoService servico, Navegador navegador,
+        ISessaoUsuario sessao)
+        : base("Eventos", "Eventos contratados. Abra um evento para gerenciar equipe, convidados, materiais, contrato, pagamentos e encerramento.")
     {
+        _sessao = sessao;
         _consultas = consultas;
         _lookups = lookups;
         _servico = servico;
@@ -48,6 +52,8 @@ internal sealed class FormEventos : FormListagem<EventoResumo>
             .Moeda("Recebido", e => e.Recebido, 24)
             .Moeda("Saldo", e => e.SaldoAReceber, 24, e => e.SaldoAReceber > 0 && e.Status == StatusEvento.Realizado ? Tema.Perigo : null)
             .Status("Status", e => e.Status, 24)
+            .Texto("Contrato", e => e.Contrato is { } c ? Textos.Exibir(c) : e.Status == StatusEvento.Confirmado ? "Não emitido" : "", 28,
+                e => e.Contrato is { } c ? Textos.Cor(c) : e.Status == StatusEvento.Confirmado ? Tema.Perigo : null)
             .Busca(e => $"{e.Codigo} {e.Titulo} {e.Cliente} {e.TipoEvento} {e.Espaco}");
     }
 
@@ -86,7 +92,7 @@ internal sealed class FormEventos : FormListagem<EventoResumo>
 
     private async Task NovoAsync()
     {
-        if (await DialogosEvento.EditarAsync(this, _servico, _lookups, 0) is { } id)
+        if (await DialogosEvento.EditarAsync(this, _servico, _lookups, 0, _sessao.Usuario?.Id) is { } id)
         {
             await CarregarAsync();
             _navegador.Abrir($"evento:{id}", () => _navegador.Criar<FormEventoDetalhe>(id));

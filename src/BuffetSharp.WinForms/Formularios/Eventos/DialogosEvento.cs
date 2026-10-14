@@ -9,11 +9,16 @@ namespace BuffetSharp.WinForms.Formularios.Eventos;
 internal static class DialogosEvento
 {
     /// <summary>Cria (venda direta) ou altera um evento. Retorna o Id salvo ou nulo se cancelado.</summary>
-    public static async Task<int?> EditarAsync(IWin32Window dono, EventoService servico, IConsultasLookup lookups, int eventoId)
+    /// <param name="vendedorPadrao">Vendedor sugerido na venda direta (normalmente o usuário logado).</param>
+    public static async Task<int?> EditarAsync(IWin32Window dono, EventoService servico, IConsultasLookup lookups, int eventoId,
+        int? vendedorPadrao = null)
     {
         var input = eventoId == 0
             ? new EventoInput { Data = DateOnly.FromDateTime(DateTime.Today).AddMonths(1) }
             : await servico.ObterParaEdicaoAsync(eventoId);
+        var vendedores = await lookups.ListarAsync(TipoLookup.Vendedores);
+        if (eventoId == 0 && vendedores.Any(v => v.Id == vendedorPadrao))
+            input.VendedorId = vendedorPadrao;
 
         var clientes = await lookups.ListarAsync(TipoLookup.Clientes);
         var tipos = await lookups.ListarAsync(TipoLookup.TiposEvento);
@@ -36,6 +41,8 @@ internal static class DialogosEvento
         e.Hora("Início", () => input.HoraInicio, v => input.HoraInicio = v);
         e.Hora("Término", () => input.HoraFim, v => input.HoraFim = v);
         e.Decimal("Valor total do contrato (R$)", () => input.ValorTotal, v => input.ValorTotal = v, nameof(input.ValorTotal));
+        e.Lista("Vendedor (comissão)", vendedores, () => input.VendedorId, v => input.VendedorId = v, nameof(input.VendedorId),
+            permitirVazio: true, span: 2);
         e.Texto("Observações", () => input.Observacoes, v => input.Observacoes = v, nameof(input.Observacoes), 2000, span: 3, linhas: 3);
 
         int? salvo = null;

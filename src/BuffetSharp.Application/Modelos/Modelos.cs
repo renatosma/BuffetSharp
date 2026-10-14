@@ -1,3 +1,4 @@
+using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
@@ -55,6 +56,7 @@ public sealed class OrcamentoInput
     public int TipoEventoId { get; set; }
     public int? EspacoId { get; set; }
     public int? PacoteId { get; set; }
+    public int? VendedorId { get; set; }
     public DateOnly Data { get; set; }
     public TimeOnly HoraInicio { get; set; } = new(19, 0);
     public TimeOnly HoraFim { get; set; } = new(23, 59);
@@ -76,8 +78,11 @@ public sealed class OrcamentoInput
     public StatusOrcamento Status { get; set; } = StatusOrcamento.Rascunho;
     public string? MotivoRecusa { get; set; }
     public int? EventoId { get; set; }
+    public List<EnvioPropostaInfo> Envios { get; set; } = [];
     public bool PodeEditar => Status is StatusOrcamento.Rascunho or StatusOrcamento.Enviado;
 }
+
+public sealed record EnvioPropostaInfo(CanalEnvio Canal, string Destinatario, string? Usuario, DateTime EnviadoEm);
 
 public sealed class EventoInput
 {
@@ -86,6 +91,7 @@ public sealed class EventoInput
     public int ClienteId { get; set; }
     public int TipoEventoId { get; set; }
     public int EspacoId { get; set; }
+    public int? VendedorId { get; set; }
     public DateOnly Data { get; set; }
     public TimeOnly HoraInicio { get; set; } = new(19, 0);
     public TimeOnly HoraFim { get; set; } = new(23, 59);
@@ -134,6 +140,7 @@ public sealed class UsuarioInput
     public PerfilUsuario Perfil { get; set; } = PerfilUsuario.Comercial;
     public bool Ativo { get; set; } = true;
     public string? NovaSenha { get; set; }
+    public decimal PercentualComissao { get; set; }
     public DateTime? UltimoAcessoEm { get; set; }
 }
 
@@ -143,8 +150,59 @@ public sealed class EventoDetalhe
     public required Evento Evento { get; init; }
     public decimal CustoInsumosEstimado { get; init; }
     public decimal DespesasVinculadas { get; init; }
-    public decimal ResultadoEstimado => Evento.ValorTotal - CustoInsumosEstimado - Evento.TotalEquipe - DespesasVinculadas;
+    public decimal ResultadoEstimado =>
+        Evento.ValorTotal - CustoInsumosEstimado - Evento.TotalEquipe - Evento.CustoMateriais - DespesasVinculadas;
     public decimal MargemEstimada => Evento.ValorTotal == 0 ? 0 : Math.Round(ResultadoEstimado / Evento.ValorTotal * 100, 1);
 }
 
 public sealed record ResultadoRealizacao(IReadOnlyList<string> Avisos);
+
+public sealed class DegustacaoInput
+{
+    public int Id { get; set; }
+    public int ClienteId { get; set; }
+    public int? PacoteId { get; set; }
+    public int? OrcamentoId { get; set; }
+    public DateOnly Data { get; set; }
+    public TimeOnly Hora { get; set; } = new(15, 0);
+    public int Pessoas { get; set; } = 2;
+    public string? Observacoes { get; set; }
+    public DateTime DataHora => Data.ToDateTime(Hora);
+}
+
+public sealed class AssinaturaContratoInput
+{
+    public string NomeSignatario { get; set; } = string.Empty;
+    public string? DocumentoSignatario { get; set; }
+    public byte[]? AssinaturaCliente { get; set; }
+    public string? NomeRepresentante { get; set; }
+    public byte[]? AssinaturaEmpresa { get; set; }
+}
+
+/// <summary>E-mail pronto para revisão na tela antes do envio.</summary>
+public sealed class EmailInput
+{
+    public string Para { get; set; } = string.Empty;
+    public string Assunto { get; set; } = string.Empty;
+
+    /// <summary>Mensagem livre exibida antes dos detalhes (texto simples; quebras de linha viram parágrafos).</summary>
+    public string? Mensagem { get; set; }
+
+    public AnexoEmail? Anexo { get; set; }
+}
+
+/// <summary>Mensagem para WhatsApp: o link abre o aplicativo/WhatsApp Web com o texto preenchido.</summary>
+public sealed record MensagemWhatsApp(string Telefone, string Texto)
+{
+    /// <summary>Telefone no formato internacional (somente dígitos, com DDI 55 quando ausente).</summary>
+    public string TelefoneInternacional
+    {
+        get
+        {
+            var digitos = new string(Telefone.Where(char.IsDigit).ToArray());
+            return digitos.Length is 10 or 11 ? "55" + digitos : digitos;
+        }
+    }
+
+    public string Link => $"https://wa.me/{TelefoneInternacional}?text={Uri.EscapeDataString(Texto)}";
+}

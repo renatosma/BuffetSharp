@@ -99,6 +99,8 @@ internal sealed class FormPrincipal : FormBase
 
             new("COMERCIAL", "Orçamentos", Icones.Documento, [Adm, Com], () => n.Abrir<FormOrcamentos>()),
             new("COMERCIAL", "Clientes", Icones.Contato, [Adm, Com, Fin], () => Cadastro(DefinicoesCadastros.Clientes)),
+            new("COMERCIAL", "Degustações", Icones.Estrela, [Adm, Com], () => n.Abrir<FormDegustacoes>()),
+            new("COMERCIAL", "Contratos", Icones.Pagina, [Adm, Com, Fin], () => n.Abrir<FormContratos>()),
 
             new("EVENTOS", "Eventos", Icones.Bandeira, todos, () => n.Abrir<FormEventos>()),
 
@@ -107,9 +109,11 @@ internal sealed class FormPrincipal : FormBase
 
             new("ESTOQUE", "Produtos", Icones.Carrinho, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Produtos)),
             new("ESTOQUE", "Movimentações", Icones.Historico, [Adm, Ope], () => n.Abrir<FormMovimentacoes>()),
+            new("ESTOQUE", "Materiais e enxoval", Icones.Pacote, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Materiais)),
 
             new("FINANCEIRO", "Contas a receber", Icones.Cartao, [Adm, Fin], () => n.Abrir<FormContasReceber>()),
             new("FINANCEIRO", "Contas a pagar", Icones.Banco, [Adm, Fin], () => n.Abrir<FormContasPagar>()),
+            new("FINANCEIRO", "Comissões", Icones.Dinheiro, [Adm, Fin], () => n.Abrir<FormComissoes>()),
             new("FINANCEIRO", "Relatórios", Icones.Calculadora, [Adm, Fin], () => n.Abrir<FormRelatorios>()),
 
             new("CADASTROS", "Tipos de evento", Icones.Etiqueta, [Adm, Com], () => Cadastro(DefinicoesCadastros.TiposEvento)),
@@ -123,7 +127,8 @@ internal sealed class FormPrincipal : FormBase
             new("CADASTROS", "Unidades de medida", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.UnidadesMedida)),
             new("CADASTROS", "Formas de pagamento", Icones.Cartao, [Adm, Fin], () => Cadastro(DefinicoesCadastros.FormasPagamento)),
 
-            new("ADMINISTRAÇÃO", "Usuários", Icones.Cadeado, [Adm], () => n.Abrir<FormUsuarios>())
+            new("ADMINISTRAÇÃO", "Usuários", Icones.Cadeado, [Adm], () => n.Abrir<FormUsuarios>()),
+            new("ADMINISTRAÇÃO", "Auditoria", Icones.Escudo, [Adm], () => n.Abrir<FormAuditoria>())
         ];
     }
 

@@ -19,6 +19,16 @@ public sealed class EstoqueService(IBuffetDbContextFactory fabrica, TimeProvider
         CancellationToken ct = default) =>
         MovimentarAsync(produtoId, (p, agora) => p.AjustarSaldo(saldoContado, agora, observacao ?? "Ajuste de inventário"), ct);
 
+    /// <summary>Compra (positivo) ou baixa por descarte/perda (negativo) de material do patrimônio.</summary>
+    public async Task AjustarPatrimonioAsync(int materialId, int diferenca, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var material = await db.Materiais.FirstOrDefaultAsync(m => m.Id == materialId, ct)
+                       ?? throw new RegraNegocioException("Material não encontrado.");
+        material.AjustarPatrimonio(diferenca);
+        await db.SaveChangesAsync(ct);
+    }
+
     private async Task<MovimentacaoEstoque> MovimentarAsync(int produtoId,
         Func<Produto, DateTime, MovimentacaoEstoque> operacao, CancellationToken ct)
     {

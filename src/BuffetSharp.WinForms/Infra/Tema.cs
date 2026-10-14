@@ -210,6 +210,14 @@ internal static class Icones
     public const char Sair = '';
     public const char Exportar = '';
     public const char Desfazer = '';
+    public const char Email = '';
+    public const char Mensagem = '';
+    public const char Pacote = '';
+    public const char Pagina = '';
+    public const char Caneta = '';
+    public const char Estrela = '';
+    public const char Escudo = '';
+    public const char Dinheiro = '';
 
     private static readonly Dictionary<(char, int, int), Bitmap> Cache = [];
 

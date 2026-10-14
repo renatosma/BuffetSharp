@@ -10,6 +10,7 @@ public sealed class OrcamentoService(
     IBuffetDbContextFactory fabrica,
     DisponibilidadeService disponibilidade,
     BuffetOptions opcoes,
+    ISessaoUsuario sessao,
     TimeProvider relogio)
 {
     private DateTime Agora => relogio.GetLocalNow().DateTime;
@@ -18,10 +19,12 @@ public sealed class OrcamentoService(
     public OrcamentoInput Novo()
     {
         var data = Hoje.AddMonths(2);
+        var usuario = sessao.Usuario;
         return new OrcamentoInput
         {
             Data = data,
-            ValidoAte = Hoje.AddDays(opcoes.DiasValidadeOrcamento)
+            ValidoAte = Hoje.AddDays(opcoes.DiasValidadeOrcamento),
+            VendedorId = usuario is not null && usuario.PossuiPerfil(Domain.Seguranca.PerfilUsuario.Comercial) ? usuario.Id : null
         };
     }
 
@@ -30,6 +33,7 @@ public sealed class OrcamentoService(
         await using var db = fabrica.Criar();
         var o = await db.Orcamentos.AsNoTracking()
                     .Include(x => x.Servicos)
+                    .Include(x => x.Envios)
                     .Include(x => x.Evento)
                     .FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new RegraNegocioException("Orçamento não encontrado.");
@@ -45,6 +49,7 @@ public sealed class OrcamentoService(
             TipoEventoId = o.TipoEventoId,
             EspacoId = o.EspacoId,
             PacoteId = o.PacoteId,
+            VendedorId = o.VendedorId,
             Data = o.DataEvento,
             HoraInicio = o.HoraInicio,
             HoraFim = o.HoraFim,
@@ -60,7 +65,9 @@ public sealed class OrcamentoService(
                 Descricao = s.Descricao,
                 Quantidade = s.Quantidade,
                 ValorUnitario = s.ValorUnitario
-            }).ToList()
+            }).ToList(),
+            Envios = o.Envios.OrderByDescending(e => e.EnviadoEm)
+                .Select(e => new EnvioPropostaInfo(e.Canal, e.Destinatario, e.Usuario, e.EnviadoEm)).ToList()
         };
     }
 
@@ -98,6 +105,16 @@ public sealed class OrcamentoService(
 
         orcamento.AplicarDesconto(input.PercentualDesconto);
 
+        if (input.VendedorId != orcamento.VendedorId)
+        {
+            if (input.VendedorId is { } vendedorId)
+            {
+                var vendedor = await db.Usuarios.FindAsync([vendedorId], ct);
+                Validador.Garantir(vendedor?.PodeVender == true, "O vendedor deve ser um usuário ativo com perfil Comercial ou Administrador.");
+            }
+            orcamento.DefinirVendedor(input.VendedorId);
+        }
+
         await db.SaveChangesAsync(ct);
         return orcamento.Id;
     }
@@ -121,7 +138,10 @@ public sealed class OrcamentoService(
         if (orcamento.EspacoId is { } espacoId)
             await disponibilidade.GarantirDisponivelAsync(espacoId, orcamento.Inicio, orcamento.Fim, null, ct);
 
-        var evento = orcamento.Aprovar(tituloEvento, Agora);
+        var comissao = orcamento.VendedorId is { } vendedorId
+            ? (await db.Usuarios.FindAsync([vendedorId], ct))?.PercentualComissao ?? 0
+            : 0;
+        var evento = orcamento.Aprovar(tituloEvento, Agora, comissao);
         db.Eventos.Add(evento);
         await db.SaveChangesAsync(ct);
         return evento.Id;
