@@ -52,7 +52,8 @@ internal sealed class PainelAssinatura : Control
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        if (_tracoAtual is null || e.Button != MouseButtons.Left)
+        // O traço vai do botão pressionado até ele ser solto (vale também para caneta e toque).
+        if (_tracoAtual is null)
             return;
         _tracoAtual.Add(e.Location);
         Invalidate();

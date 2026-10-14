@@ -141,7 +141,7 @@ BuffetSharp.Domain           Entidades e regras de negócio (sem dependências e
 dotnet test
 ```
 
-São **82 testes** (xUnit v3):
+São **96 testes** (xUnit v3): 82 de domínio e integração e 14 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote.
 - **Integração**: criam um banco temporário no LocalDB, aplicam as migrations, carregam a base de
@@ -150,6 +150,31 @@ São **82 testes** (xUnit v3):
   no final.
 
 Para usar outro servidor nos testes, defina `BUFFETSHARP_TEST_CONNECTION`.
+
+### Testes das telas
+
+O projeto `tests/BuffetSharp.Tests.Telas` opera as **telas reais** do Windows Forms, como um usuário: faz
+login, navega pelo menu, preenche campos pelo rótulo, clica nos botões e trata os diálogos. Cobre:
+
+- login e menu de cada perfil;
+- abertura de todas as telas do menu;
+- cadastro com validação;
+- orçamento com cálculo em tempo real e checagem do espaço;
+- reserva de material, emissão de contrato e assinatura desenhada;
+- degustação, comissão, envio de proposta por e-mail e WhatsApp;
+- auditoria.
+
+Como funcionam:
+
+- Rodam dentro do processo de teste, num banco temporário com a base de demonstração.
+- As janelas são criadas em uma **área de trabalho oculta do Windows**. Nada aparece na tela e o foco
+  não é roubado, então dá para continuar trabalhando enquanto os testes rodam.
+- As mensagens (TaskDialog) passam por um interceptador. Um diálogo modal que o teste não esperava é
+  fechado e o teste falha com o nome do diálogo, em vez de travar.
+
+```bash
+dotnet test tests/BuffetSharp.Tests.Telas
+```
 
 ## Migrations
 

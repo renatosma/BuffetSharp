@@ -6,6 +6,7 @@
     <Project Path="src/BuffetSharp.WinForms/BuffetSharp.WinForms.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/BuffetSharp.Tests.Telas/BuffetSharp.Tests.Telas.csproj" />
     <Project Path="tests/BuffetSharp.Tests/BuffetSharp.Tests.csproj" />
   </Folder>
 </Solution>

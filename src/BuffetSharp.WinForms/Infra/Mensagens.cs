@@ -7,6 +7,12 @@ internal static class Mensagens
 {
     private const string Aplicacao = "BuffetSharp";
 
+    /// <summary>
+    /// Quando definido, recebe as mensagens no lugar do TaskDialog e devolve o botão "clicado".
+    /// Usado pelos testes automatizados das telas, que não podem depender de diálogos nativos modais.
+    /// </summary>
+    internal static Func<TaskDialogPage, TaskDialogButton>? Interceptador { get; set; }
+
     public static void Info(IWin32Window? dono, string texto, string? titulo = null) =>
         Mostrar(dono, titulo ?? "Tudo certo", texto, TaskDialogIcon.Information);
 
@@ -75,5 +81,5 @@ internal static class Mensagens
         });
 
     private static TaskDialogButton Exibir(IWin32Window? dono, TaskDialogPage pagina) =>
-        dono is null ? TaskDialog.ShowDialog(pagina) : TaskDialog.ShowDialog(dono, pagina);
+        Interceptador?.Invoke(pagina) ?? (dono is null ? TaskDialog.ShowDialog(pagina) : TaskDialog.ShowDialog(dono, pagina));
 }

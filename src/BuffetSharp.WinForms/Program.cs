@@ -65,12 +65,18 @@ internal static class Program
             ApplicationName = "BuffetSharp"
         });
 
-        var opcoes = builder.Configuration.GetSection(BuffetOptions.Secao).Get<BuffetOptions>() ?? new BuffetOptions();
-        builder.Services.AddSingleton(opcoes);
-        builder.Services.AddSingleton(builder.Configuration.GetSection(EmailOptions.Secao).Get<EmailOptions>() ?? new EmailOptions());
-        builder.Services.AddAplicacao();
-        builder.Services.AddInfraestrutura(builder.Configuration.GetConnectionString("Buffet"));
-        builder.Services.AddSingleton<Navegador>();
+        ConfigurarServicos(builder.Services, builder.Configuration);
         return builder.Build();
+    }
+
+    /// <summary>Registros de DI da aplicação desktop (também usados pelos testes das telas).</summary>
+    internal static void ConfigurarServicos(IServiceCollection services, IConfiguration configuracao)
+    {
+        services.AddSingleton(configuracao);
+        services.AddSingleton(configuracao.GetSection(BuffetOptions.Secao).Get<BuffetOptions>() ?? new BuffetOptions());
+        services.AddSingleton(configuracao.GetSection(EmailOptions.Secao).Get<EmailOptions>() ?? new EmailOptions());
+        services.AddAplicacao();
+        services.AddInfraestrutura(configuracao.GetConnectionString("Buffet"));
+        services.AddSingleton<Navegador>();
     }
 }
