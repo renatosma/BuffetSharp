@@ -198,8 +198,10 @@ São **122 testes** (xUnit v3): 108 de domínio, integração e bancos, e 14 das
   excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 
-Para rodar as suítes de integração e de telas em outro banco, defina o provedor e a conexão. Use
-`{banco}` no lugar do nome do banco temporário:
+Para rodar as suítes de integração e de telas em outro banco, copie `BuffetSharp.runsettings.exemplo`
+para `BuffetSharp.runsettings`, que fica fora do git porque contém senha, e ajuste o provedor e a conexão.
+O Visual Studio e o `dotnet test` passam a usar esse arquivo. Use `{banco}` no lugar do nome do banco
+temporário. Sem o arquivo, os testes usam o LocalDB. Também dá para usar variáveis de ambiente:
 
 ```bash
 BUFFETSHARP_TEST_PROVIDER=PostgreSql BUFFETSHARP_TEST_CONNECTION="Host=localhost;Username=postgres;Password=...;Database={banco}" dotnet test

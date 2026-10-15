@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Modelo da configuração local dos testes. Copie para "BuffetSharp.runsettings" (ignorado pelo git) e ajuste.
+  Sem esse arquivo, os testes usam o SQL Server LocalDB.
+
+  Provedores: SqlServer, PostgreSql, MySql ou Oracle. {banco} é trocado pelo nome do banco temporário.
+  Exemplos de conexão:
+    SqlServer   Server=localhost;Database={banco};User Id=sa;Password=...;TrustServerCertificate=True
+    PostgreSql  Host=localhost;Database={banco};Username=postgres;Password=...
+    MySql       Server=localhost;Database={banco};User Id=root;Password=...
+-->
+<RunSettings>
+  <RunConfiguration>
+    <EnvironmentVariables>
+      <BUFFETSHARP_TEST_PROVIDER>SqlServer</BUFFETSHARP_TEST_PROVIDER>
+      <BUFFETSHARP_TEST_CONNECTION>Server=localhost;Database={banco};User Id=sa;Password=SUA_SENHA;TrustServerCertificate=True</BUFFETSHARP_TEST_CONNECTION>
+    </EnvironmentVariables>
+  </RunConfiguration>
+</RunSettings>

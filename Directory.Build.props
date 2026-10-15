@@ -10,4 +10,9 @@
     <Product>BuffetSharp - Sistema de Gestão para Buffets</Product>
   </PropertyGroup>
 
+  <!-- Configuração local dos testes (banco e senha), usada pelo Visual Studio e pelo "dotnet test" quando existir. -->
+  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)BuffetSharp.runsettings')">
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory)BuffetSharp.runsettings</RunSettingsFilePath>
+  </PropertyGroup>
+
 </Project>

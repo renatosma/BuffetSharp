@@ -480,3 +480,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Configuração local dos testes (contém senha de banco). Modelo: BuffetSharp.runsettings.exemplo
+BuffetSharp.runsettings
