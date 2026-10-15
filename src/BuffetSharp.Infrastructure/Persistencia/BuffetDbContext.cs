@@ -8,15 +8,18 @@ using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
 using BuffetSharp.Domain.Seguranca;
-using Microsoft.Data.SqlClient;
+using BuffetSharp.Infrastructure.Persistencia.Provedores;
 using Microsoft.EntityFrameworkCore;
 
 namespace BuffetSharp.Infrastructure.Persistencia;
 
+/// <param name="provedor">Banco de dados em uso: ajusta o modelo (nomes físicos, índices) e traduz os erros.</param>
 /// <param name="sessao">Usuário logado, gravado na auditoria (nulo em tempo de design/migrations).</param>
-public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, ISessaoUsuario? sessao = null)
+public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, IProvedorBanco provedor, ISessaoUsuario? sessao = null)
     : DbContext(options), IBuffetDbContext
 {
+    public IProvedorBanco Provedor { get; } = provedor;
+
     public DbSet<TipoEvento> TiposEvento => Set<TipoEvento>();
     public DbSet<CategoriaProduto> CategoriasProduto => Set<CategoriaProduto>();
     public DbSet<CategoriaCardapio> CategoriasCardapio => Set<CategoriaCardapio>();
@@ -55,10 +58,15 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
 
         // Enums gravados como texto: o banco fica legível e as consultas Dapper ficam auto-explicativas.
         configurationBuilder.Properties<Enum>().HaveConversion<string>().HaveMaxLength(30);
+
+        Provedor.ConfigurarConvencoes(configurationBuilder);
     }
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BuffetDbContext).Assembly);
+        Provedor.AjustarModelo(modelBuilder);
+    }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
@@ -77,7 +85,7 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
             transacao?.Commit();
             return resultado;
         }
-        catch (DbUpdateException ex) when (Traduzir(ex) is { } traduzida)
+        catch (DbUpdateException ex) when (Traduzir(ex, Provedor) is { } traduzida)
         {
             throw traduzida;
         }
@@ -103,7 +111,7 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
                 await transacao.CommitAsync(cancellationToken);
             return resultado;
         }
-        catch (DbUpdateException ex) when (Traduzir(ex) is { } traduzida)
+        catch (DbUpdateException ex) when (Traduzir(ex, Provedor) is { } traduzida)
         {
             throw traduzida;
         }
@@ -111,7 +119,9 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
 
     private void PreencherDatas()
     {
-        var agora = DateTime.UtcNow;
+        // Horário UTC sem a marcação de fuso: colunas de data/hora não guardam fuso em nenhum dos bancos suportados
+        // (o PostgreSQL recusa DateTime "Utc" em timestamp without time zone).
+        var agora = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
         foreach (var entry in ChangeTracker.Entries<Entidade>())
         {
             switch (entry.State)
@@ -127,21 +137,18 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
         }
     }
 
-    /// <summary>Converte erros de integridade do SQL Server em mensagens de negócio.</summary>
-    private static RegraNegocioException? Traduzir(DbUpdateException ex)
+    /// <summary>Converte erros de integridade do banco (classificados pelo provedor) em mensagens de negócio.</summary>
+    private static RegraNegocioException? Traduzir(DbUpdateException ex, IProvedorBanco provedor)
     {
         if (ex is DbUpdateConcurrencyException)
             return new RegraNegocioException("O registro foi alterado ou excluído por outro usuário. Recarregue e tente novamente.");
 
-        if (ex.InnerException is not SqlException sql)
-            return null;
-
-        return sql.Number switch
+        return (ex.InnerException is null ? null : provedor.Classificar(ex.InnerException)) switch
         {
-            2601 or 2627 => new RegraNegocioException("Já existe um registro com estes dados (valor duplicado)."),
-            547 when sql.Message.Contains("DELETE", StringComparison.OrdinalIgnoreCase) =>
+            ErroBanco.Duplicidade => new RegraNegocioException("Já existe um registro com estes dados (valor duplicado)."),
+            ErroBanco.RegistroEmUso =>
                 new RegraNegocioException("Este registro está sendo utilizado e não pode ser excluído. Se preferir, inative-o."),
-            547 => new RegraNegocioException("Há uma referência inválida a outro cadastro."),
+            ErroBanco.ReferenciaInvalida => new RegraNegocioException("Há uma referência inválida a outro cadastro."),
             _ => null
         };
     }

@@ -2,15 +2,25 @@
 
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Versões fixadas aqui também valem para dependências transitivas (correções de segurança). -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
     <EfCoreVersion>10.0.13</EfCoreVersion>
     <ExtensionsVersion>10.0.13</ExtensionsVersion>
   </PropertyGroup>
 
   <ItemGroup Label="Dados">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(EfCoreVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageVersion Include="MySql.EntityFrameworkCore" Version="10.0.9" />
+    <PackageVersion Include="Oracle.EntityFrameworkCore" Version="10.23.26301" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(EfCoreVersion)" />
     <PackageVersion Include="Dapper" Version="2.1.89" />
+  </ItemGroup>
+
+  <ItemGroup Label="Segurança (dependências transitivas dos drivers)">
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
 
   <ItemGroup Label="Hospedagem">

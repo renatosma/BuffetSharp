@@ -19,7 +19,7 @@ namespace BuffetSharp.Tests.Telas.Infra;
 /// </summary>
 public sealed class AmbienteTelas : IAsyncLifetime
 {
-    public string NomeBanco { get; } = $"BuffetSharp_Telas_{Guid.NewGuid():N}";
+    public string NomeBanco { get; } = $"buffetsharp_telas_{Guid.NewGuid():N}"[..34];
 
     public string Conexao { get; private set; } = string.Empty;
 
@@ -28,8 +28,10 @@ public sealed class AmbienteTelas : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        Conexao = Environment.GetEnvironmentVariable("BUFFETSHARP_TEST_CONNECTION")
-                  ?? $@"Server=(localdb)\MSSQLLocalDB;Database={NomeBanco};Trusted_Connection=True;TrustServerCertificate=True";
+        // Mesmas variáveis dos testes de integração (BUFFETSHARP_TEST_PROVIDER / BUFFETSHARP_TEST_CONNECTION com {banco}).
+        Conexao = (Environment.GetEnvironmentVariable("BUFFETSHARP_TEST_CONNECTION")
+                   ?? @"Server=(localdb)\MSSQLLocalDB;Database={banco};Trusted_Connection=True;TrustServerCertificate=True")
+            .Replace("{banco}", NomeBanco);
 
         await using var servicos = CriarServicos();
         try
@@ -50,6 +52,7 @@ public sealed class AmbienteTelas : IAsyncLifetime
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Buffet"] = Conexao,
+                ["BancoDeDados:Provedor"] = Environment.GetEnvironmentVariable("BUFFETSHARP_TEST_PROVIDER"),
                 ["Email:Modo"] = nameof(ModoEnvioEmail.Pasta),
                 ["Email:Pasta"] = PastaEmails
             })

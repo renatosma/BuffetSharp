@@ -9,6 +9,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\BuffetSharp.Infrastructure\BuffetSharp.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\BuffetSharp.Infrastructure.SqlServer\BuffetSharp.Infrastructure.SqlServer.csproj" />
+    <ProjectReference Include="..\..\src\BuffetSharp.Infrastructure.PostgreSql\BuffetSharp.Infrastructure.PostgreSql.csproj" />
+    <ProjectReference Include="..\..\src\BuffetSharp.Infrastructure.MySql\BuffetSharp.Infrastructure.MySql.csproj" />
+    <ProjectReference Include="..\..\src\BuffetSharp.Infrastructure.Oracle\BuffetSharp.Infrastructure.Oracle.csproj" />
   </ItemGroup>
 
   <ItemGroup>

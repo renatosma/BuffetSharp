@@ -2,6 +2,10 @@
   <Folder Name="/src/">
     <Project Path="src/BuffetSharp.Application/BuffetSharp.Application.csproj" />
     <Project Path="src/BuffetSharp.Domain/BuffetSharp.Domain.csproj" />
+    <Project Path="src/BuffetSharp.Infrastructure.MySql/BuffetSharp.Infrastructure.MySql.csproj" />
+    <Project Path="src/BuffetSharp.Infrastructure.Oracle/BuffetSharp.Infrastructure.Oracle.csproj" />
+    <Project Path="src/BuffetSharp.Infrastructure.PostgreSql/BuffetSharp.Infrastructure.PostgreSql.csproj" />
+    <Project Path="src/BuffetSharp.Infrastructure.SqlServer/BuffetSharp.Infrastructure.SqlServer.csproj" />
     <Project Path="src/BuffetSharp.Infrastructure/BuffetSharp.Infrastructure.csproj" />
     <Project Path="src/BuffetSharp.WinForms/BuffetSharp.WinForms.csproj" />
   </Folder>

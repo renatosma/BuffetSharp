@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace BuffetSharp.Infrastructure.Persistencia.Migrations
+namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 {
     /// <inheritdoc />
     public partial class NovasFuncionalidades : Migration

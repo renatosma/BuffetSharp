@@ -2,6 +2,7 @@ using System.Globalization;
 using BuffetSharp.Application;
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Infrastructure;
+using BuffetSharp.Infrastructure.Persistencia.Provedores;
 using BuffetSharp.WinForms.Formularios;
 using BuffetSharp.WinForms.Infra;
 using Microsoft.Extensions.Configuration;
@@ -76,7 +77,8 @@ internal static class Program
         services.AddSingleton(configuracao.GetSection(BuffetOptions.Secao).Get<BuffetOptions>() ?? new BuffetOptions());
         services.AddSingleton(configuracao.GetSection(EmailOptions.Secao).Get<EmailOptions>() ?? new EmailOptions());
         services.AddAplicacao();
-        services.AddInfraestrutura(configuracao.GetConnectionString("Buffet"));
+        services.AddInfraestrutura(configuracao.GetConnectionString("Buffet"),
+            CatalogoProvedores.Interpretar(configuracao["BancoDeDados:Provedor"]));
         services.AddSingleton<Navegador>();
     }
 }

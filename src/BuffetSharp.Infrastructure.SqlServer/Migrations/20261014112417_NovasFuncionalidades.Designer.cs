@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace BuffetSharp.Infrastructure.Persistencia.Migrations
+namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 {
     [DbContext(typeof(BuffetDbContext))]
     [Migration("20261014112417_NovasFuncionalidades")]

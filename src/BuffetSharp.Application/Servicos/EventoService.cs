@@ -16,11 +16,6 @@ public sealed class EventoService(
 {
     private DateTime Agora => relogio.GetLocalNow().DateTime;
 
-    /// <summary>
-    /// Despesas que não entram em "despesas vinculadas" porque o próprio evento já as custeia: a equipe
-    /// (pela escala) e a locação de materiais (pela reserva de materiais).
-    /// </summary>
-    private static readonly CategoriaDespesa[] CategoriasCusteadasPeloEvento = [CategoriaDespesa.Pessoal, CategoriaDespesa.LocacaoMateriais];
 
     // ------------------------- Consulta -------------------------
 
@@ -44,7 +39,9 @@ public sealed class EventoService(
                      ?? throw new RegraNegocioException("Evento não encontrado.");
 
         var despesas = await db.ContasPagar
-            .Where(c => c.EventoId == id && c.Status != StatusTitulo.Cancelado && !CategoriasCusteadasPeloEvento.Contains(c.Categoria))
+            // Pessoal e locação de materiais ficam de fora: o próprio evento já os custeia (escala e reserva de materiais).
+            .Where(c => c.EventoId == id && c.Status != StatusTitulo.Cancelado &&
+                        c.Categoria != CategoriaDespesa.Pessoal && c.Categoria != CategoriaDespesa.LocacaoMateriais)
             .SumAsync(c => (decimal?)c.Valor, ct) ?? 0;
 
         return new EventoDetalhe

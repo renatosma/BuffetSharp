@@ -1,6 +1,5 @@
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Infrastructure.Persistencia;
-using Dapper;
 
 namespace BuffetSharp.Infrastructure.Consultas;
 
@@ -12,9 +11,9 @@ internal sealed class ConsultasRelatorios(FabricaConexao conexoes) : IConsultasR
                    SUM(e.QuantidadeConvidados) AS Convidados, SUM(e.ValorTotal) AS ValorTotal
               FROM Eventos e
               JOIN TiposEvento t ON t.Id = e.TipoEventoId
-             WHERE e.Status <> 'Cancelado' AND e.Inicio >= @De AND e.Inicio < DATEADD(DAY, 1, @Ate)
+             WHERE e.Status <> 'Cancelado' AND e.Inicio >= @De AND e.Inicio < @AteExclusivo
              GROUP BY t.Nome
-             ORDER BY ValorTotal DESC;
+             ORDER BY ValorTotal DESC
             """, de, ate, ct);
 
     public Task<IReadOnlyList<RankingPacote>> RankingPacotesAsync(DateTime de, DateTime ate, CancellationToken ct = default) =>
@@ -23,9 +22,9 @@ internal sealed class ConsultasRelatorios(FabricaConexao conexoes) : IConsultasR
                    SUM(e.QuantidadeConvidados) AS Convidados, SUM(e.ValorTotal) AS ValorTotal
               FROM Eventos e
               LEFT JOIN Pacotes p ON p.Id = e.PacoteId
-             WHERE e.Status <> 'Cancelado' AND e.Inicio >= @De AND e.Inicio < DATEADD(DAY, 1, @Ate)
+             WHERE e.Status <> 'Cancelado' AND e.Inicio >= @De AND e.Inicio < @AteExclusivo
              GROUP BY p.Nome
-             ORDER BY QuantidadeEventos DESC, ValorTotal DESC;
+             ORDER BY QuantidadeEventos DESC, ValorTotal DESC
             """, de, ate, ct);
 
     /// <summary>
@@ -45,10 +44,10 @@ internal sealed class ConsultasRelatorios(FabricaConexao conexoes) : IConsultasR
             )
             SELECT e.Id, e.Titulo, c.Nome AS Cliente, e.Inicio, e.Status, e.QuantidadeConvidados AS Convidados,
                    e.ValorTotal AS Receita,
-                   CAST(CASE WHEN e.EstoqueBaixado = 1
+                   CAST(CASE WHEN e.EstoqueBaixado = {verdadeiro}
                              THEN COALESCE((SELECT SUM(m.Quantidade * m.CustoUnitario) FROM MovimentacoesEstoque m
                                              WHERE m.EventoId = e.Id AND m.Tipo = 'Saida'), 0)
-                             ELSE COALESCE(cp.CustoPorPessoa, 0) * e.QuantidadeConvidados END AS decimal(18, 2)) AS CustoInsumos,
+                             ELSE COALESCE(cp.CustoPorPessoa, 0) * e.QuantidadeConvidados END AS DECIMAL(18, 2)) AS CustoInsumos,
                    COALESCE((SELECT SUM(q.ValorDiaria) FROM EventoEquipe q WHERE q.EventoId = e.Id), 0) AS CustoEquipe,
                    COALESCE((SELECT SUM(m.QuantidadeAlugada * m.CustoLocacaoUnitario + m.QuantidadePerdida * m.ValorReposicaoUnitario)
                                FROM EventoMateriais m WHERE m.EventoId = e.Id), 0) AS CustoMateriais,
@@ -57,44 +56,67 @@ internal sealed class ConsultasRelatorios(FabricaConexao conexoes) : IConsultasR
               FROM Eventos e
               JOIN Clientes c ON c.Id = e.ClienteId
               LEFT JOIN CustoPacote cp ON cp.PacoteId = e.PacoteId
-             WHERE e.Status <> 'Cancelado' AND e.Inicio >= @De AND e.Inicio < DATEADD(DAY, 1, @Ate)
-             ORDER BY e.Inicio;
+             WHERE e.Status <> 'Cancelado' AND e.Inicio >= @De AND e.Inicio < @AteExclusivo
+             ORDER BY e.Inicio
             """, de, ate, ct);
 
-    public Task<IReadOnlyList<FluxoCaixaMes>> FluxoCaixaAsync(DateTime de, DateTime ate, CancellationToken ct = default) =>
-        ListarAsync<FluxoCaixaMes>("""
-            WITH Meses AS (
-                SELECT DATEFROMPARTS(YEAR(@De), MONTH(@De), 1) AS Inicio
-                UNION ALL
-                SELECT DATEADD(MONTH, 1, Inicio) FROM Meses WHERE DATEADD(MONTH, 1, Inicio) <= @Ate
-            )
-            SELECT YEAR(m.Inicio) AS Ano, MONTH(m.Inicio) AS Mes,
-                   COALESCE((SELECT SUM(Valor) FROM Parcelas
-                              WHERE Status <> 'Cancelado' AND Vencimento >= m.Inicio AND Vencimento < DATEADD(MONTH, 1, m.Inicio)), 0) AS ReceberPrevisto,
-                   COALESCE((SELECT SUM(ValorPago) FROM Parcelas
-                              WHERE Status = 'Pago' AND DataPagamento >= m.Inicio AND DataPagamento < DATEADD(MONTH, 1, m.Inicio)), 0) AS Recebido,
-                   COALESCE((SELECT SUM(Valor) FROM ContasPagar
-                              WHERE Status <> 'Cancelado' AND Vencimento >= m.Inicio AND Vencimento < DATEADD(MONTH, 1, m.Inicio)), 0) AS PagarPrevisto,
-                   COALESCE((SELECT SUM(ValorPago) FROM ContasPagar
-                              WHERE Status = 'Pago' AND DataPagamento >= m.Inicio AND DataPagamento < DATEADD(MONTH, 1, m.Inicio)), 0) AS Pago
-              FROM Meses m
-             ORDER BY m.Inicio
-            OPTION (MAXRECURSION 240);
-            """, de, ate, ct);
+    private sealed class Lancamento
+    {
+        public DateTime Vencimento { get; init; }
+        public decimal Valor { get; init; }
+        public DateTime? DataPagamento { get; init; }
+        public decimal? ValorPago { get; init; }
+    }
+
+    /// <summary>
+    /// Previsto (por vencimento) x realizado (por pagamento), mês a mês. Os lançamentos do período são lidos e
+    /// agrupados em C#: evita gerar a série de meses e extrair ano/mês com funções diferentes em cada banco.
+    /// </summary>
+    public async Task<IReadOnlyList<FluxoCaixaMes>> FluxoCaixaAsync(DateTime de, DateTime ate, CancellationToken ct = default)
+    {
+        const string condicao = """
+             WHERE Status <> 'Cancelado'
+               AND ((Vencimento >= @Inicio AND Vencimento < @Fim) OR (DataPagamento >= @Inicio AND DataPagamento < @Fim))
+            """;
+        var inicio = new DateTime(de.Year, de.Month, 1);
+        var fim = new DateTime(ate.Year, ate.Month, 1).AddMonths(1);
+        var parametros = new { Inicio = inicio, Fim = fim };
+
+        await using var lote = await conexoes.LoteAsync(
+        [
+            "SELECT Vencimento, Valor, DataPagamento, ValorPago FROM Parcelas" + condicao,
+            "SELECT Vencimento, Valor, DataPagamento, ValorPago FROM ContasPagar" + condicao
+        ], parametros, ct);
+        var receber = await lote.LerAsync<Lancamento>();
+        var pagar = await lote.LerAsync<Lancamento>();
+
+        static bool NoMes(DateTime? data, DateTime mes) => data >= mes && data < mes.AddMonths(1);
+
+        var meses = new List<FluxoCaixaMes>();
+        for (var mes = inicio; mes < fim; mes = mes.AddMonths(1))
+        {
+            meses.Add(new FluxoCaixaMes
+            {
+                Ano = mes.Year,
+                Mes = mes.Month,
+                ReceberPrevisto = receber.Where(l => NoMes(l.Vencimento, mes)).Sum(l => l.Valor),
+                Recebido = receber.Where(l => NoMes(l.DataPagamento, mes)).Sum(l => l.ValorPago ?? 0),
+                PagarPrevisto = pagar.Where(l => NoMes(l.Vencimento, mes)).Sum(l => l.Valor),
+                Pago = pagar.Where(l => NoMes(l.DataPagamento, mes)).Sum(l => l.ValorPago ?? 0)
+            });
+        }
+        return meses;
+    }
 
     public Task<IReadOnlyList<ConversaoOrcamentos>> ConversaoOrcamentosAsync(DateTime de, DateTime ate, CancellationToken ct = default) =>
         ListarAsync<ConversaoOrcamentos>("""
             SELECT Status, COUNT(*) AS Quantidade, SUM(ValorTotal) AS Valor
               FROM Orcamentos
-             WHERE CriadoEm >= @De AND CriadoEm < DATEADD(DAY, 1, @Ate)
+             WHERE CriadoEm >= @De AND CriadoEm < @AteExclusivo
              GROUP BY Status
-             ORDER BY Quantidade DESC;
+             ORDER BY Quantidade DESC
             """, de, ate, ct);
 
-    private async Task<IReadOnlyList<T>> ListarAsync<T>(string sql, DateTime de, DateTime ate, CancellationToken ct)
-    {
-        await using var conexao = conexoes.Criar();
-        var itens = await conexao.QueryAsync<T>(new CommandDefinition(sql, new { De = de.Date, Ate = ate.Date }, cancellationToken: ct));
-        return itens.AsList();
-    }
+    private async Task<IReadOnlyList<T>> ListarAsync<T>(string sql, DateTime de, DateTime ate, CancellationToken ct) =>
+        await conexoes.ListarAsync<T>(sql, new { De = de.Date, AteExclusivo = ate.Date.AddDays(1) }, ct);
 }

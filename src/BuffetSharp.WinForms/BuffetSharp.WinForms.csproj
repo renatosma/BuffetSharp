@@ -13,6 +13,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BuffetSharp.Infrastructure\BuffetSharp.Infrastructure.csproj" />
+    <!-- Bancos suportados: o escolhido no appsettings.json é carregado em tempo de execução. -->
+    <ProjectReference Include="..\BuffetSharp.Infrastructure.SqlServer\BuffetSharp.Infrastructure.SqlServer.csproj" />
+    <ProjectReference Include="..\BuffetSharp.Infrastructure.PostgreSql\BuffetSharp.Infrastructure.PostgreSql.csproj" />
+    <ProjectReference Include="..\BuffetSharp.Infrastructure.MySql\BuffetSharp.Infrastructure.MySql.csproj" />
+    <ProjectReference Include="..\BuffetSharp.Infrastructure.Oracle\BuffetSharp.Infrastructure.Oracle.csproj" />
   </ItemGroup>
 
   <ItemGroup>

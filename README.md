@@ -1,15 +1,16 @@
 # BuffetSharp
 
 Sistema de gestão para buffets e casas de eventos em **C# / .NET 10**, interface **Windows Forms**,
-**Entity Framework Core 10** (escrita) e **Dapper** (leitura), sobre **SQL Server**.
+**Entity Framework Core 10** (escrita) e **Dapper** (leitura), sobre **SQL Server, PostgreSQL, MySQL ou Oracle**.
 
 Ele cobre o ciclo inteiro do buffet: cadastros de apoio, orçamento, evento contratado, equipe,
 convidados, estoque e financeiro, com painel gerencial e relatórios.
 
 ## Como executar
 
-Pré-requisitos: **.NET SDK 10** e **SQL Server LocalDB**, que vem com o Visual Studio. Outra instância
-de SQL Server também funciona: basta ajustar a connection string.
+Pré-requisitos: **.NET SDK 10** e um banco de dados. Sem configuração nenhuma, o sistema usa o
+**SQL Server LocalDB**, que vem com o Visual Studio. Para PostgreSQL, MySQL ou Oracle, veja
+[Bancos de dados](#bancos-de-dados).
 
 ```bash
 dotnet run --project src/BuffetSharp.WinForms
@@ -29,7 +30,7 @@ Todos os nomes e documentos dessa base são fictícios.
 
 As configurações ficam em `src/BuffetSharp.WinForms/appsettings.json`:
 
-- `ConnectionStrings:Buffet`: banco de dados.
+- `BancoDeDados:Provedor` e `ConnectionStrings:Buffet`: banco de dados (veja abaixo).
 - `Buffet`: dados da empresa (impressos na proposta e no contrato), intervalo mínimo entre eventos no
   mesmo espaço, validade padrão dos orçamentos, foro do contrato, prazo para confirmar convidados e
   limite de degustações por horário.
@@ -38,16 +39,63 @@ As configurações ficam em `src/BuffetSharp.WinForms/appsettings.json`:
   `Servidor`, `Porta`, `UsarSsl`, `Usuario`, `Senha` e `Remetente`.
 - `Inicializacao:CriarDadosDemonstracao`: use `false` em produção. Assim, só os usuários iniciais são criados.
 
+## Bancos de dados
+
+| Banco | Versão mínima | `Provedor` | Exemplo de `ConnectionStrings:Buffet` |
+|-------|---------------|------------|----------------------------------------|
+| **SQL Server** (padrão) | 2016, Azure SQL, LocalDB | `SqlServer` | `Server=servidor;Database=BuffetSharp;User Id=...;Password=...;TrustServerCertificate=True` |
+| **PostgreSQL** | 13 | `PostgreSql` | `Host=servidor;Database=buffetsharp;Username=...;Password=...` |
+| **MySQL** | 8.0 | `MySql` | `Server=servidor;Database=buffetsharp;User Id=...;Password=...` |
+| **Oracle** | 19c | `Oracle` | `User Id=buffetsharp;Password=...;Data Source=servidor:1521/SERVICO` |
+
+```json
+"BancoDeDados": { "Provedor": "PostgreSql" },
+"ConnectionStrings": { "Buffet": "Host=localhost;Database=buffetsharp;Username=buffet;Password=..." }
+```
+
+Na primeira execução, o sistema cria as tabelas pelas migrations do banco escolhido. Também cria o
+banco quando o usuário tem permissão para isso. No Oracle, o "banco" é o esquema do usuário da conexão,
+que precisa existir com permissão para criar tabelas.
+
+**Como funciona:**
+
+- Cada banco tem um projeto próprio, `BuffetSharp.Infrastructure.{SqlServer|PostgreSql|MySql|Oracle}`,
+  com o provedor do EF Core, as suas migrations, a conexão ADO.NET do Dapper e a tradução dos erros de
+  integridade. O núcleo (`BuffetSharp.Infrastructure`) não depende de nenhum banco: carrega o projeto
+  indicado em `Provedor`.
+- **Nomes físicos:** o PostgreSQL usa nomes em minúsculas e o Oracle em maiúsculas, pois é assim que
+  esses bancos tratam identificadores sem aspas. Por isso o mesmo SQL das consultas Dapper funciona nos
+  quatro.
+- **SQL portável:** as consultas usam SQL padrão. Datas e intervalos são calculados em C#, e `OUTER
+  APPLY` vira `JOIN` com `ROW_NUMBER`. O que não tem forma comum fica em marcadores que o dialeto de cada
+  banco traduz: booleano, limite de linhas, `FROM DUAL` e o prefixo de parâmetro (`:` no Oracle). No
+  Oracle, que não executa vários comandos de uma vez, as consultas do painel rodam em sequência na mesma
+  conexão.
+- **Diferenças tratadas:**
+  - Índices filtrados existem só no SQL Server e no PostgreSQL. Nos outros, a regra "um contrato
+    vigente por evento" fica no serviço.
+  - No Oracle, os textos longos usam `NCLOB`, as imagens usam `BLOB` e as datas usam `DATE`, tudo
+    compatível com o 19c.
+  - O PostgreSQL usa `timestamp without time zone`.
+  - No MySQL, as datas sem hora são lidas como `DateTime`.
+
+**Validação:** a suíte inteira (integração e telas) roda em **SQL Server, PostgreSQL 18 e MySQL 8.4**. O
+**Oracle** não tem versão portátil para os testes locais. Ele é validado sem servidor: modelo do EF,
+migrations em dia com o modelo e tradução do dialeto (`tests/BuffetSharp.Tests/Bancos`). Antes de
+usar em produção, rode a suíte num Oracle de homologação (veja [Testes](#testes)).
+
 ## Arquitetura
 
 ```
-BuffetSharp.WinForms         Telas (Windows Forms), DI com Microsoft.Extensions.Hosting
+BuffetSharp.WinForms                 Telas (Windows Forms), DI com Microsoft.Extensions.Hosting
         │
-BuffetSharp.Infrastructure   EF Core 10 (DbContext, mapeamentos, migrations, seed)
-        │                    Dapper (consultas SQL), hash de senha PBKDF2
-BuffetSharp.Application      Serviços (casos de uso), modelos de entrada, contratos das consultas
+BuffetSharp.Infrastructure.{Banco}   Provedor do EF Core, migrations, conexão e erros de cada banco
         │
-BuffetSharp.Domain           Entidades e regras de negócio (sem dependências externas)
+BuffetSharp.Infrastructure           EF Core 10 (DbContext, mapeamentos, seed, auditoria), Dapper (consultas
+        │                            em SQL portável + dialeto), e-mail, hash de senha PBKDF2
+BuffetSharp.Application              Serviços (casos de uso), modelos de entrada, contratos das consultas
+        │
+BuffetSharp.Domain                   Entidades e regras de negócio (sem dependências externas)
 ```
 
 **Escrita com EF Core, leitura com Dapper (CQRS leve):**
@@ -57,8 +105,8 @@ BuffetSharp.Domain           Entidades e regras de negócio (sem dependências e
   como texto, para o banco ficar legível. Erros de integridade (duplicidade, FK) viram mensagens de
   negócio. A auditoria é gravada pelo próprio `DbContext` a partir do ChangeTracker, na mesma transação
   dos dados.
-- **Dapper** atende listagens, painel, agenda e relatórios com SQL explícito. Um exemplo: o painel
-  inteiro sai de **uma ida ao banco** (`QueryMultiple` com 5 resultados).
+- **Dapper** atende listagens, painel, agenda e relatórios com SQL explícito e portável. Um exemplo: o
+  painel inteiro sai de **uma ida ao banco** (lote com 6 consultas), exceto no Oracle.
 - No desktop, cada operação cria e descarta o próprio `DbContext` (`IDbContextFactory`). Isso evita
   contextos de vida longa presos às telas.
 
@@ -141,15 +189,21 @@ BuffetSharp.Domain           Entidades e regras de negócio (sem dependências e
 dotnet test
 ```
 
-São **96 testes** (xUnit v3): 82 de domínio e integração e 14 das telas.
+São **122 testes** (xUnit v3): 108 de domínio, integração e bancos, e 14 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote.
-- **Integração**: criam um banco temporário no LocalDB, aplicam as migrations, carregam a base de
-  demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com conflito
-  de agenda, pagamento, cancelamento, autenticação, tradução de erros de banco). O banco é excluído
-  no final.
+- **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
+  base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
+  conflito de agenda, pagamento, cancelamento, autenticação, tradução de erros de banco). O banco é
+  excluído no final.
+- **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 
-Para usar outro servidor nos testes, defina `BUFFETSHARP_TEST_CONNECTION`.
+Para rodar as suítes de integração e de telas em outro banco, defina o provedor e a conexão. Use
+`{banco}` no lugar do nome do banco temporário:
+
+```bash
+BUFFETSHARP_TEST_PROVIDER=PostgreSql BUFFETSHARP_TEST_CONNECTION="Host=localhost;Username=postgres;Password=...;Database={banco}" dotnet test
+```
 
 ### Testes das telas
 
@@ -178,13 +232,19 @@ dotnet test tests/BuffetSharp.Tests.Telas
 
 ## Migrations
 
+Cada banco tem as suas migrations. Ao mudar o modelo, gere a migration **nos quatro** (o teste
+`Migrations_do_banco_estao_atualizadas_com_o_modelo` acusa o que faltar):
+
 ```bash
 dotnet tool restore
-dotnet ef migrations add NomeDaMigration --project src/BuffetSharp.Infrastructure --startup-project src/BuffetSharp.Infrastructure --output-dir Persistencia/Migrations
+dotnet ef migrations add NomeDaMigration --project src/BuffetSharp.Infrastructure.SqlServer --startup-project src/BuffetSharp.Infrastructure.SqlServer -o Migrations
+dotnet ef migrations add NomeDaMigration --project src/BuffetSharp.Infrastructure.PostgreSql --startup-project src/BuffetSharp.Infrastructure.PostgreSql -o Migrations
+dotnet ef migrations add NomeDaMigration --project src/BuffetSharp.Infrastructure.MySql --startup-project src/BuffetSharp.Infrastructure.MySql -o Migrations
+dotnet ef migrations add NomeDaMigration --project src/BuffetSharp.Infrastructure.Oracle --startup-project src/BuffetSharp.Infrastructure.Oracle -o Migrations
 ```
 
-O app aplica as migrations pendentes automaticamente ao iniciar. Em tempo de design, a conexão pode
-ser trocada pela variável `BUFFETSHARP_CONNECTION`.
+Gerar migrations não exige servidor. O app aplica as pendentes automaticamente ao iniciar. Para
+`dotnet ef database update`, informe a conexão na variável `BUFFETSHARP_CONNECTION`.
 
 ## Estrutura
 
@@ -192,9 +252,11 @@ ser trocada pela variável `BUFFETSHARP_CONNECTION`.
 src/
   BuffetSharp.Domain/          Comum, Cadastros, Estoque, Cardapio, Comercial, Eventos, Financeiro, Seguranca
   BuffetSharp.Application/     Abstracoes, Servicos, Consultas (contratos + DTOs), Modelos
-  BuffetSharp.Infrastructure/  Persistencia (DbContext, Configuracoes, Migrations, Seed), Consultas (Dapper), Seguranca
+  BuffetSharp.Infrastructure/  Persistencia (DbContext, Configuracoes, Provedores, Seed), Consultas (Dapper), Email, Seguranca
+  BuffetSharp.Infrastructure.SqlServer|PostgreSql|MySql|Oracle/   Provedor e Migrations de cada banco
   BuffetSharp.WinForms/        Infra (tema, grade, editor de campos, navegação), Controles (gráfico, calendário,
                                indicadores), Formularios (telas por módulo), Impressao
 tests/
-  BuffetSharp.Tests/           Dominio, Integracao
+  BuffetSharp.Tests/           Dominio, Integracao, Bancos
+  BuffetSharp.Tests.Telas/     Infra (robô de telas, desktop oculto), Testes
 ```

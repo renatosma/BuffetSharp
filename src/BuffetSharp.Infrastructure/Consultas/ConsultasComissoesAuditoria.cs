@@ -1,6 +1,5 @@
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Infrastructure.Persistencia;
-using Dapper;
 
 namespace BuffetSharp.Infrastructure.Consultas;
 
@@ -9,8 +8,8 @@ internal sealed class ConsultasComissoes(FabricaConexao conexoes) : IConsultasCo
     // A comissão de cada parcela usa o percentual congelado no evento e é arredondada parcela a parcela.
     private const string ParcelasDoPeriodo = """
         SELECT p.Id AS ParcelaId, e.Id AS EventoId, e.VendedorId, e.Titulo AS Evento, c.Nome AS Cliente, p.Descricao,
-               CAST(p.DataPagamento AS datetime2) AS DataPagamento, p.ValorPago, e.PercentualComissao AS Percentual,
-               CAST(ROUND(p.ValorPago * e.PercentualComissao / 100, 2) AS decimal(18, 2)) AS Comissao
+               p.DataPagamento, p.ValorPago, e.PercentualComissao AS Percentual,
+               CAST(ROUND(p.ValorPago * e.PercentualComissao / 100, 2) AS DECIMAL(18, 2)) AS Comissao
           FROM Parcelas p
           JOIN Eventos e ON e.Id = p.EventoId
           JOIN Clientes c ON c.Id = e.ClienteId
@@ -25,56 +24,52 @@ internal sealed class ConsultasComissoes(FabricaConexao conexoes) : IConsultasCo
             SELECT u.Id AS VendedorId, u.Nome AS Vendedor,
                    COUNT(b.ParcelaId) AS QuantidadeParcelas, COUNT(DISTINCT b.EventoId) AS QuantidadeEventos,
                    SUM(b.ValorPago) AS BaseRecebida, SUM(b.Comissao) AS Comissao,
-                   f.Id AS FechamentoId, CAST(f.De AS datetime2) AS FechamentoDe, CAST(f.Ate AS datetime2) AS FechamentoAte,
+                   f.Id AS FechamentoId, f.De AS FechamentoDe, f.Ate AS FechamentoAte,
                    f.Valor AS FechamentoValor, cp.Status AS SituacaoConta
               FROM Base b
               JOIN Usuarios u ON u.Id = b.VendedorId
-              OUTER APPLY (SELECT TOP 1 x.Id, x.De, x.Ate, x.Valor, x.ContaPagarId FROM FechamentosComissao x
-                            WHERE x.VendedorId = u.Id AND x.De <= @Ate AND @De <= x.Ate ORDER BY x.De) f
+              LEFT JOIN (SELECT x.Id, x.VendedorId, x.De, x.Ate, x.Valor, x.ContaPagarId,
+                                ROW_NUMBER() OVER (PARTITION BY x.VendedorId ORDER BY x.De) AS Ordem
+                           FROM FechamentosComissao x
+                          WHERE x.De <= @Ate AND @De <= x.Ate) f ON f.VendedorId = u.Id AND f.Ordem = 1
               LEFT JOIN ContasPagar cp ON cp.Id = f.ContaPagarId
              GROUP BY u.Id, u.Nome, f.Id, f.De, f.Ate, f.Valor, cp.Status
-             ORDER BY Comissao DESC;
+             ORDER BY Comissao DESC
             """;
 
-        await using var conexao = conexoes.Criar();
-        var itens = await conexao.QueryAsync<ComissaoVendedor>(new CommandDefinition(sql, Periodo(de, ate), cancellationToken: ct));
-        return itens.AsList();
+        return await conexoes.ListarAsync<ComissaoVendedor>(sql, Periodo(de, ate), ct);
     }
 
     public async Task<IReadOnlyList<ComissaoParcela>> DetalharAsync(int vendedorId, DateOnly de, DateOnly ate, CancellationToken ct = default)
     {
         const string sql = ParcelasDoPeriodo + """
                AND e.VendedorId = @VendedorId
-             ORDER BY p.DataPagamento, e.Id;
+             ORDER BY p.DataPagamento, e.Id
             """;
 
-        await using var conexao = conexoes.Criar();
-        var itens = await conexao.QueryAsync<ComissaoParcela>(new CommandDefinition(sql, new
+        return await conexoes.ListarAsync<ComissaoParcela>(sql, new
         {
-            De = de.ToDateTime(TimeOnly.MinValue),
-            Ate = ate.ToDateTime(TimeOnly.MinValue),
+            De = Filtros.Data(de),
+            Ate = Filtros.Data(ate),
             VendedorId = vendedorId
-        }, cancellationToken: ct));
-        return itens.AsList();
+        }, ct);
     }
 
     public async Task<IReadOnlyList<FechamentoComissaoResumo>> ListarFechamentosAsync(CancellationToken ct = default)
     {
         const string sql = """
-            SELECT f.Id, f.VendedorId, u.Nome AS Vendedor, CAST(f.De AS datetime2) AS De, CAST(f.Ate AS datetime2) AS Ate,
+            SELECT f.Id, f.VendedorId, u.Nome AS Vendedor, f.De, f.Ate,
                    f.BaseCalculo, f.Valor, f.CriadoEm, f.ContaPagarId, cp.Status AS SituacaoConta
               FROM FechamentosComissao f
               JOIN Usuarios u ON u.Id = f.VendedorId
               JOIN ContasPagar cp ON cp.Id = f.ContaPagarId
-             ORDER BY f.Ate DESC, u.Nome;
+             ORDER BY f.Ate DESC, u.Nome
             """;
 
-        await using var conexao = conexoes.Criar();
-        return (await conexao.QueryAsync<FechamentoComissaoResumo>(new CommandDefinition(sql, cancellationToken: ct))).AsList();
+        return await conexoes.ListarAsync<FechamentoComissaoResumo>(sql, ct: ct);
     }
 
-    private static object Periodo(DateOnly de, DateOnly ate) =>
-        new { De = de.ToDateTime(TimeOnly.MinValue), Ate = ate.ToDateTime(TimeOnly.MinValue) };
+    private static object Periodo(DateOnly de, DateOnly ate) => new { De = Filtros.Data(de), Ate = Filtros.Data(ate) };
 }
 
 internal sealed class ConsultasAuditoria(FabricaConexao conexoes) : IConsultasAuditoria
@@ -82,43 +77,38 @@ internal sealed class ConsultasAuditoria(FabricaConexao conexoes) : IConsultasAu
     public async Task<IReadOnlyList<RegistroAuditoriaResumo>> ListarAsync(FiltroAuditoria filtro, CancellationToken ct = default)
     {
         const string sql = """
-            SELECT TOP (@Limite) Id, DataHora, Usuario, Entidade, RegistroId, Descricao, Acao, Alteracoes
+            SELECT Id, DataHora, Usuario, Entidade, RegistroId, Descricao, Acao, Alteracoes
               FROM Auditoria
-             WHERE DataHora >= @De AND DataHora < DATEADD(DAY, 1, @Ate)
+             WHERE DataHora >= @De AND DataHora < @AteExclusivo
                AND (@Usuario IS NULL OR Usuario = @Usuario)
                AND (@Entidade IS NULL OR Entidade = @Entidade)
                AND (@Acao IS NULL OR Acao = @Acao)
                AND (@RegistroId IS NULL OR RegistroId = @RegistroId)
-               AND (@Texto IS NULL OR Descricao LIKE @Texto OR Alteracoes LIKE @Texto)
-             ORDER BY DataHora DESC, Id DESC;
+               AND (@Texto IS NULL OR UPPER(Descricao) LIKE @Texto ESCAPE '!' OR UPPER(Alteracoes) LIKE @Texto ESCAPE '!')
+             ORDER BY DataHora DESC, Id DESC
+             {limite:@Limite}
             """;
 
-        await using var conexao = conexoes.Criar();
-        var itens = await conexao.QueryAsync<RegistroAuditoriaResumo>(new CommandDefinition(sql, new
+        return await conexoes.ListarAsync<RegistroAuditoriaResumo>(sql, new
         {
             filtro.Limite,
             De = filtro.De.Date,
-            Ate = filtro.Ate.Date,
+            AteExclusivo = filtro.Ate.Date.AddDays(1),
             filtro.Usuario,
             filtro.Entidade,
             Acao = filtro.Acao?.ToString(),
             filtro.RegistroId,
             Texto = Filtros.Like(filtro.Texto)
-        }, cancellationToken: ct));
-        return itens.AsList();
+        }, ct);
     }
 
     public async Task<(IReadOnlyList<string> Entidades, IReadOnlyList<string> Usuarios)> OpcoesFiltroAsync(CancellationToken ct = default)
     {
-        const string sql = """
-            SELECT DISTINCT Entidade FROM Auditoria ORDER BY Entidade;
-            SELECT DISTINCT Usuario FROM Auditoria ORDER BY Usuario;
-            """;
-
-        await using var conexao = conexoes.Criar();
-        await using var multi = await conexao.QueryMultipleAsync(new CommandDefinition(sql, cancellationToken: ct));
-        var entidades = (await multi.ReadAsync<string>()).AsList();
-        var usuarios = (await multi.ReadAsync<string>()).AsList();
-        return (entidades, usuarios);
+        await using var lote = await conexoes.LoteAsync(
+        [
+            "SELECT DISTINCT Entidade FROM Auditoria ORDER BY Entidade",
+            "SELECT DISTINCT Usuario FROM Auditoria ORDER BY Usuario"
+        ], ct: ct);
+        return (await lote.LerAsync<string>(), await lote.LerAsync<string>());
     }
 }

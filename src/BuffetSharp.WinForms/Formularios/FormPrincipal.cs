@@ -10,8 +10,7 @@ using BuffetSharp.WinForms.Formularios.Financeiro;
 using BuffetSharp.WinForms.Formularios.Relatorios;
 using BuffetSharp.WinForms.Formularios.Seguranca;
 using BuffetSharp.WinForms.Infra;
-using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
+using BuffetSharp.Infrastructure.Persistencia;
 
 namespace BuffetSharp.WinForms.Formularios;
 
@@ -34,7 +33,7 @@ internal sealed class FormPrincipal : FormBase
 
     public bool TrocarUsuario { get; private set; }
 
-    public FormPrincipal(Navegador navegador, ISessaoUsuario sessao, BuffetOptions opcoes, IConfiguration configuracao)
+    public FormPrincipal(Navegador navegador, ISessaoUsuario sessao, BuffetOptions opcoes, FabricaConexao banco)
     {
         _navegador = navegador;
         _sessao = sessao;
@@ -64,7 +63,7 @@ internal sealed class FormPrincipal : FormBase
         Controls.Add(conteudo);
         Controls.Add(CriarBarraSuperior(usuario));
         Controls.Add(CriarMenuLateral(usuario));
-        Controls.Add(CriarBarraStatus(usuario, configuracao));
+        Controls.Add(CriarBarraStatus(usuario, banco));
     }
 
     protected override void OnLoad(EventArgs e)
@@ -275,17 +274,9 @@ internal sealed class FormPrincipal : FormBase
         return barra;
     }
 
-    private static Control CriarBarraStatus(UsuarioLogado usuario, IConfiguration configuracao)
+    private static Control CriarBarraStatus(UsuarioLogado usuario, FabricaConexao conexoes)
     {
-        var banco = "(padrão)";
-        try
-        {
-            var conexao = new SqlConnectionStringBuilder(configuracao.GetConnectionString("Buffet") ?? Infrastructure.DependencyInjection.ConexaoPadrao);
-            banco = $"{conexao.InitialCatalog} @ {conexao.DataSource}";
-        }
-        catch (ArgumentException)
-        {
-        }
+        var banco = conexoes.Provedor.DescreverConexao(conexoes.ConnectionString);
 
         var status = new StatusStrip { BackColor = Tema.Fundo, SizingGrip = false };
         status.Items.Add(new ToolStripStatusLabel($"Banco: {banco}") { ForeColor = Tema.TextoSuave });
