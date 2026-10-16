@@ -30,7 +30,9 @@ Todos os nomes e documentos dessa base são fictícios.
 
 As configurações ficam em `src/BuffetSharp.WinForms/appsettings.json`:
 
-- `BancoDeDados:Provedor` e `ConnectionStrings:Buffet`: banco de dados (veja abaixo).
+- `BancoDeDados:Provedor` e `ConnectionStrings:Buffet`: banco de dados (veja abaixo). Para usar uma
+  conexão com usuário e senha só na sua máquina, copie `appsettings.Local.exemplo.json` para
+  `appsettings.Local.json`. Esse arquivo fica fora do git e sobrescreve o `appsettings.json`.
 - `Buffet`: dados da empresa (impressos na proposta e no contrato), intervalo mínimo entre eventos no
   mesmo espaço, validade padrão dos orçamentos, foro do contrato, prazo para confirmar convidados e
   limite de degustações por horário.

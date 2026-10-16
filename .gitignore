@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Configuração local dos testes (contém senha de banco). Modelo: BuffetSharp.runsettings.exemplo
 BuffetSharp.runsettings
+
+# Configuração local do aplicativo (conexão com senha). Modelo: appsettings.Local.exemplo.json
+appsettings.Local.json

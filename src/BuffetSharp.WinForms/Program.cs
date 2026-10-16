@@ -66,6 +66,9 @@ internal static class Program
             ApplicationName = "BuffetSharp"
         });
 
+        // Configuração só desta máquina (ex.: conexão com usuário e senha), fora do git.
+        builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false);
+
         ConfigurarServicos(builder.Services, builder.Configuration);
         return builder.Build();
     }
