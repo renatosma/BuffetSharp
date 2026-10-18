@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Eventos;
@@ -17,8 +18,22 @@ internal sealed class ProdutoConfig : IEntityTypeConfiguration<Produto>
         b.HasOne(x => x.CategoriaProduto).WithMany().HasForeignKey(x => x.CategoriaProdutoId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.UnidadeMedida).WithMany().HasForeignKey(x => x.UnidadeMedidaId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Embalagens).WithOne().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Cascade);
         b.HasIndex(x => x.Nome);
         b.HasIndex(x => x.Codigo).IsUnique().HasFilter("[Codigo] IS NOT NULL");
+    }
+}
+
+internal sealed class ProdutoEmbalagemConfig : IEntityTypeConfiguration<ProdutoEmbalagem>
+{
+    public void Configure(EntityTypeBuilder<ProdutoEmbalagem> b)
+    {
+        b.ToTable("ProdutoEmbalagens");
+        b.Property(x => x.Fator).HasPrecision(18, 4);
+        b.Property(x => x.Descricao).HasMaxLength(60);
+        b.Property(x => x.CodigoFornecedor).HasMaxLength(30);
+        b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.UnidadeMedida).WithMany().HasForeignKey(x => x.UnidadeMedidaId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -31,8 +46,13 @@ internal sealed class MovimentacaoEstoqueConfig : IEntityTypeConfiguration<Movim
         b.Property(x => x.CustoUnitario).HasPrecision(18, 4);
         b.Property(x => x.SaldoApos).HasPrecision(18, 3);
         b.Property(x => x.Observacao).HasMaxLength(300);
+        b.Property(x => x.UnidadeCompra).HasMaxLength(10);
+        b.Property(x => x.QuantidadeCompra).HasPrecision(18, 3);
+        b.Property(x => x.FatorConversao).HasPrecision(18, 4);
+        b.Property(x => x.CustoUnitarioCompra).HasPrecision(18, 4);
         b.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<Evento>().WithMany().HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<Fornecedor>().WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.ProdutoId, x.Data });
         b.HasIndex(x => x.Data);
     }

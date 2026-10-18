@@ -1,4 +1,7 @@
 using BuffetSharp.Application.Abstracoes;
+using BuffetSharp.Application.Servicos;
+using BuffetSharp.Domain.Cadastros;
+using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Seguranca;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,10 +35,61 @@ public sealed class InicializadorBanco(IDbContextFactory<BuffetDbContext> fabric
             await db.SaveChangesAsync(ct);
         }
 
+        // Cadastros que o sistema precisa para funcionar desde o início (também em bancos de versões anteriores).
+        if (!await db.ModelosContrato.AnyAsync(ct))
+        {
+            progresso?.Report("Criando o modelo de contrato padrão...");
+            db.ModelosContrato.Add(new ModeloContrato
+            {
+                Nome = "Contrato padrão",
+                Padrao = true,
+                Conteudo = GeradorContrato.ModeloPadrao.ReplaceLineEndings("\n")
+            });
+            await db.SaveChangesAsync(ct);
+        }
+
+        if (!await db.CondicoesPagamento.AnyAsync(ct))
+        {
+            progresso?.Report("Criando condições de pagamento...");
+            db.CondicoesPagamento.AddRange(CondicoesIniciais());
+            await db.SaveChangesAsync(ct);
+        }
+
         if (dadosDemonstracao && !await db.Clientes.AnyAsync(ct))
         {
             progresso?.Report("Gerando dados de demonstração (cadastros, eventos, financeiro)...");
             await new DadosDemonstracao(db, relogio, hasher, opcoes).PopularAsync(ct);
         }
     }
+
+    /// <summary>Condições mais comuns em buffets; podem ser alteradas ou inativadas no cadastro.</summary>
+    public static IEnumerable<CondicaoPagamento> CondicoesIniciais() =>
+    [
+        new CondicaoPagamento
+        {
+            Nome = "À vista",
+            PercentualEntrada = 100,
+            QuantidadeParcelas = 0,
+            DiasEntrada = 2
+        },
+        new CondicaoPagamento
+        {
+            Nome = "30% de entrada + 5x",
+            PercentualEntrada = 30,
+            DiasEntrada = 2,
+            QuantidadeParcelas = 5,
+            DiasPrimeiraParcela = 30,
+            QuitarDiasAntesEvento = 10
+        },
+        new CondicaoPagamento
+        {
+            Nome = "50% na assinatura + 50% antes do evento",
+            Descricao = "50% na assinatura do contrato e 50% até 10 dias antes do evento",
+            PercentualEntrada = 50,
+            DiasEntrada = 2,
+            QuantidadeParcelas = 1,
+            DiasPrimeiraParcela = 730,
+            QuitarDiasAntesEvento = 10
+        }
+    ];
 }

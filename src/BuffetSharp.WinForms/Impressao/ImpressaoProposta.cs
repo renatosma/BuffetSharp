@@ -1,6 +1,8 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
+using BuffetSharp.Application.Servicos;
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.WinForms.Infra;
 
@@ -10,12 +12,13 @@ namespace BuffetSharp.WinForms.Impressao;
 internal static class ImpressaoProposta
 {
     public static async Task VisualizarAsync(IWin32Window dono, OrcamentoInput o, IConsultasLookup lookups,
-        IConsultasEstoqueCardapio cardapio, BuffetOptions empresa) =>
-        (await MontarAsync(o, lookups, cardapio, empresa)).Visualizar(dono);
+        IConsultasEstoqueCardapio cardapio, BuffetOptions empresa, CondicaoPagamento? condicao = null) =>
+        (await MontarAsync(o, lookups, cardapio, empresa, condicao)).Visualizar(dono);
 
     /// <summary>Monta o documento (para visualizar ou gerar o PDF anexado ao e-mail).</summary>
+    /// <param name="condicao">Condição de pagamento do orçamento (impressa com a simulação das parcelas).</param>
     public static async Task<DocumentoImpresso> MontarAsync(OrcamentoInput o, IConsultasLookup lookups,
-        IConsultasEstoqueCardapio cardapio, BuffetOptions empresa)
+        IConsultasEstoqueCardapio cardapio, BuffetOptions empresa, CondicaoPagamento? condicao = null)
     {
         string Nome(IReadOnlyList<ItemLookup> itens, int? id) => itens.FirstOrDefault(i => i.Id == id)?.Nome ?? "-";
 
@@ -74,6 +77,13 @@ internal static class ImpressaoProposta
         doc.Paragrafo($"Equivale a {Textos.Moeda(o.Convidados == 0 ? 0 : resumo.Total / o.Convidados)} por convidado.");
 
         doc.Secao("Condições");
+        if (condicao is not null)
+        {
+            doc.Paragrafo($"Condição de pagamento: {condicao.Texto}", negrito: true);
+            var simulacao = TextosPagamento.Simulacao(condicao, resumo.Total, DateOnly.FromDateTime(DateTime.Today), o.Data);
+            if (simulacao.Length > 0)
+                doc.Paragrafo(simulacao + ".");
+        }
         doc.Paragrafo($"Proposta válida até {o.ValidoAte:dd/MM/yyyy}. A reserva da data é confirmada mediante assinatura do contrato " +
                       "e pagamento da entrada. Quantidade final de convidados deve ser confirmada com 10 dias de antecedência.");
         if (!string.IsNullOrWhiteSpace(o.Observacoes))

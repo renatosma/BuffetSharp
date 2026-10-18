@@ -36,32 +36,83 @@ public sealed class ContratoService(
     {
         await using var db = fabrica.Criar();
         return await db.Contratos.AsNoTracking()
-                   .Include(c => c.Evento!).ThenInclude(e => e.Cliente)
+                   .Include(c => c.Evento!).ThenInclude(e => e.Cliente!).ThenInclude(c => c.Contatos)
                    .FirstOrDefaultAsync(c => c.Id == contratoId, ct)
                ?? throw new RegraNegocioException("Contrato não encontrado.");
     }
 
     /// <summary>Texto do contrato montado com os dados atuais do evento (pode ser revisado antes da emissão).</summary>
-    public async Task<string> GerarMinutaAsync(int eventoId, CancellationToken ct = default)
+    public Task<string> GerarMinutaAsync(int eventoId, CancellationToken ct = default) => GerarMinutaAsync(eventoId, null, false, ct);
+
+    /// <summary>
+    /// Minuta a partir de um modelo de contrato. Sem modelo, usa o sugerido para o evento (o do tipo de evento ou o
+    /// padrão); <paramref name="emBranco"/> começa um contrato novo, só com as partes e o fechamento.
+    /// </summary>
+    public async Task<string> GerarMinutaAsync(int eventoId, int? modeloContratoId, bool emBranco = false, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var evento = await db.Eventos.AsNoTracking()
-                         .Include(e => e.Cliente)
-                         .Include(e => e.TipoEvento)
-                         .Include(e => e.Espaco)
-                         .Include(e => e.Pacote)
-                         .Include(e => e.Servicos)
-                         .Include(e => e.Parcelas).ThenInclude(p => p.FormaPagamento)
-                         .FirstOrDefaultAsync(e => e.Id == eventoId, ct)
-                     ?? throw new RegraNegocioException("Evento não encontrado.");
+        var evento = await CarregarEventoAsync(db, eventoId, ct);
         Validador.Garantir(evento.Status == StatusEvento.Confirmado, "Somente eventos confirmados podem ter contrato emitido.");
 
+        string? modelo;
+        if (emBranco)
+            modelo = GeradorContrato.ModeloEmBranco;
+        else if (modeloContratoId is { } id)
+            modelo = (await db.ModelosContrato.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id, ct)
+                      ?? throw new RegraNegocioException("Modelo de contrato não encontrado.")).Conteudo;
+        else
+            modelo = (await ModeloSugeridoAsync(db, evento.TipoEventoId, ct))?.Conteudo;
+
+        return await GerarAsync(evento, modelo, ct);
+    }
+
+    /// <summary>Modelo sugerido para o evento: o ativo do tipo do evento (o padrão primeiro) ou, na falta dele, o padrão.</summary>
+    public async Task<int?> ModeloSugeridoAsync(int eventoId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var tipoEventoId = await db.Eventos.Where(e => e.Id == eventoId).Select(e => e.TipoEventoId).FirstOrDefaultAsync(ct);
+        return (await ModeloSugeridoAsync(db, tipoEventoId, ct))?.Id;
+    }
+
+    /// <summary>Texto que um modelo (ainda não salvo) gera para o evento: pré-visualização na tela de modelos.</summary>
+    public async Task<string> PreVisualizarAsync(int eventoId, string modelo, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        return await GerarAsync(await CarregarEventoAsync(db, eventoId, ct), modelo, ct);
+    }
+
+    private static async Task<ModeloContrato?> ModeloSugeridoAsync(IBuffetDbContext db, int tipoEventoId, CancellationToken ct)
+    {
+        var modelos = await db.ModelosContrato.AsNoTracking()
+            .Where(m => m.Ativo && (m.TipoEventoId == tipoEventoId || m.Padrao))
+            .ToListAsync(ct);
+        return modelos.OrderByDescending(m => m.TipoEventoId == tipoEventoId).ThenByDescending(m => m.Padrao).ThenBy(m => m.Id)
+            .FirstOrDefault();
+    }
+
+    private static async Task<Evento> CarregarEventoAsync(IBuffetDbContext db, int eventoId, CancellationToken ct) =>
+        await db.Eventos.AsNoTracking()
+            .Include(e => e.Cliente!).ThenInclude(c => c.Contatos)
+            .Include(e => e.TipoEvento)
+            .Include(e => e.Espaco)
+            .Include(e => e.Pacote)
+            .Include(e => e.CondicaoPagamento)
+            .Include(e => e.Servicos)
+            .Include(e => e.Parcelas).ThenInclude(p => p.FormaPagamento)
+            .FirstOrDefaultAsync(e => e.Id == eventoId, ct)
+        ?? throw new RegraNegocioException("Evento não encontrado.");
+
+    private async Task<string> GerarAsync(Evento evento, string? modelo, CancellationToken ct)
+    {
         var composicao = evento.PacoteId is { } pacoteId ? await cardapio.ComposicaoPacoteAsync(pacoteId, ct) : [];
-        return ModeloContrato.Gerar(opcoes, evento, composicao, DateOnly.FromDateTime(Agora));
+        return GeradorContrato.Gerar(opcoes, evento, composicao, DateOnly.FromDateTime(Agora), modelo);
     }
 
     /// <summary>Emite o contrato com o texto informado. Só pode haver um contrato vigente por evento.</summary>
-    public async Task<int> EmitirAsync(int eventoId, string conteudo, CancellationToken ct = default)
+    public Task<int> EmitirAsync(int eventoId, string conteudo, CancellationToken ct = default) => EmitirAsync(eventoId, conteudo, null, ct);
+
+    /// <param name="modeloContratoId">Modelo que originou o texto (registrado no contrato).</param>
+    public async Task<int> EmitirAsync(int eventoId, string conteudo, int? modeloContratoId, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
         var evento = await db.Eventos.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventoId, ct)
@@ -73,7 +124,7 @@ public sealed class ContratoService(
         Validador.Garantir(vigente is null,
             $"O evento já possui o contrato {vigente?.Codigo} ({(vigente?.Status == StatusContrato.Assinado ? "assinado" : "aguardando assinatura")}). Cancele-o antes de emitir outro.");
 
-        var contrato = new Contrato(eventoId, conteudo, Agora);
+        var contrato = new Contrato(eventoId, conteudo, Agora, modeloContratoId);
         db.Contratos.Add(contrato);
         await db.SaveChangesAsync(ct);
         return contrato.Id;
@@ -95,7 +146,7 @@ public sealed class ContratoService(
         var assinado = contrato.Status == StatusContrato.Assinado;
         return new EmailInput
         {
-            Para = cliente.Email ?? string.Empty,
+            Para = cliente.Email ?? ValidacaoContatos.Primeiro(cliente, TipoContato.Email) ?? string.Empty,
             Assunto = $"{(assinado ? "Contrato assinado" : "Contrato para assinatura")} {contrato.Codigo} - {contrato.Evento.Titulo}",
             Mensagem = $"Olá, {cliente.Nome.Split(' ')[0]}!\n\n" +
                        (assinado

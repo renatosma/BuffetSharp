@@ -12,7 +12,7 @@ public enum TipoPessoa
 /// <summary>
 /// Nível 2 - Cadastro intermediário: dados pessoais, endereço e validação de documento.
 /// </summary>
-public class Cliente : Entidade, IAtivavel, IValidatableObject
+public class Cliente : Entidade, IAtivavel, IValidatableObject, IPossuiContatos
 {
     public TipoPessoa TipoPessoa { get; set; } = TipoPessoa.Fisica;
 
@@ -46,10 +46,20 @@ public class Cliente : Entidade, IAtivavel, IValidatableObject
 
     public bool Ativo { get; set; } = true;
 
+    /// <summary>Telefones e e-mails além dos principais.</summary>
+    public List<ContatoAdicional> Contatos { get; set; } = [];
+
+    /// <summary>Endereços além do principal (cobrança, entrega...).</summary>
+    public List<EnderecoAdicional> Enderecos { get; set; } = [];
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (string.IsNullOrWhiteSpace(Telefone) && string.IsNullOrWhiteSpace(Celular) && string.IsNullOrWhiteSpace(Email))
+        if (string.IsNullOrWhiteSpace(Telefone) && string.IsNullOrWhiteSpace(Celular) && string.IsNullOrWhiteSpace(Email) &&
+            Contatos.All(c => string.IsNullOrWhiteSpace(c.Valor)))
             yield return new ValidationResult("Informe ao menos um contato (telefone, celular ou e-mail).", [nameof(Celular)]);
+
+        foreach (var erro in ValidacaoContatos.Validar(this))
+            yield return erro;
 
         if (!string.IsNullOrWhiteSpace(Documento))
         {

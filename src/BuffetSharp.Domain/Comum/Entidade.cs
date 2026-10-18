@@ -24,6 +24,12 @@ public interface IAtivavel
     bool Ativo { get; set; }
 }
 
+/// <summary>Cadastros em que só um registro pode ser o padrão: ao marcar um, os demais são desmarcados ao salvar.</summary>
+public interface IPadraoUnico
+{
+    bool Padrao { get; set; }
+}
+
 /// <summary>
 /// Entidades com propriedades mantidas apenas pelo sistema (ex.: saldo de estoque),
 /// que não devem ser sobrescritas quando o cadastro é salvo pela tela.

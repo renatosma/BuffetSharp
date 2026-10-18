@@ -1,5 +1,6 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
+using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.WinForms.Formularios.Eventos;
@@ -166,7 +167,7 @@ internal sealed class FormOrcamentos : FormListagem<OrcamentoResumo>
             return;
         var email = await _propostas.PrepararEmailAsync(item.Id);
         var orcamento = await _servico.ObterAsync(item.Id);
-        var documento = await ImpressaoProposta.MontarAsync(orcamento, _lookups, _cardapio, _opcoes);
+        var documento = await ImpressaoProposta.MontarAsync(orcamento, _lookups, _cardapio, _opcoes, await CondicaoAsync(orcamento));
         if (DialogosEnvio.Email(this, $"Enviar proposta {item.Codigo}", email, "proposta",
                 () => DialogosEnvio.Pdf($"Proposta {item.Codigo}", documento.GerarPdf()), e => _propostas.EnviarEmailAsync(item.Id, e), _email.Destino))
         {
@@ -196,6 +197,11 @@ internal sealed class FormOrcamentos : FormListagem<OrcamentoResumo>
         if (Selecionado() is not { } item)
             return;
         var orcamento = await _servico.ObterAsync(item.Id);
-        await ImpressaoProposta.VisualizarAsync(this, orcamento, _lookups, _cardapio, _opcoes);
+        await ImpressaoProposta.VisualizarAsync(this, orcamento, _lookups, _cardapio, _opcoes, await CondicaoAsync(orcamento));
     }
+
+    private async Task<Domain.Cadastros.CondicaoPagamento?> CondicaoAsync(OrcamentoInput orcamento) =>
+        orcamento.CondicaoPagamentoId is { } id
+            ? await _navegador.Servico<ICadastroService<Domain.Cadastros.CondicaoPagamento>>().ObterAsync(id)
+            : null;
 }

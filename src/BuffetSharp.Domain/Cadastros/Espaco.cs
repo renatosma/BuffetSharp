@@ -19,6 +19,9 @@ public class Espaco : Entidade, IAtivavel
     [Range(0, 10_000_000, ErrorMessage = "Valor de locação inválido.")]
     public decimal ValorLocacao { get; set; }
 
+    /// <summary>Onde fica o espaço (citado no contrato). Vazio: usa o endereço da empresa.</summary>
+    public Endereco Endereco { get; set; } = new();
+
     public bool Ativo { get; set; } = true;
 
     public override string ToString() => $"{Nome} (até {CapacidadeMaxima} pessoas)";

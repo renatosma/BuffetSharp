@@ -57,6 +57,10 @@ public class Orcamento : Entidade
     public int? VendedorId { get; private set; }
     public Usuario? Vendedor { get; private set; }
 
+    /// <summary>Condição de pagamento proposta (impressa na proposta e levada para o evento na aprovação).</summary>
+    public int? CondicaoPagamentoId { get; private set; }
+    public CondicaoPagamento? CondicaoPagamento { get; private set; }
+
     public DateTime Inicio { get; private set; }
     public DateTime Fim { get; private set; }
     public int QuantidadeConvidados { get; private set; }
@@ -177,6 +181,13 @@ public class Orcamento : Entidade
         VendedorId = vendedorId;
     }
 
+    public void DefinirCondicaoPagamento(int? condicaoPagamentoId)
+    {
+        GarantirEditavel();
+        Validador.Garantir(condicaoPagamentoId is null or > 0, "Condição de pagamento inválida.");
+        CondicaoPagamentoId = condicaoPagamentoId;
+    }
+
     public void AplicarDesconto(decimal percentual)
     {
         GarantirEditavel();
@@ -260,6 +271,7 @@ public class Orcamento : Entidade
             PacoteId = PacoteId,
             EspacoId = EspacoId,
             VendedorId = VendedorId,
+            CondicaoPagamentoId = CondicaoPagamentoId,
             ValorPorPessoa = ValorPorPessoa,
             ValorEspaco = ValorEspaco,
             PercentualDesconto = PercentualDesconto,

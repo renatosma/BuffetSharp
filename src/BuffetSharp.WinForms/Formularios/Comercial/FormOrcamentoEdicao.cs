@@ -3,6 +3,7 @@ using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.WinForms.Impressao;
@@ -24,6 +25,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly IConsultasLookup _lookups;
     private readonly IConsultasEstoqueCardapio _cardapio;
     private readonly BuffetOptions _opcoes;
+    private readonly ICadastroService<CondicaoPagamento> _condicoesPagamento;
     private readonly AberturaOrcamento _abertura;
 
     private OrcamentoInput _input = new();
@@ -32,11 +34,13 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private IReadOnlyList<ItemLookup> _pacotes = [];
     private IReadOnlyList<ItemLookup> _espacos = [];
     private IReadOnlyList<ItemLookup> _catalogoServicos = [];
+    private List<CondicaoPagamento> _condicoes = [];
 
     private readonly Panel _corpo = new() { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(16, 8, 8, 8), BackColor = Tema.Superficie };
     private readonly Label _titulo = Tema.Titulo("Orçamento");
     private readonly Label _status = new() { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(12, 8, 0, 0) };
     private readonly Label _disponivel = new() { AutoSize = true, Font = Tema.FonteNegrito };
+    private readonly Label _simulacaoPagamento = new() { AutoSize = true, ForeColor = Tema.TextoSuave };
     private readonly DataGridView _gradeServicos = new() { Height = 150 };
     private readonly ComboBox _novoServico = new() { Width = 260, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly System.Windows.Forms.Timer _atrasoDisponibilidade = new() { Interval = 450 };
@@ -53,7 +57,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly ListBox _composicao = new() { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, IntegralHeight = false };
 
     private NumericUpDown _convidados = null!, _valorPessoa = null!, _valorLocacao = null!, _percentual = null!;
-    private ComboBox _pacote = null!, _espaco = null!;
+    private ComboBox _pacote = null!, _espaco = null!, _condicao = null!;
     private DateTimePicker _data = null!, _inicio = null!, _fim = null!;
 
     private readonly Button _salvar = Tema.BotaoPrimario("Salvar", Icones.Salvar);
@@ -61,13 +65,15 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly Button _imprimir = Tema.BotaoSecundario("Imprimir proposta", Icones.Imprimir);
 
     public FormOrcamentoEdicao(OrcamentoService servico, DisponibilidadeService disponibilidade, IConsultasLookup lookups,
-        IConsultasEstoqueCardapio cardapio, BuffetOptions opcoes, AberturaOrcamento abertura)
+        IConsultasEstoqueCardapio cardapio, BuffetOptions opcoes, ICadastroService<CondicaoPagamento> condicoesPagamento,
+        AberturaOrcamento abertura)
     {
         _servico = servico;
         _disponibilidade = disponibilidade;
         _lookups = lookups;
         _cardapio = cardapio;
         _opcoes = opcoes;
+        _condicoesPagamento = condicoesPagamento;
         _abertura = abertura;
 
         Text = "Orçamento";
@@ -153,6 +159,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
             _pacotes = await _lookups.ListarAsync(TipoLookup.Pacotes);
             _espacos = await _lookups.ListarAsync(TipoLookup.Espacos);
             _catalogoServicos = await _lookups.ListarAsync(TipoLookup.ServicosAdicionais);
+            _condicoes = await _condicoesPagamento.ListarAsync(q => q.OrderBy(c => c.Nome));
 
             _input = _abertura.OrcamentoId > 0 ? await _servico.ObterAsync(_abertura.OrcamentoId) : _servico.Novo();
             if (_abertura.OrcamentoId == 0 && _abertura.ClienteId > 0)
@@ -201,6 +208,12 @@ internal sealed class FormOrcamentoEdicao : FormBase
         e.Secao("Condições comerciais");
         _percentual = e.Decimal($"Desconto (%) - máx. {CalculadoraValores.DescontoMaximoPercentual}%", () => i.PercentualDesconto,
             v => i.PercentualDesconto = v, nameof(i.PercentualDesconto), 2, 0, CalculadoraValores.DescontoMaximoPercentual);
+        // Condições inativas continuam aparecendo no orçamento que já as usa.
+        var condicoes = _condicoes.Where(c => c.Ativo || c.Id == i.CondicaoPagamentoId)
+            .Select(c => new ItemLookup { Id = c.Id, Nome = c.Nome }).ToList();
+        _condicao = e.Lista("Condição de pagamento", condicoes, () => i.CondicaoPagamentoId, v => i.CondicaoPagamentoId = v,
+            nameof(i.CondicaoPagamentoId), permitirVazio: true, span: 2);
+        e.Livre(_simulacaoPagamento);
         e.Texto("Observações (impressas na proposta)", () => i.Observacoes, v => i.Observacoes = v, nameof(i.Observacoes), 2000, span: 3, linhas: 3);
 
         _corpo.Controls.Clear();
@@ -297,6 +310,8 @@ internal sealed class FormOrcamentoEdicao : FormBase
         };
         foreach (var numero in new[] { _valorPessoa, _valorLocacao, _percentual })
             numero.ValueChanged += (_, _) => Recalcular();
+        _condicao.SelectedIndexChanged += (_, _) => Recalcular();
+        _data.ValueChanged += (_, _) => Recalcular();
         foreach (var data in new[] { _data, _inicio, _fim })
             data.ValueChanged += (_, _) => AgendarVerificacao();
     }
@@ -329,6 +344,11 @@ internal sealed class FormOrcamentoEdicao : FormBase
         if (_espaco.SelectedItem is ItemLookup { Id: > 0 } espaco && convidados > espaco.Numero)
             alertas.Add($"⚠ O espaço comporta no máximo {espaco.Numero} pessoas.");
         _alertas.Text = string.Join(Environment.NewLine, alertas);
+
+        var condicao = _condicao.SelectedItem is ItemLookup { Id: > 0 } item ? _condicoes.FirstOrDefault(c => c.Id == item.Id) : null;
+        _simulacaoPagamento.Text = condicao is null
+            ? "Sem condição de pagamento definida (o plano é combinado depois, no evento)."
+            : $"{condicao.Texto}: {TextosPagamento.Simulacao(condicao, resumo.Total, DateOnly.FromDateTime(DateTime.Today), DateOnly.FromDateTime(_data.Value))}";
     }
 
     private async Task AtualizarComposicaoAsync()
@@ -422,6 +442,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
             _editor.Aplicar();
             _input.Servicos = _servicos.ToList();
         }
-        await ImpressaoProposta.VisualizarAsync(this, _input, _lookups, _cardapio, _opcoes);
+        await ImpressaoProposta.VisualizarAsync(this, _input, _lookups, _cardapio, _opcoes,
+            _condicoes.FirstOrDefault(c => c.Id == _input.CondicaoPagamentoId));
     }
 }

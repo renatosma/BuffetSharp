@@ -258,6 +258,15 @@ internal sealed class EditorCampos
         _coluna = _colunas;
     }
 
+    /// <summary>Ação extra executada ao carregar os campos (ex.: preencher uma lista editável).</summary>
+    public void AoCarregar(Action acao) => _carregar.Add(acao);
+
+    /// <summary>Ação extra executada antes de salvar (ex.: devolver ao cadastro os itens de uma lista editável).</summary>
+    public void AoAplicar(Action acao) => _aplicar.Add(acao);
+
+    /// <summary>Associa um controle livre a uma propriedade, para destacar os erros de validação dela.</summary>
+    public void Associar(string propriedade, Control controle) => _porPropriedade[propriedade] = controle;
+
     public void NovaLinha()
     {
         _linha++;

@@ -23,7 +23,8 @@ public class Contrato : Entidade
     {
     }
 
-    public Contrato(int eventoId, string conteudo, DateTime agora)
+    /// <param name="modeloContratoId">Modelo usado para gerar o texto (nulo quando escrito do zero ou pelo modelo do sistema).</param>
+    public Contrato(int eventoId, string conteudo, DateTime agora, int? modeloContratoId = null)
     {
         Validador.Garantir(eventoId > 0, "Evento inválido.");
         Validador.Garantir(!string.IsNullOrWhiteSpace(conteudo) && conteudo.Trim().Length >= 100,
@@ -32,12 +33,16 @@ public class Contrato : Entidade
         Conteudo = conteudo.ReplaceLineEndings("\n").Trim();
         HashConteudo = CalcularHash(Conteudo);
         EmitidoEm = agora;
+        ModeloContratoId = modeloContratoId;
     }
 
     public string Codigo => EhNovo ? "(novo)" : $"CTR-{Id:D5}";
 
     public int EventoId { get; private set; }
     public Evento? Evento { get; private set; }
+
+    /// <summary>Modelo de contrato que originou o texto (somente para consulta: o texto vale como foi emitido).</summary>
+    public int? ModeloContratoId { get; private set; }
 
     public string Conteudo { get; private set; } = string.Empty;
 

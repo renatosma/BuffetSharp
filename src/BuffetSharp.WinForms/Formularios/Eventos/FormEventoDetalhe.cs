@@ -450,7 +450,7 @@ internal sealed class FormEventoDetalhe : FormBase
         var barra = BarraAba();
         BotaoContrato(barra, "Gerar contrato", Icones.Pagina, async () =>
         {
-            if (await DialogosContrato.EmitirAsync(this, _contratos, _eventoId) is not null)
+            if (await DialogosContrato.EmitirAsync(this, _contratos, _lookups, _eventoId) is not null)
                 await CarregarContratosAsync();
         }, c => c is null && Evento.Status == StatusEvento.Confirmado, primario: true);
         BotaoContrato(barra, "Coletar assinaturas", Icones.Caneta, async () =>
@@ -587,7 +587,8 @@ internal sealed class FormEventoDetalhe : FormBase
     private async Task PlanoPagamentoAsync()
     {
         var saldo = Evento.ValorTotal - Evento.Parcelas.Where(p => p.Status == StatusTitulo.Pago).Sum(p => p.Valor);
-        if (await DialogosEvento.PlanoPagamentoAsync(this, _eventos, _lookups, _eventoId, saldo, Evento.DataEvento))
+        if (await DialogosEvento.PlanoPagamentoAsync(this, _eventos, _lookups, _eventoId, saldo, Evento.DataEvento,
+                Evento.CondicaoPagamentoId))
             await CarregarAsync();
     }
 

@@ -1,7 +1,7 @@
 namespace BuffetSharp.Domain.Comum;
 
 /// <summary>
-/// Validação e formatação de CPF e CNPJ.
+/// Validação e formatação de CPF, CNPJ e telefone.
 /// </summary>
 public static class Documento
 {
@@ -55,6 +55,19 @@ public static class Documento
             11 => Convert.ToUInt64(d).ToString(@"000\.000\.000\-00"),
             14 => Convert.ToUInt64(d).ToString(@"00\.000\.000\/0000\-00"),
             _ => documento ?? string.Empty
+        };
+    }
+
+    /// <summary>Telefone brasileiro: "11987654321" → "(11) 98765-4321"; "1133334444" → "(11) 3333-4444". Outros formatos ficam como digitados.</summary>
+    public static string FormatarTelefone(string? telefone)
+    {
+        var texto = telefone?.Trim() ?? string.Empty;
+        var d = SomenteDigitos(texto);
+        return d.Length switch
+        {
+            11 => $"({d[..2]}) {d[2..7]}-{d[7..]}",
+            10 => $"({d[..2]}) {d[2..6]}-{d[6..]}",
+            _ => texto
         };
     }
 }

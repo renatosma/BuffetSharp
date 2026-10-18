@@ -7,7 +7,7 @@ namespace BuffetSharp.Domain.Estoque;
 /// <summary>
 /// Insumo controlado em estoque. O saldo e o custo médio só mudam por movimentações.
 /// </summary>
-public class Produto : Entidade, IAtivavel, ICamposControlados
+public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObject
 {
     [Required(ErrorMessage = "Informe o nome.")]
     [MaxLength(120)]
@@ -38,6 +38,9 @@ public class Produto : Entidade, IAtivavel, ICamposControlados
 
     public bool Ativo { get; set; } = true;
 
+    /// <summary>Embalagens de compra com a conversão para a unidade do estoque (por fornecedor).</summary>
+    public List<ProdutoEmbalagem> Embalagens { get; set; } = [];
+
     public bool AbaixoDoMinimo => EstoqueAtual < EstoqueMinimo;
 
     public decimal ValorEmEstoque => Math.Round(Math.Max(EstoqueAtual, 0) * CustoMedio, 2);
@@ -55,6 +58,34 @@ public class Produto : Entidade, IAtivavel, ICamposControlados
         EstoqueAtual += quantidade;
 
         return new MovimentacaoEstoque(this, TipoMovimentacao.Entrada, quantidade, custoUnitario, data, observacao);
+    }
+
+    /// <summary>
+    /// Entrada de uma compra informada na unidade do fornecedor: a quantidade e o custo são convertidos para a unidade do
+    /// estoque pela embalagem, e a movimentação guarda o que foi comprado (unidade, quantidade, fator e fornecedor).
+    /// </summary>
+    /// <param name="quantidade">Quantidade na unidade de compra (ou na do estoque, sem embalagem).</param>
+    /// <param name="custoUnitario">Custo de uma unidade de compra (ou do estoque, sem embalagem).</param>
+    public MovimentacaoEstoque RegistrarCompra(decimal quantidade, decimal custoUnitario, DateTime data, string? observacao,
+        int? fornecedorId, ProdutoEmbalagem? embalagem)
+    {
+        Validador.Garantir(quantidade > 0, "A quantidade da entrada deve ser maior que zero.");
+        Validador.Garantir(custoUnitario >= 0, "O custo unitário não pode ser negativo.");
+        if (embalagem is null)
+        {
+            var simples = RegistrarEntrada(quantidade, custoUnitario, data, observacao);
+            simples.RegistrarCompra(fornecedorId, null, null, null, null);
+            return simples;
+        }
+
+        Validador.Garantir(embalagem.ProdutoId == Id, "A embalagem informada não é deste produto.");
+        Validador.Garantir(embalagem.FornecedorId is null || embalagem.FornecedorId == fornecedorId,
+            "Esta embalagem é de outro fornecedor. Escolha o fornecedor da compra ou outra embalagem.");
+        Validador.Garantir(embalagem.Fator > 0, "A conversão da embalagem é inválida.");
+
+        var movimentacao = RegistrarEntrada(embalagem.ParaEstoque(quantidade), embalagem.CustoNoEstoque(custoUnitario), data, observacao);
+        movimentacao.RegistrarCompra(fornecedorId, embalagem.UnidadeMedida?.Sigla, quantidade, embalagem.Fator, custoUnitario);
+        return movimentacao;
     }
 
     public MovimentacaoEstoque RegistrarSaida(decimal quantidade, DateTime data, string? observacao,
@@ -77,6 +108,22 @@ public class Produto : Entidade, IAtivavel, ICamposControlados
         var diferenca = saldoContado - EstoqueAtual;
         EstoqueAtual = saldoContado;
         return new MovimentacaoEstoque(this, TipoMovimentacao.Ajuste, diferenca, CustoMedio, data, observacao);
+    }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        foreach (var embalagem in Embalagens)
+        {
+            if (embalagem.UnidadeMedidaId <= 0)
+                yield return new ValidationResult("Selecione a unidade de compra de cada embalagem.", [nameof(Embalagens)]);
+            if (embalagem.Fator <= 0 || embalagem.Fator > ProdutoEmbalagem.FatorMaximo)
+                yield return new ValidationResult("A quantidade de cada embalagem (conversão) deve ser maior que zero.", [nameof(Embalagens)]);
+            if (embalagem.Descricao?.Length > 60 || embalagem.CodigoFornecedor?.Length > 30)
+                yield return new ValidationResult("Descrição da embalagem até 60 caracteres e código no fornecedor até 30.", [nameof(Embalagens)]);
+        }
+
+        if (Embalagens.GroupBy(e => (e.FornecedorId, e.UnidadeMedidaId)).Any(g => g.Count() > 1))
+            yield return new ValidationResult("Há embalagens repetidas (mesmo fornecedor e mesma unidade de compra).", [nameof(Embalagens)]);
     }
 
     public override string ToString() => Nome;

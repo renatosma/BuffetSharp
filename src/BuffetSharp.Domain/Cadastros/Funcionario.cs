@@ -3,7 +3,7 @@ using BuffetSharp.Domain.Comum;
 
 namespace BuffetSharp.Domain.Cadastros;
 
-public class Funcionario : Entidade, IAtivavel, IValidatableObject
+public class Funcionario : Entidade, IAtivavel, IValidatableObject, IPossuiContatos
 {
     [Required(ErrorMessage = "Informe o nome.")]
     [MaxLength(150)]
@@ -30,15 +30,26 @@ public class Funcionario : Entidade, IAtivavel, IValidatableObject
 
     public DateOnly? DataAdmissao { get; set; }
 
+    public Endereco Endereco { get; set; } = new();
+
     [MaxLength(1000)]
     public string? Observacoes { get; set; }
 
     public bool Ativo { get; set; } = true;
 
+    /// <summary>Telefones e e-mails além dos principais (recado, contato de emergência...).</summary>
+    public List<ContatoAdicional> Contatos { get; set; } = [];
+
+    /// <summary>Endereços além do principal.</summary>
+    public List<EnderecoAdicional> Enderecos { get; set; } = [];
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (!string.IsNullOrWhiteSpace(Cpf) && !Documento.CpfValido(Cpf))
             yield return new ValidationResult("CPF inválido.", [nameof(Cpf)]);
+
+        foreach (var erro in ValidacaoContatos.Validar(this))
+            yield return erro;
     }
 
     public override string ToString() => Nome;

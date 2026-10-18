@@ -4,6 +4,7 @@ using System.Text;
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +35,7 @@ public sealed class PropostaService(
         var o = await CarregarAsync(orcamentoId, ct);
         return new EmailInput
         {
-            Para = o.Cliente!.Email ?? string.Empty,
+            Para = o.Cliente!.Email ?? ValidacaoContatos.Primeiro(o.Cliente, TipoContato.Email) ?? string.Empty,
             Assunto = $"Proposta {o.Codigo} - {o.TipoEvento?.Nome} em {o.DataEvento:dd/MM/yyyy} | {opcoes.NomeEmpresa}",
             Mensagem = $"Olá, {o.Cliente.Nome.Split(' ')[0]}!\n\n" +
                        "Obrigado pelo interesse. Segue a nossa proposta para o seu evento, com o cardápio, os serviços e os valores. " +
@@ -80,11 +81,15 @@ public sealed class PropostaService(
             texto.Append($"✨ Serviços: {string.Join(", ", o.Servicos.Select(s => s.Descricao))}\n");
         if (resumo.Desconto > 0)
             texto.Append($"🎁 Desconto de {o.PercentualDesconto:0.##}%\n");
-        texto.Append($"\n*Total: {Moeda(resumo.Total)}* ({Moeda(o.QuantidadeConvidados == 0 ? 0 : resumo.Total / o.QuantidadeConvidados)} por convidado)\n")
+        texto.Append($"\n*Total: {Moeda(resumo.Total)}* ({Moeda(o.QuantidadeConvidados == 0 ? 0 : resumo.Total / o.QuantidadeConvidados)} por convidado)\n");
+        if (o.CondicaoPagamento is { } condicao)
+            texto.Append($"💳 {TextosPagamento.Completo(condicao, resumo.Total, DateOnly.FromDateTime(Agora), o.DataEvento)}\n");
+        texto
             .Append($"Proposta válida até {o.ValidoAte:dd/MM/yyyy}.\n\n")
             .Append("Posso te enviar a proposta completa por e-mail ou agendar uma degustação? 😊");
 
-        return new MensagemWhatsApp(o.Cliente.Celular ?? o.Cliente.Telefone ?? string.Empty, texto.ToString());
+        var telefone = o.Cliente.Celular ?? ValidacaoContatos.Primeiro(o.Cliente, TipoContato.WhatsApp, TipoContato.Celular) ?? o.Cliente.Telefone;
+        return new MensagemWhatsApp(telefone ?? string.Empty, texto.ToString());
     }
 
     /// <summary>Registra o envio após o usuário abrir o WhatsApp com a mensagem.</summary>
@@ -103,10 +108,11 @@ public sealed class PropostaService(
     // ------------------------- Infra -------------------------
 
     private static IQueryable<Orcamento> IncluirDetalhes(IQueryable<Orcamento> consulta) => consulta
-        .Include(o => o.Cliente)
+        .Include(o => o.Cliente!).ThenInclude(c => c.Contatos)
         .Include(o => o.TipoEvento)
         .Include(o => o.Espaco)
         .Include(o => o.Pacote)
+        .Include(o => o.CondicaoPagamento)
         .Include(o => o.Servicos);
 
     private async Task<Orcamento> CarregarAsync(int orcamentoId, CancellationToken ct)
@@ -172,6 +178,10 @@ public sealed class PropostaService(
             Valor($"Desconto ({o.PercentualDesconto:0.##}%)", "- " + Moeda(resumo.Desconto));
         html.Append($"<tr><td style=\"padding:10px;font-size:16px\"><b>Total</b></td><td style=\"padding:10px;text-align:right;font-size:18px;color:#8b1e3f\"><b>{H(Moeda(resumo.Total))}</b></td></tr>");
         html.Append("</table>");
+
+        if (o.CondicaoPagamento is { } condicao)
+            html.Append($"<p><b>Condição de pagamento:</b> {H(condicao.Texto)}<br>" +
+                        $"{H(TextosPagamento.Simulacao(condicao, resumo.Total, DateOnly.FromDateTime(Agora), o.DataEvento))}</p>");
 
         html.Append($"<p style=\"color:#6e6a66\">Proposta válida até {o.ValidoAte:dd/MM/yyyy}. A reserva da data é confirmada mediante assinatura do contrato e pagamento da entrada.</p>");
         if (!string.IsNullOrWhiteSpace(o.Observacoes))

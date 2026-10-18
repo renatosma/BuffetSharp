@@ -3,7 +3,7 @@ using BuffetSharp.Domain.Comum;
 
 namespace BuffetSharp.Domain.Cadastros;
 
-public class Fornecedor : Entidade, IAtivavel, IValidatableObject
+public class Fornecedor : Entidade, IAtivavel, IValidatableObject, IPossuiContatos
 {
     [Required(ErrorMessage = "Informe a razão social.")]
     [MaxLength(150)]
@@ -33,6 +33,12 @@ public class Fornecedor : Entidade, IAtivavel, IValidatableObject
 
     public bool Ativo { get; set; } = true;
 
+    /// <summary>Telefones e e-mails além dos principais (vendedor, financeiro, entregas...).</summary>
+    public List<ContatoAdicional> Contatos { get; set; } = [];
+
+    /// <summary>Endereços além do principal (depósito, retirada...).</summary>
+    public List<EnderecoAdicional> Enderecos { get; set; } = [];
+
     public string NomeExibicao => string.IsNullOrWhiteSpace(NomeFantasia) ? RazaoSocial : NomeFantasia;
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -40,6 +46,9 @@ public class Fornecedor : Entidade, IAtivavel, IValidatableObject
         if (!string.IsNullOrWhiteSpace(Documento) &&
             !Comum.Documento.CnpjValido(Documento) && !Comum.Documento.CpfValido(Documento))
             yield return new ValidationResult("CNPJ/CPF inválido.", [nameof(Documento)]);
+
+        foreach (var erro in ValidacaoContatos.Validar(this))
+            yield return erro;
     }
 
     public override string ToString() => NomeExibicao;

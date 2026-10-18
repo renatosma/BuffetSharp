@@ -116,8 +116,8 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 
 | Nível | Exemplos | Como é modelado |
 |-------|----------|-----------------|
-| **1 – Tabelas de apoio** | Tipos de evento, seções do cardápio, unidades, formas de pagamento, cargos, espaços, serviços | Entidades simples com DataAnnotations. Uma **única tela genérica** (`FormCadastro<T>`) atende todas, configurada de forma declarativa em `DefinicoesCadastros.cs` |
-| **2 – Cadastros intermediários** | Clientes (PF/PJ, CPF/CNPJ, endereço), fornecedores, funcionários, produtos | Validação de documento (`IValidatableObject`), tipo complexo `Endereco`, relacionamentos. O saldo de estoque só muda por movimentação (é protegido contra sobrescrita pela tela) |
+| **1 – Tabelas de apoio** | Tipos de evento, seções do cardápio, unidades, formas e condições de pagamento, modelos de contrato, cargos, espaços, serviços | Entidades simples com DataAnnotations. Uma **única tela genérica** (`FormCadastro<T>`) atende todas, configurada de forma declarativa em `DefinicoesCadastros.cs` |
+| **2 – Cadastros intermediários** | Clientes (PF/PJ, CPF/CNPJ, endereço), fornecedores, funcionários, produtos | Validação de documento (`IValidatableObject`), tipo complexo `Endereco`, relacionamentos e listas do próprio cadastro (contatos e endereços adicionais, embalagens do produto), gravadas junto pela tela genérica. O saldo de estoque só muda por movimentação (é protegido contra sobrescrita pela tela) |
 | **3 – Entidades ricas** | Ficha técnica, pacote, **orçamento**, **evento**, parcelas, contas a pagar | Setters privados, métodos de domínio e ciclo de vida com estados. Telas dedicadas |
 
 ## Funcionalidades
@@ -126,20 +126,27 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   conversão, estoque a repor, gráfico contratado × recebido, próximos eventos.
 - **Agenda**: calendário mensal por espaço, com as pré-reservas (orçamentos enviados) tracejadas.
 - **Orçamentos**: pacote e espaço com valor negociável, serviços adicionais (fixos ou por pessoa),
-  desconto e resumo em tempo real. A disponibilidade do espaço é verificada durante a edição.
+  desconto, condição de pagamento com a simulação das parcelas e resumo em tempo real. A disponibilidade do espaço é verificada durante a edição.
   Ciclo Rascunho → Enviado → Aprovado/Recusado, duplicação e **proposta impressa**.
 - **Eventos**: criados ao aprovar o orçamento ou em venda direta. A tela tem:
   - resumo com **resultado estimado** (receita − insumos − equipe − despesas);
   - insumos previstos;
   - escala da **equipe** com presença;
   - **convidados**, com importação colada do Excel, RSVP e **check-in**;
-  - **plano de pagamento** com entrada e parcelas;
+  - **plano de pagamento** com entrada e parcelas, preenchido pela condição de pagamento (mensais ou a cada N dias);
   - encerramento com **baixa automática de estoque** (ficha técnica × convidados);
   - cancelamento;
   - ficha do evento impressa.
 - **Cardápio**: itens com ficha técnica (insumos por convidado) e custo por pessoa. Pacotes mostram
   custo e margem.
-- **Estoque**: entrada (com **custo médio ponderado**), saída, inventário e kardex completo.
+- **Estoque**: entrada (com **custo médio ponderado**), saída, inventário e kardex completo. A entrada aceita a
+  **embalagem do fornecedor** (ex.: 2 caixas com 12 = 24 UN): quantidade e custo são convertidos para a unidade do
+  estoque e o kardex mostra o que foi comprado.
+- **Contatos e endereços**: clientes, fornecedores e funcionários têm, além do telefone, e-mail e endereço principais,
+  quantos telefones, WhatsApps, e-mails e endereços adicionais forem precisos (com observação: "mãe da noiva",
+  "financeiro", "cobrança"...). A pesquisa de clientes e fornecedores encontra também os contatos adicionais.
+- **Condições de pagamento**: regras de prazo (entrada, número de parcelas, intervalo, quitação até N dias antes do
+  evento), separadas das formas de pagamento (PIX, cartão...). Aparecem na proposta, no plano de pagamento e no contrato.
 - **Financeiro**: contas a receber e a pagar, com pagamento (juros ou desconto pelo valor pago),
   estorno e despesas recorrentes. Despesas podem ser vinculadas a um evento.
 - **Relatórios**: faturamento por tipo de evento, ranking de pacotes, lucratividade por evento
@@ -148,8 +155,12 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   WhatsApp com o resumo pronto). Cada envio fica no histórico e o rascunho passa a "Enviado".
 - **Degustações**: agenda com limite de degustações por horário, avaliação de 1 a 5, faltas,
   cancelamento e taxa de conversão (clientes que fecharam depois da degustação).
-- **Contratos com assinatura**: o contrato é gerado do evento (partes, data, cardápio, serviços,
-  parcelas, rescisão e foro), revisado e emitido. O texto fica protegido por um código SHA-256. A
+- **Modelos de contrato**: textos-base com campos como `{{CLIENTE_NOME}}`, `{{DATA_EVENTO_EXTENSO}}`,
+  `{{LOCAL_ENDERECO}}`, `{{VALOR_TOTAL_EXTENSO}}` e `{{PARCELAS}}`, trocados pelos dados do evento. As cláusulas são
+  numeradas sozinhas (`CLÁUSULA {{N}}ª`). Pode haver um modelo por tipo de evento e um padrão; na emissão escolhe-se o
+  modelo ou um contrato em branco. A tela de modelos lista os campos, pré-visualiza com um evento e duplica modelos.
+- **Contratos com assinatura**: o contrato é gerado do evento pelo modelo (partes, data, local, cardápio, serviços,
+  condição de pagamento, parcelas, rescisão e foro), revisado e emitido. O texto fica protegido por um código SHA-256. A
   assinatura do contratante (e do representante do buffet) é desenhada na tela com mouse, caneta ou
   toque. O contrato sai impresso ou em PDF com as assinaturas, e pode ser enviado por e-mail. Também é
   possível cancelar ou registrar o distrato e emitir um novo.
@@ -191,9 +202,10 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **122 testes** (xUnit v3): 108 de domínio, integração e bancos, e 14 das telas.
+São **150 testes** (xUnit v3): 136 de domínio, integração e bancos, e 14 das telas.
 
-- **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote.
+- **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
+  pagamento, modelos de contrato, valor por extenso, conversão de embalagens e contatos adicionais.
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação, tradução de erros de banco). O banco é

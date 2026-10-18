@@ -58,6 +58,7 @@ public sealed class OrcamentoService(
             ValorPorPessoa = o.ValorPorPessoa,
             ValorEspaco = o.ValorEspaco,
             PercentualDesconto = o.PercentualDesconto,
+            CondicaoPagamentoId = o.CondicaoPagamentoId,
             Observacoes = o.Observacoes,
             Servicos = o.Servicos.Select(s => new ServicoItemInput
             {
@@ -104,6 +105,16 @@ public sealed class OrcamentoService(
                 s.Quantidade, s.ValorUnitario)));
 
         orcamento.AplicarDesconto(input.PercentualDesconto);
+
+        if (input.CondicaoPagamentoId != orcamento.CondicaoPagamentoId)
+        {
+            if (input.CondicaoPagamentoId is { } condicaoId)
+            {
+                var condicao = await db.CondicoesPagamento.FindAsync([condicaoId], ct);
+                Validador.Garantir(condicao?.Ativo == true, "A condição de pagamento não existe ou está inativa.");
+            }
+            orcamento.DefinirCondicaoPagamento(input.CondicaoPagamentoId);
+        }
 
         if (input.VendedorId != orcamento.VendedorId)
         {

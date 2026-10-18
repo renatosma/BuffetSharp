@@ -25,6 +25,7 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
     public DbSet<CategoriaCardapio> CategoriasCardapio => Set<CategoriaCardapio>();
     public DbSet<UnidadeMedida> UnidadesMedida => Set<UnidadeMedida>();
     public DbSet<FormaPagamento> FormasPagamento => Set<FormaPagamento>();
+    public DbSet<CondicaoPagamento> CondicoesPagamento => Set<CondicaoPagamento>();
     public DbSet<Cargo> Cargos => Set<Cargo>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
     public DbSet<Fornecedor> Fornecedores => Set<Fornecedor>();
@@ -33,6 +34,7 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
     public DbSet<ServicoAdicional> ServicosAdicionais => Set<ServicoAdicional>();
     public DbSet<Produto> Produtos => Set<Produto>();
     public DbSet<MovimentacaoEstoque> MovimentacoesEstoque => Set<MovimentacaoEstoque>();
+    public DbSet<ProdutoEmbalagem> ProdutoEmbalagens => Set<ProdutoEmbalagem>();
     public DbSet<ItemCardapio> ItensCardapio => Set<ItemCardapio>();
     public DbSet<Pacote> Pacotes => Set<Pacote>();
     public DbSet<Orcamento> Orcamentos => Set<Orcamento>();
@@ -42,6 +44,7 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Material> Materiais => Set<Material>();
     public DbSet<Contrato> Contratos => Set<Contrato>();
+    public DbSet<ModeloContrato> ModelosContrato => Set<ModeloContrato>();
     public DbSet<Degustacao> Degustacoes => Set<Degustacao>();
     public DbSet<FechamentoComissao> FechamentosComissao => Set<FechamentoComissao>();
     public DbSet<RegistroAuditoria> RegistrosAuditoria => Set<RegistroAuditoria>();

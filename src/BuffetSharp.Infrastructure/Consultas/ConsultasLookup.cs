@@ -66,6 +66,14 @@ internal sealed class ConsultasLookup(FabricaConexao conexoes) : IConsultasLooku
         [TipoLookup.Materiais] = """
             SELECT Id, Nome, CustoLocacao AS Valor, QuantidadePropria AS Numero, Categoria AS Info FROM Materiais
             WHERE @Todos = 1 OR Ativo = {verdadeiro} ORDER BY Categoria, Nome
+            """,
+        [TipoLookup.CondicoesPagamento] = """
+            SELECT Id, Nome, PercentualEntrada AS Valor, QuantidadeParcelas AS Numero FROM CondicoesPagamento
+            WHERE @Todos = 1 OR Ativo = {verdadeiro} ORDER BY Nome
+            """,
+        [TipoLookup.ModelosContrato] = """
+            SELECT Id, Nome, COALESCE(TipoEventoId, 0) AS Numero, Padrao AS Marcador FROM ModelosContrato
+            WHERE @Todos = 1 OR Ativo = {verdadeiro} ORDER BY Nome
             """
     };
 

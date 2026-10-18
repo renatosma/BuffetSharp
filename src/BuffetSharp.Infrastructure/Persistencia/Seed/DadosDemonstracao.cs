@@ -215,6 +215,22 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             CustoMedio = p.Custo,
             EstoqueMinimo = p.Minimo
         }).ToDictionary(p => p.Nome);
+
+        // Embalagens de compra: cada fornecedor vende numa unidade diferente da usada no estoque.
+        void Embalagem(string produto, string? fornecedor, string unidade, decimal fator, string descricao) =>
+            _produtos[produto].Embalagens.Add(new ProdutoEmbalagem
+            {
+                FornecedorId = fornecedor is null ? null : _fornecedores[fornecedor].Id,
+                UnidadeMedidaId = unidades[unidade].Id,
+                Fator = fator,
+                Descricao = descricao
+            });
+        Embalagem("Refrigerante 2L", "Gelada Bebidas", "PCT", 6, "Fardo com 6 garrafas");
+        Embalagem("Água mineral 500ml", "Gelada Bebidas", "PCT", 12, "Pacote com 12 garrafas");
+        Embalagem("Cerveja long neck", null, "CX", 24, "Caixa com 24 long necks");
+        Embalagem("Leite condensado", "Atacadão Central", "CX", 27, "Caixa com 27 latas");
+        Embalagem("Arroz agulhinha", "Atacadão Central", "PCT", 5, "Fardo de 5 kg");
+        Embalagem("Guardanapo de papel", "Festa & Cia", "CX", 20, "Caixa com 20 pacotes");
         db.Produtos.AddRange(_produtos.Values);
         await db.SaveChangesAsync(ct);
 
@@ -338,6 +354,17 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             new Cliente { TipoPessoa = TipoPessoa.Juridica, Nome = "Colégio Horizonte Educacional Ltda", NomeFantasia = "Colégio Horizonte", Documento = GerarCnpj(), Email = "formaturas@horizonte.exemplo.com.br", Telefone = "(11) 3444-2030", Endereco = EnderecoAleatorio() },
             new Cliente { TipoPessoa = TipoPessoa.Juridica, Nome = "Construtora Alicerce S.A.", NomeFantasia = "Alicerce", Documento = GerarCnpj(), Email = "marketing@alicerce.exemplo.com.br", Telefone = "(11) 3555-4050", Endereco = EnderecoAleatorio() }
         ];
+        // Alguns clientes com mais de um telefone, e-mail e endereço.
+        _clientesPf[0].Contatos.Add(new ContatoAdicional { Tipo = TipoContato.WhatsApp, Valor = "(11) 98888-1001", Observacao = "Mãe da noiva" });
+        _clientesPf[0].Contatos.Add(new ContatoAdicional { Tipo = TipoContato.Email, Valor = "familia.moreira@email.exemplo.com.br", Observacao = "Família" });
+        _clientesPf[1].Contatos.Add(new ContatoAdicional { Tipo = TipoContato.Telefone, Valor = "(11) 3222-1001", Observacao = "Trabalho" });
+        _clientesPj[0].Contatos.Add(new ContatoAdicional { Tipo = TipoContato.Email, Valor = "financeiro@technova.exemplo.com.br", Observacao = "Notas fiscais e boletos" });
+        _clientesPj[0].Contatos.Add(new ContatoAdicional { Tipo = TipoContato.Celular, Valor = "(11) 97777-2002", Observacao = "Renata (RH)" });
+        _clientesPj[0].Enderecos.Add(new EnderecoAdicional
+        {
+            Identificacao = "Cobrança",
+            Endereco = new Endereco { Logradouro = "Av. das Nações Unidas", Numero = "12901", Complemento = "Torre Norte, 10º andar", Bairro = "Brooklin", Cidade = "São Paulo", Uf = "SP", Cep = "04578-000" }
+        });
         db.Clientes.AddRange(_clientesPf);
         db.Clientes.AddRange(_clientesPj);
 
@@ -844,7 +871,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             .ToList();
 
         var emissao = Min(decisao.AddDays(1).ToDateTime(new TimeOnly(11, 0)), Agora.AddHours(-2));
-        var contrato = new Contrato(evento.Id, ModeloContrato.Gerar(empresa, evento, composicao, DateOnly.FromDateTime(emissao)), emissao)
+        var contrato = new Contrato(evento.Id, GeradorContrato.Gerar(empresa, evento, composicao, DateOnly.FromDateTime(emissao)), emissao)
         {
             CriadoEm = emissao
         };

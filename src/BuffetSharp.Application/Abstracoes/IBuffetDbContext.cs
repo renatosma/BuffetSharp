@@ -22,6 +22,7 @@ public interface IBuffetDbContext : IDisposable, IAsyncDisposable
     DbSet<CategoriaCardapio> CategoriasCardapio { get; }
     DbSet<UnidadeMedida> UnidadesMedida { get; }
     DbSet<FormaPagamento> FormasPagamento { get; }
+    DbSet<CondicaoPagamento> CondicoesPagamento { get; }
     DbSet<Cargo> Cargos { get; }
     DbSet<Cliente> Clientes { get; }
     DbSet<Fornecedor> Fornecedores { get; }
@@ -30,6 +31,7 @@ public interface IBuffetDbContext : IDisposable, IAsyncDisposable
     DbSet<ServicoAdicional> ServicosAdicionais { get; }
     DbSet<Produto> Produtos { get; }
     DbSet<MovimentacaoEstoque> MovimentacoesEstoque { get; }
+    DbSet<ProdutoEmbalagem> ProdutoEmbalagens { get; }
     DbSet<ItemCardapio> ItensCardapio { get; }
     DbSet<Pacote> Pacotes { get; }
     DbSet<Orcamento> Orcamentos { get; }
@@ -39,6 +41,7 @@ public interface IBuffetDbContext : IDisposable, IAsyncDisposable
     DbSet<Usuario> Usuarios { get; }
     DbSet<Material> Materiais { get; }
     DbSet<Contrato> Contratos { get; }
+    DbSet<ModeloContrato> ModelosContrato { get; }
     DbSet<Degustacao> Degustacoes { get; }
     DbSet<FechamentoComissao> FechamentosComissao { get; }
     DbSet<RegistroAuditoria> RegistrosAuditoria { get; }

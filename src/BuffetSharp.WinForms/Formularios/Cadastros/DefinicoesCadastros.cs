@@ -1,6 +1,7 @@
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Cadastros;
+using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.WinForms.Formularios.Comercial;
@@ -119,6 +120,155 @@ internal static class DefinicoesCadastros
         }
     };
 
+    public static readonly DefinicaoCadastro<CondicaoPagamento> CondicoesPagamento = new()
+    {
+        Titulo = "Condições de pagamento",
+        Singular = "condição de pagamento",
+        Descricao = "Prazos de pagamento (entrada, parcelas, quitação antes do evento). Usadas no orçamento, na proposta, no plano de pagamento e no contrato.",
+        Consulta = q => q.Include(x => x.FormaPagamento).OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome, 40)
+            .Texto("Regra", x => x.Resumo, 60)
+            .Texto("Forma sugerida", x => x.FormaPagamento?.Nome, 25)
+            .SimNao("Ativo", x => x.Ativo, 15),
+        TextoBusca = x => $"{x.Nome} {x.Descricao} {x.Resumo}",
+        Nome = x => x.Nome,
+        LarguraEditor = 640,
+        Campos = async (e, x, lookups) =>
+        {
+            var formas = await lookups.ListarAsync(TipoLookup.FormasPagamento, somenteAtivos: false);
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 80, span: 2, dica: "Ex.: 30% de entrada + 5x");
+            e.Texto("Texto na proposta e no contrato (opcional)", () => x.Descricao, v => x.Descricao = v, nameof(x.Descricao), 300,
+                span: 2, linhas: 2, dica: "Vazio: usa o resumo calculado pelas regras abaixo");
+            e.Secao("Entrada");
+            e.Decimal("Entrada (% do valor)", () => x.PercentualEntrada, v => x.PercentualEntrada = v, nameof(x.PercentualEntrada), 2, 0, 100);
+            e.Inteiro("Vencimento da entrada (dias após o fechamento)", () => x.DiasEntrada, v => x.DiasEntrada = v, nameof(x.DiasEntrada), 0, 365);
+            e.Secao("Parcelas");
+            e.Inteiro("Quantidade de parcelas (0 = à vista)", () => x.QuantidadeParcelas, v => x.QuantidadeParcelas = v,
+                nameof(x.QuantidadeParcelas), 0, 48);
+            e.Inteiro("Primeira parcela (dias após o fechamento)", () => x.DiasPrimeiraParcela, v => x.DiasPrimeiraParcela = v,
+                nameof(x.DiasPrimeiraParcela), 0, 730);
+            e.Marcador("Parcelas mensais (mesmo dia de cada mês)", () => x.Mensal, v => x.Mensal = v, nameof(x.Mensal));
+            e.Inteiro("Intervalo entre parcelas (dias, se não forem mensais)", () => x.IntervaloDias, v => x.IntervaloDias = v,
+                nameof(x.IntervaloDias), 1, 365);
+            e.Inteiro("Quitar até quantos dias antes do evento (0 = sem limite)", () => x.QuitarDiasAntesEvento ?? 0,
+                v => x.QuitarDiasAntesEvento = v == 0 ? null : v, nameof(x.QuitarDiasAntesEvento), 0, 365, span: 2);
+            e.Secao("Outros");
+            e.Lista("Forma de pagamento sugerida", formas, () => x.FormaPagamentoId, v => x.FormaPagamentoId = v, nameof(x.FormaPagamentoId),
+                permitirVazio: true);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+        }
+    };
+
+    public static readonly DefinicaoCadastro<ModeloContrato> ModelosContrato = new()
+    {
+        Titulo = "Modelos de contrato",
+        Singular = "modelo de contrato",
+        Descricao = "Textos-base dos contratos. Os campos entre {{ }} são trocados pelos dados do evento na emissão. " +
+                    "O modelo do tipo de evento tem prioridade; na falta dele, vale o padrão.",
+        Consulta = q => q.Include(x => x.TipoEvento).OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome, 50)
+            .Texto("Tipo de evento", x => x.TipoEvento?.Nome ?? "(todos)", 30)
+            .SimNao("Padrão", x => x.Padrao, 15)
+            .SimNao("Ativo", x => x.Ativo, 15),
+        TextoBusca = x => $"{x.Nome} {x.TipoEvento?.Nome}",
+        Nome = x => x.Nome,
+        ColunasEditor = 3,
+        LarguraEditor = 980,
+        Acoes =
+        [
+            new("Pré-visualizar", Icones.Pagina, PreVisualizarModeloAsync),
+            new("Duplicar", Icones.Copiar, async (modelo, ctx) =>
+            {
+                var servico = ctx.Navegador.Servico<ICadastroService<ModeloContrato>>();
+                var original = await servico.ObterAsync(modelo.Id) ?? throw new RegraNegocioException("O modelo não existe mais.");
+                var nomes = (await servico.ListarAsync()).Select(m => m.Nome).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+                var nome = $"{original.Nome} (cópia)";
+                for (var i = 2; nomes.Contains(nome); i++)
+                    nome = $"{original.Nome} (cópia {i})";
+                await servico.SalvarAsync(new ModeloContrato
+                {
+                    Nome = nome.Length > 100 ? nome[..100] : nome,
+                    TipoEventoId = original.TipoEventoId,
+                    Conteudo = original.Conteudo,
+                    Ativo = true
+                });
+                await ctx.Recarregar();
+            })
+        ],
+        Campos = async (e, x, lookups) =>
+        {
+            // Um modelo novo começa com o texto do contrato padrão, para ser adaptado.
+            if (x.EhNovo && string.IsNullOrWhiteSpace(x.Conteudo))
+                x.Conteudo = GeradorContrato.ModeloPadrao;
+
+            var tipos = await lookups.ListarAsync(TipoLookup.TiposEvento, somenteAtivos: false);
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 100, dica: "Ex.: Contrato de casamento");
+            e.Lista("Tipo de evento (vazio = todos)", tipos, () => x.TipoEventoId, v => x.TipoEventoId = v, nameof(x.TipoEventoId),
+                permitirVazio: true);
+            e.Marcador("Modelo padrão", () => x.Padrao, v => x.Padrao = v, nameof(x.Padrao));
+            var conteudo = e.Texto("Texto do modelo", () => x.Conteudo, v => x.Conteudo = v ?? "", nameof(x.Conteudo), 100_000,
+                span: 3, linhas: 20);
+            conteudo.Font = new Font("Consolas", 9.5f);
+
+            e.Secao("Campos disponíveis - dois cliques inserem o campo na posição do cursor");
+            var campos = new ListBox
+            {
+                Dock = DockStyle.Fill,
+                IntegralHeight = false,
+                MinimumSize = new Size(0, 150),
+                MaximumSize = new Size(0, 150),
+                Height = 150,
+                DataSource = CamposContrato.Todos.Select(c => $"{CamposContrato.Marcador(c.Nome),-24} {c.Descricao}").ToList()
+            };
+            campos.Font = new Font("Consolas", 9f);
+            campos.DoubleClick += (_, _) =>
+            {
+                if (campos.SelectedIndex < 0 || conteudo.ReadOnly)
+                    return;
+                conteudo.SelectedText = CamposContrato.Marcador(CamposContrato.Todos[campos.SelectedIndex].Nome);
+                conteudo.Focus();
+            };
+            var painel = new TableLayoutPanel { AutoSize = true, ColumnCount = 1, Dock = DockStyle.Fill };
+            painel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            painel.Controls.Add(campos);
+            e.Livre(painel);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v, nameof(x.Ativo));
+        }
+    };
+
+    /// <summary>Mostra o texto que o modelo gera para um evento escolhido (sem emitir nada).</summary>
+    private static async Task PreVisualizarModeloAsync(ModeloContrato modelo, ContextoCadastro contexto)
+    {
+        var lookups = contexto.Navegador.Servico<IConsultasLookup>();
+        var eventos = await lookups.ListarAsync(TipoLookup.EventosConfirmados);
+        if (eventos.Count == 0)
+        {
+            Mensagens.Aviso(contexto.Dono, "Não há eventos para a pré-visualização.");
+            return;
+        }
+
+        int? eventoId = eventos[0].Id;
+        var escolha = new EditorCampos(1);
+        escolha.Lista("Evento", eventos, () => eventoId, v => eventoId = v);
+        using (var dialogo = new FormEdicao("Pré-visualizar modelo", $"Escolha um evento para ver como fica o texto de \"{modelo.Nome}\".",
+                   escolha, () => Task.CompletedTask, 620))
+        {
+            if (dialogo.ShowDialog(contexto.Dono) != DialogResult.OK)
+                return;
+        }
+        if (eventoId is not { } id)
+            return;
+
+        var cadastro = await contexto.Navegador.Servico<ICadastroService<ModeloContrato>>().ObterAsync(modelo.Id)
+                       ?? throw new RegraNegocioException("O modelo não existe mais.");
+        var texto = await contexto.Navegador.Servico<ContratoService>().PreVisualizarAsync(id, cadastro.Conteudo);
+        var visualizacao = new EditorCampos(1);
+        visualizacao.Texto("Texto gerado", () => texto, _ => { }, "Texto", 100_000, linhas: 26);
+        using var resultado = new FormEdicao($"Pré-visualização - {modelo.Nome}", "Somente leitura: nada é gravado.", visualizacao,
+            () => Task.CompletedTask, 860, somenteLeitura: true);
+        resultado.ShowDialog(contexto.Dono);
+    }
+
     public static readonly DefinicaoCadastro<Cargo> Cargos = new()
     {
         Titulo = "Cargos",
@@ -158,6 +308,7 @@ internal static class DefinicoesCadastros
             e.Decimal("Valor de locação (R$)", () => x.ValorLocacao, v => x.ValorLocacao = v, nameof(x.ValorLocacao));
             e.Texto("Descrição", () => x.Descricao, v => x.Descricao = v, nameof(x.Descricao), 500, span: 2, linhas: 3);
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            CamposEndereco(e, x.Endereco);
             return Task.CompletedTask;
         }
     };
@@ -190,7 +341,7 @@ internal static class DefinicoesCadastros
     // Nível 2 - cadastros intermediários
     // =====================================================================
 
-    private static void CamposEndereco(EditorCampos e, Endereco endereco)
+    internal static void CamposEndereco(EditorCampos e, Endereco endereco)
     {
         e.Secao("Endereço");
         e.Mascara("CEP", "00000-000", () => endereco.Cep, v => endereco.Cep = v);
@@ -207,14 +358,15 @@ internal static class DefinicoesCadastros
         Titulo = "Clientes",
         Singular = "cliente",
         Descricao = "Pessoas físicas e jurídicas. Selecione um cliente e use \"Histórico\" para ver eventos, orçamentos e saldo.",
-        Consulta = q => q.OrderBy(x => x.Nome),
+        Consulta = q => q.Include(x => x.Contatos).OrderBy(x => x.Nome),
         Colunas = g => g.Texto("Nome", x => x.Nome, 70)
             .Texto("Tipo", x => x.TipoPessoa == TipoPessoa.Fisica ? "PF" : "PJ", 12)
             .Texto("CPF/CNPJ", x => Documento.Formatar(x.Documento), 32)
             .Texto("Celular", x => x.Celular ?? x.Telefone, 28)
             .Texto("E-mail", x => x.Email, 50)
             .Texto("Cidade", x => x.Endereco.Cidade, 30),
-        TextoBusca = x => $"{x.Nome} {x.NomeFantasia} {x.Documento} {x.Email} {x.Celular} {x.Telefone} {x.Endereco.Cidade}",
+        TextoBusca = x => $"{x.Nome} {x.NomeFantasia} {x.Documento} {x.Email} {x.Celular} {x.Telefone} {x.Endereco.Cidade} " +
+                          string.Join(' ', x.Contatos.Select(c => c.Valor)),
         Nome = x => x.Nome,
         ColunasEditor = 3,
         LarguraEditor = 820,
@@ -246,6 +398,7 @@ internal static class DefinicoesCadastros
             e.Mascara("Telefone", "(00) 0000-0000", () => x.Telefone, v => x.Telefone = v, nameof(x.Telefone));
             e.Texto("E-mail", () => x.Email, v => x.Email = v, nameof(x.Email), 150);
             CamposEndereco(e, x.Endereco);
+            CamposContatos.Adicionar(e, x);
             e.Secao("Outros");
             e.Texto("Observações", () => x.Observacoes, v => x.Observacoes = v, nameof(x.Observacoes), 1000, span: 3, linhas: 3);
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
@@ -258,14 +411,15 @@ internal static class DefinicoesCadastros
         Titulo = "Fornecedores",
         Singular = "fornecedor",
         Descricao = "Fornecedores de insumos e serviços, usados no estoque e nas contas a pagar.",
-        Consulta = q => q.OrderBy(x => x.RazaoSocial),
+        Consulta = q => q.Include(x => x.Contatos).OrderBy(x => x.RazaoSocial),
         Colunas = g => g.Texto("Nome fantasia", x => x.NomeExibicao, 40)
             .Texto("Razão social", x => x.RazaoSocial, 60)
             .Texto("CNPJ/CPF", x => Documento.Formatar(x.Documento), 32)
             .Texto("Contato", x => x.Contato, 25)
             .Texto("Telefone", x => x.Telefone, 28)
             .Texto("E-mail", x => x.Email, 45),
-        TextoBusca = x => $"{x.RazaoSocial} {x.NomeFantasia} {x.Documento} {x.Contato} {x.Email}",
+        TextoBusca = x => $"{x.RazaoSocial} {x.NomeFantasia} {x.Documento} {x.Contato} {x.Email} {x.Telefone} " +
+                          string.Join(' ', x.Contatos.Select(c => $"{c.Valor} {c.Observacao}")),
         Nome = x => x.NomeExibicao,
         ColunasEditor = 3,
         LarguraEditor = 820,
@@ -279,6 +433,7 @@ internal static class DefinicoesCadastros
             e.Mascara("Telefone", "(00) 0000-0000", () => x.Telefone, v => x.Telefone = v, nameof(x.Telefone));
             e.Texto("E-mail", () => x.Email, v => x.Email = v, nameof(x.Email), 150, span: 3);
             CamposEndereco(e, x.Endereco);
+            CamposContatos.Adicionar(e, x);
             e.Secao("Outros");
             e.Texto("Observações", () => x.Observacoes, v => x.Observacoes = v, nameof(x.Observacoes), 1000, span: 3, linhas: 3);
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
@@ -300,6 +455,7 @@ internal static class DefinicoesCadastros
             .SimNao("Ativo", x => x.Ativo, 15),
         TextoBusca = x => $"{x.Nome} {x.Cargo?.Nome} {x.Cpf} {x.Telefone}",
         Nome = x => x.Nome,
+        LarguraEditor = 760,
         Campos = async (e, x, lookups) =>
         {
             var cargos = await lookups.ListarAsync(TipoLookup.Cargos, somenteAtivos: false);
@@ -316,6 +472,9 @@ internal static class DefinicoesCadastros
             e.Data("Admissão", () => x.DataAdmissao, v => x.DataAdmissao = v, nameof(x.DataAdmissao), opcional: true);
             e.Mascara("Telefone", "(00) 00000-0000", () => x.Telefone, v => x.Telefone = v, nameof(x.Telefone));
             e.Texto("E-mail", () => x.Email, v => x.Email = v, nameof(x.Email), 150);
+            CamposEndereco(e, x.Endereco);
+            CamposContatos.Adicionar(e, x);
+            e.Secao("Outros");
             e.Texto("Observações", () => x.Observacoes, v => x.Observacoes = v, nameof(x.Observacoes), 1000, span: 2, linhas: 3);
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
         }
@@ -393,6 +552,8 @@ internal static class DefinicoesCadastros
             .Texto("Situação", x => x.AbaixoDoMinimo ? "Repor" : "OK", 15, x => x.AbaixoDoMinimo ? Tema.Perigo : Tema.Sucesso),
         TextoBusca = x => $"{x.Codigo} {x.Nome} {x.CategoriaProduto?.Nome} {x.Fornecedor?.RazaoSocial} {(x.AbaixoDoMinimo ? "repor" : "")}",
         Nome = x => x.Nome,
+        ColunasEditor = 3,
+        LarguraEditor = 860,
         Rodape = itens => $"{itens.Count} produto(s)  •  {itens.Count(p => p.AbaixoDoMinimo)} abaixo do mínimo  •  " +
                           $"valor em estoque: {Textos.Moeda(itens.Sum(p => p.ValorEmEstoque))}",
         Acoes =
@@ -422,6 +583,27 @@ internal static class DefinicoesCadastros
             e.Decimal("Estoque mínimo", () => x.EstoqueMinimo, v => x.EstoqueMinimo = v, nameof(x.EstoqueMinimo), 3);
             e.Informacao("Saldo atual (via movimentações)", () => x.EstoqueAtual.ToString("N3"));
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+
+            // Conversão de unidade: cada fornecedor pode vender em uma embalagem diferente (caixa com 12, fardo com 6...).
+            e.Secao("Embalagens de compra - conversão para a unidade do estoque");
+            var opcoesFornecedor = new[] { new OpcaoGrade<int>(0, "(qualquer fornecedor)") }
+                .Concat(fornecedores.Select(f => new OpcaoGrade<int>(f.Id, f.Nome)));
+            var opcoesUnidade = new[] { new OpcaoGrade<int>(0, "(selecione)") }
+                .Concat(unidades.Select(u => new OpcaoGrade<int>(u.Id, u.Info ?? u.Nome)));
+            var embalagens = new GradeEditavel<LinhaEmbalagem>(() => new LinhaEmbalagem(), "Nova embalagem", "Remover embalagem")
+                .Opcoes("Fornecedor", nameof(LinhaEmbalagem.FornecedorId), opcoesFornecedor, 34)
+                .Opcoes("Comprado em", nameof(LinhaEmbalagem.UnidadeMedidaId), opcoesUnidade, 16)
+                .Numero("Equivale a (unid. do estoque)", nameof(LinhaEmbalagem.Fator), "0.####", 20)
+                .Texto("Descrição", nameof(LinhaEmbalagem.Descricao), 34, 60)
+                .Texto("Código no fornecedor", nameof(LinhaEmbalagem.CodigoFornecedor), 18, 30);
+            e.Livre(embalagens.Painel);
+            e.Associar(nameof(x.Embalagens), embalagens.Controle);
+            e.AoCarregar(() => embalagens.Carregar(x.Embalagens.Select(LinhaEmbalagem.De)));
+            e.AoAplicar(() =>
+            {
+                embalagens.ConcluirEdicao();
+                x.Embalagens = embalagens.Itens.Select(l => l.ParaEmbalagem()).ToList();
+            });
         }
     };
 }

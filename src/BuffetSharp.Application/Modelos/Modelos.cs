@@ -70,6 +70,7 @@ public sealed class OrcamentoInput
     public decimal? ValorEspaco { get; set; }
 
     public decimal PercentualDesconto { get; set; }
+    public int? CondicaoPagamentoId { get; set; }
     public string? Observacoes { get; set; }
     public List<ServicoItemInput> Servicos { get; set; } = [];
 
@@ -97,6 +98,7 @@ public sealed class EventoInput
     public TimeOnly HoraFim { get; set; } = new(23, 59);
     public int Convidados { get; set; } = 100;
     public decimal ValorTotal { get; set; }
+    public int? CondicaoPagamentoId { get; set; }
     public string? Observacoes { get; set; }
 }
 
@@ -107,6 +109,30 @@ public sealed class PlanoPagamentoInput
     public decimal ValorEntrada { get; set; }
     public DateOnly? VencimentoEntrada { get; set; }
     public int? FormaPagamentoId { get; set; }
+
+    /// <summary>Dias entre as parcelas; nulo ou zero = mensais (mesmo dia de cada mês).</summary>
+    public int? IntervaloDias { get; set; }
+
+    /// <summary>Condição usada para montar o plano (fica registrada no evento).</summary>
+    public int? CondicaoPagamentoId { get; set; }
+}
+
+/// <summary>Entrada de estoque de uma compra, na unidade do fornecedor (embalagem) ou na unidade do estoque.</summary>
+public sealed class EntradaEstoqueInput
+{
+    public int ProdutoId { get; set; }
+    public int? FornecedorId { get; set; }
+
+    /// <summary>Embalagem de compra (nula = unidade do estoque).</summary>
+    public int? ProdutoEmbalagemId { get; set; }
+
+    /// <summary>Quantidade na unidade de compra.</summary>
+    public decimal Quantidade { get; set; }
+
+    /// <summary>Custo de uma unidade de compra.</summary>
+    public decimal CustoUnitario { get; set; }
+
+    public string? Observacao { get; set; }
 }
 
 public sealed class PagamentoInput

@@ -70,6 +70,10 @@ public class Evento : Entidade
     /// <summary>Comissão (%) vigente na venda, aplicada sobre cada valor recebido.</summary>
     public decimal PercentualComissao { get; private set; }
 
+    /// <summary>Condição de pagamento negociada (vem do orçamento; sugere o plano de pagamento e aparece no contrato).</summary>
+    public int? CondicaoPagamentoId { get; private set; }
+    public CondicaoPagamento? CondicaoPagamento { get; private set; }
+
     public DateTime Inicio { get; private set; }
     public DateTime Fim { get; private set; }
     public int QuantidadeConvidados { get; private set; }
@@ -130,7 +134,8 @@ public class Evento : Entidade
             ValorPorPessoa = orcamento.ValorPorPessoa,
             ValorTotal = orcamento.ValorTotal,
             VendedorId = orcamento.VendedorId,
-            PercentualComissao = orcamento.VendedorId is null ? 0 : percentualComissao
+            PercentualComissao = orcamento.VendedorId is null ? 0 : percentualComissao,
+            CondicaoPagamentoId = orcamento.CondicaoPagamentoId
         };
         evento.AlterarDados(titulo, orcamento.EspacoId ?? 0, orcamento.DataEvento, orcamento.HoraInicio,
             orcamento.HoraFim, orcamento.QuantidadeConvidados, orcamento.Observacoes);
@@ -175,6 +180,13 @@ public class Evento : Entidade
             $"A comissão deve estar entre 0% e {Usuario.ComissaoMaximaPercentual}%.");
         VendedorId = vendedorId;
         PercentualComissao = vendedorId is null ? 0 : percentual;
+    }
+
+    public void DefinirCondicaoPagamento(int? condicaoPagamentoId)
+    {
+        GarantirConfirmado();
+        Validador.Garantir(condicaoPagamentoId is null or > 0, "Condição de pagamento inválida.");
+        CondicaoPagamentoId = condicaoPagamentoId;
     }
 
     // ---------------- Equipe ----------------
@@ -307,12 +319,14 @@ public class Evento : Entidade
     /// (Re)gera o plano de pagamento sobre o saldo ainda não pago. Parcelas abertas são
     /// substituídas; parcelas pagas são preservadas.
     /// </summary>
+    /// <param name="intervaloDias">Dias entre as parcelas; nulo = mensais (mesmo dia de cada mês).</param>
     public IReadOnlyList<Parcela> GerarParcelas(int quantidade, DateOnly primeiroVencimento, decimal valorEntrada = 0,
-        DateOnly? vencimentoEntrada = null, int? formaPagamentoId = null)
+        DateOnly? vencimentoEntrada = null, int? formaPagamentoId = null, int? intervaloDias = null)
     {
         GarantirConfirmado();
         Validador.Garantir(quantidade is >= 1 and <= 48, "A quantidade de parcelas deve estar entre 1 e 48.");
         Validador.Garantir(valorEntrada >= 0, "O valor de entrada não pode ser negativo.");
+        Validador.Garantir(intervaloDias is null or (>= 1 and <= 365), "O intervalo entre as parcelas deve estar entre 1 e 365 dias.");
 
         foreach (var aberta in _parcelas.Where(p => p.Status == StatusTitulo.Aberto).ToList())
             _parcelas.Remove(aberta);
@@ -338,8 +352,8 @@ public class Evento : Entidade
             for (var i = 0; i < quantidade; i++)
             {
                 var valor = i == quantidade - 1 ? saldo - valorParcela * (quantidade - 1) : valorParcela;
-                geradas.Add(new Parcela(this, ++numero, valor, primeiroVencimento.AddMonths(i), formaPagamentoId,
-                    $"Parcela {i + 1}/{quantidade}"));
+                var vencimento = intervaloDias is { } dias ? primeiroVencimento.AddDays(i * dias) : primeiroVencimento.AddMonths(i);
+                geradas.Add(new Parcela(this, ++numero, valor, vencimento, formaPagamentoId, $"Parcela {i + 1}/{quantidade}"));
             }
         }
 

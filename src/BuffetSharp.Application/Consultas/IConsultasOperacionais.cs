@@ -204,6 +204,13 @@ public sealed record MovimentacaoResumo
     public decimal SaldoApos { get; init; }
     public string? Observacao { get; init; }
     public int? EventoId { get; init; }
+    public string? Fornecedor { get; init; }
+
+    /// <summary>Unidade e quantidade da compra (ex.: 2 CX), quando a entrada foi feita numa embalagem do fornecedor.</summary>
+    public string? UnidadeCompra { get; init; }
+    public decimal? QuantidadeCompra { get; init; }
+
+    public string Compra => QuantidadeCompra is { } quantidade && UnidadeCompra is not null ? $"{quantidade:0.###} {UnidadeCompra}" : string.Empty;
     public decimal ValorTotal => Math.Round(Math.Abs(Quantidade) * CustoUnitario, 2);
 }
 

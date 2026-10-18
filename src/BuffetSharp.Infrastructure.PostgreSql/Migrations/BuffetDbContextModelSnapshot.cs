@@ -327,6 +327,234 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("clientes", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.CondicaoPagamento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("descricao");
+
+                    b.Property<int>("DiasEntrada")
+                        .HasColumnType("integer")
+                        .HasColumnName("diasentrada");
+
+                    b.Property<int>("DiasPrimeiraParcela")
+                        .HasColumnType("integer")
+                        .HasColumnName("diasprimeiraparcela");
+
+                    b.Property<int?>("FormaPagamentoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("formapagamentoid");
+
+                    b.Property<int>("IntervaloDias")
+                        .HasColumnType("integer")
+                        .HasColumnName("intervalodias");
+
+                    b.Property<bool>("Mensal")
+                        .HasColumnType("boolean")
+                        .HasColumnName("mensal");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("nome");
+
+                    b.Property<decimal>("PercentualEntrada")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("percentualentrada");
+
+                    b.Property<int>("QuantidadeParcelas")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantidadeparcelas");
+
+                    b.Property<int?>("QuitarDiasAntesEvento")
+                        .HasColumnType("integer")
+                        .HasColumnName("quitardiasantesevento");
+
+                    b.HasKey("Id")
+                        .HasName("pk_condicoespagamento");
+
+                    b.HasIndex("FormaPagamentoId")
+                        .HasDatabaseName("ix_condicoespagamento_formapagamentoid");
+
+                    b.HasIndex("Nome")
+                        .IsUnique()
+                        .HasDatabaseName("ix_condicoespagamento_nome");
+
+                    b.ToTable("condicoespagamento", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.ContatoAdicional", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<int?>("ClienteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("clienteid");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<int?>("FornecedorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("fornecedorid");
+
+                    b.Property<int?>("FuncionarioId")
+                        .HasColumnType("integer")
+                        .HasColumnName("funcionarioid");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("observacao");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.Property<string>("Valor")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("valor");
+
+                    b.HasKey("Id")
+                        .HasName("pk_contatosadicionais");
+
+                    b.HasIndex("ClienteId")
+                        .HasDatabaseName("ix_contatosadicionais_clienteid");
+
+                    b.HasIndex("FornecedorId")
+                        .HasDatabaseName("ix_contatosadicionais_fornecedorid");
+
+                    b.HasIndex("FuncionarioId")
+                        .HasDatabaseName("ix_contatosadicionais_funcionarioid");
+
+                    b.ToTable("contatosadicionais", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.EnderecoAdicional", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<int?>("ClienteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("clienteid");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<int?>("FornecedorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("fornecedorid");
+
+                    b.Property<int?>("FuncionarioId")
+                        .HasColumnType("integer")
+                        .HasColumnName("funcionarioid");
+
+                    b.Property<string>("Identificacao")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("identificacao");
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.EnderecoAdicional.Endereco#Endereco", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Bairro")
+                                .HasMaxLength(80)
+                                .HasColumnType("character varying(80)")
+                                .HasColumnName("endereco_bairro");
+
+                            b1.Property<string>("Cep")
+                                .HasMaxLength(9)
+                                .HasColumnType("character varying(9)")
+                                .HasColumnName("endereco_cep");
+
+                            b1.Property<string>("Cidade")
+                                .HasMaxLength(80)
+                                .HasColumnType("character varying(80)")
+                                .HasColumnName("endereco_cidade");
+
+                            b1.Property<string>("Complemento")
+                                .HasMaxLength(80)
+                                .HasColumnType("character varying(80)")
+                                .HasColumnName("endereco_complemento");
+
+                            b1.Property<string>("Logradouro")
+                                .HasMaxLength(150)
+                                .HasColumnType("character varying(150)")
+                                .HasColumnName("endereco_logradouro");
+
+                            b1.Property<string>("Numero")
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("endereco_numero");
+
+                            b1.Property<string>("Uf")
+                                .HasMaxLength(2)
+                                .HasColumnType("character varying(2)")
+                                .HasColumnName("endereco_uf");
+                        });
+
+                    b.HasKey("Id")
+                        .HasName("pk_enderecosadicionais");
+
+                    b.HasIndex("ClienteId")
+                        .HasDatabaseName("ix_enderecosadicionais_clienteid");
+
+                    b.HasIndex("FornecedorId")
+                        .HasDatabaseName("ix_enderecosadicionais_fornecedorid");
+
+                    b.HasIndex("FuncionarioId")
+                        .HasDatabaseName("ix_enderecosadicionais_funcionarioid");
+
+                    b.ToTable("enderecosadicionais", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Espaco", b =>
                 {
                     b.Property<int>("Id")
@@ -367,6 +595,46 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("valorlocacao");
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Espaco.Endereco#Endereco", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Bairro")
+                                .HasMaxLength(80)
+                                .HasColumnType("character varying(80)")
+                                .HasColumnName("endereco_bairro");
+
+                            b1.Property<string>("Cep")
+                                .HasMaxLength(9)
+                                .HasColumnType("character varying(9)")
+                                .HasColumnName("endereco_cep");
+
+                            b1.Property<string>("Cidade")
+                                .HasMaxLength(80)
+                                .HasColumnType("character varying(80)")
+                                .HasColumnName("endereco_cidade");
+
+                            b1.Property<string>("Complemento")
+                                .HasMaxLength(80)
+                                .HasColumnType("character varying(80)")
+                                .HasColumnName("endereco_complemento");
+
+                            b1.Property<string>("Logradouro")
+                                .HasMaxLength(150)
+                                .HasColumnType("character varying(150)")
+                                .HasColumnName("endereco_logradouro");
+
+                            b1.Property<string>("Numero")
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("endereco_numero");
+
+                            b1.Property<string>("Uf")
+                                .HasMaxLength(2)
+                                .HasColumnType("character varying(2)")
+                                .HasColumnName("endereco_uf");
+                        });
 
                     b.HasKey("Id")
                         .HasName("pk_espacos");
@@ -591,6 +859,46 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("valordiaria");
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Funcionario.Endereco#Endereco", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Bairro")
+                                .HasMaxLength(80)
+                                .HasColumnType("character varying(80)")
+                                .HasColumnName("endereco_bairro");
+
+                            b1.Property<string>("Cep")
+                                .HasMaxLength(9)
+                                .HasColumnType("character varying(9)")
+                                .HasColumnName("endereco_cep");
+
+                            b1.Property<string>("Cidade")
+                                .HasMaxLength(80)
+                                .HasColumnType("character varying(80)")
+                                .HasColumnName("endereco_cidade");
+
+                            b1.Property<string>("Complemento")
+                                .HasMaxLength(80)
+                                .HasColumnType("character varying(80)")
+                                .HasColumnName("endereco_complemento");
+
+                            b1.Property<string>("Logradouro")
+                                .HasMaxLength(150)
+                                .HasColumnType("character varying(150)")
+                                .HasColumnName("endereco_logradouro");
+
+                            b1.Property<string>("Numero")
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("endereco_numero");
+
+                            b1.Property<string>("Uf")
+                                .HasMaxLength(2)
+                                .HasColumnType("character varying(2)")
+                                .HasColumnName("endereco_uf");
+                        });
 
                     b.HasKey("Id")
                         .HasName("pk_funcionarios");
@@ -943,6 +1251,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnName("hashconteudo")
                         .IsFixedLength();
 
+                    b.Property<int?>("ModeloContratoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("modelocontratoid");
+
                     b.Property<string>("MotivoCancelamento")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -971,6 +1283,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_contratos_eventoid")
                         .HasFilter("\"status\" <> 'Cancelado'");
+
+                    b.HasIndex("ModeloContratoId")
+                        .HasDatabaseName("ix_contratos_modelocontratoid");
 
                     b.ToTable("contratos", (string)null);
                 });
@@ -1101,6 +1416,59 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("enviosproposta", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.ModeloContrato", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<string>("Conteudo")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("conteudo");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nome");
+
+                    b.Property<bool>("Padrao")
+                        .HasColumnType("boolean")
+                        .HasColumnName("padrao");
+
+                    b.Property<int?>("TipoEventoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tipoeventoid");
+
+                    b.HasKey("Id")
+                        .HasName("pk_modeloscontrato");
+
+                    b.HasIndex("Nome")
+                        .IsUnique()
+                        .HasDatabaseName("ix_modeloscontrato_nome");
+
+                    b.HasIndex("TipoEventoId")
+                        .HasDatabaseName("ix_modeloscontrato_tipoeventoid");
+
+                    b.ToTable("modeloscontrato", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.Orcamento", b =>
                 {
                     b.Property<int>("Id")
@@ -1117,6 +1485,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("ClienteId")
                         .HasColumnType("integer")
                         .HasColumnName("clienteid");
+
+                    b.Property<int?>("CondicaoPagamentoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("condicaopagamentoid");
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone")
@@ -1203,6 +1575,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("ClienteId")
                         .HasDatabaseName("ix_orcamentos_clienteid");
+
+                    b.HasIndex("CondicaoPagamentoId")
+                        .HasDatabaseName("ix_orcamentos_condicaopagamentoid");
 
                     b.HasIndex("EspacoId")
                         .HasDatabaseName("ix_orcamentos_espacoid");
@@ -1361,6 +1736,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("custounitario");
 
+                    b.Property<decimal?>("CustoUnitarioCompra")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("custounitariocompra");
+
                     b.Property<DateTime>("Data")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("data");
@@ -1368,6 +1748,15 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<int?>("EventoId")
                         .HasColumnType("integer")
                         .HasColumnName("eventoid");
+
+                    b.Property<decimal?>("FatorConversao")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("fatorconversao");
+
+                    b.Property<int?>("FornecedorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("fornecedorid");
 
                     b.Property<string>("Observacao")
                         .HasMaxLength(300)
@@ -1383,6 +1772,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(18,3)")
                         .HasColumnName("quantidade");
 
+                    b.Property<decimal?>("QuantidadeCompra")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("quantidadecompra");
+
                     b.Property<decimal>("SaldoApos")
                         .HasPrecision(18, 3)
                         .HasColumnType("numeric(18,3)")
@@ -1394,6 +1788,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("tipo");
 
+                    b.Property<string>("UnidadeCompra")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("unidadecompra");
+
                     b.HasKey("Id")
                         .HasName("pk_movimentacoesestoque");
 
@@ -1402,6 +1801,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("EventoId")
                         .HasDatabaseName("ix_movimentacoesestoque_eventoid");
+
+                    b.HasIndex("FornecedorId")
+                        .HasDatabaseName("ix_movimentacoesestoque_fornecedorid");
 
                     b.HasIndex("ProdutoId", "Data")
                         .HasDatabaseName("ix_movimentacoesestoque_produtoid_data");
@@ -1491,6 +1893,65 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("produtos", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.ProdutoEmbalagem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<string>("CodigoFornecedor")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("codigofornecedor");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("descricao");
+
+                    b.Property<decimal>("Fator")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("fator");
+
+                    b.Property<int?>("FornecedorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("fornecedorid");
+
+                    b.Property<int>("ProdutoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("produtoid");
+
+                    b.Property<int>("UnidadeMedidaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("unidademedidaid");
+
+                    b.HasKey("Id")
+                        .HasName("pk_produtoembalagens");
+
+                    b.HasIndex("FornecedorId")
+                        .HasDatabaseName("ix_produtoembalagens_fornecedorid");
+
+                    b.HasIndex("ProdutoId")
+                        .HasDatabaseName("ix_produtoembalagens_produtoid");
+
+                    b.HasIndex("UnidadeMedidaId")
+                        .HasDatabaseName("ix_produtoembalagens_unidademedidaid");
+
+                    b.ToTable("produtoembalagens", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.Convidado", b =>
                 {
                     b.Property<int>("Id")
@@ -1564,6 +2025,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("ClienteId")
                         .HasColumnType("integer")
                         .HasColumnName("clienteid");
+
+                    b.Property<int?>("CondicaoPagamentoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("condicaopagamentoid");
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone")
@@ -1651,6 +2116,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("ClienteId")
                         .HasDatabaseName("ix_eventos_clienteid");
+
+                    b.HasIndex("CondicaoPagamentoId")
+                        .HasDatabaseName("ix_eventos_condicaopagamentoid");
 
                     b.HasIndex("Inicio")
                         .HasDatabaseName("ix_eventos_inicio");
@@ -2120,6 +2588,59 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("usuarios", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.CondicaoPagamento", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.FormaPagamento", "FormaPagamento")
+                        .WithMany()
+                        .HasForeignKey("FormaPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_condicoespagamento_formaspagamento_formapagamentoid");
+
+                    b.Navigation("FormaPagamento");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.ContatoAdicional", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Cliente", null)
+                        .WithMany("Contatos")
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_contatosadicionais_clientes_clienteid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", null)
+                        .WithMany("Contatos")
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_contatosadicionais_fornecedores_fornecedorid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Funcionario", null)
+                        .WithMany("Contatos")
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_contatosadicionais_funcionarios_funcionarioid");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.EnderecoAdicional", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Cliente", null)
+                        .WithMany("Enderecos")
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_enderecosadicionais_clientes_clienteid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", null)
+                        .WithMany("Enderecos")
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_enderecosadicionais_fornecedores_fornecedorid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Funcionario", null)
+                        .WithMany("Enderecos")
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_enderecosadicionais_funcionarios_funcionarioid");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Funcionario", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Cadastros.Cargo", "Cargo")
@@ -2191,6 +2712,12 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_contratos_eventos_eventoid");
 
+                    b.HasOne("BuffetSharp.Domain.Comercial.ModeloContrato", null)
+                        .WithMany()
+                        .HasForeignKey("ModeloContratoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_contratos_modeloscontrato_modelocontratoid");
+
                     b.Navigation("Evento");
                 });
 
@@ -2232,6 +2759,17 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_enviosproposta_orcamentos_orcamentoid");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.ModeloContrato", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.TipoEvento", "TipoEvento")
+                        .WithMany()
+                        .HasForeignKey("TipoEventoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_modeloscontrato_tiposevento_tipoeventoid");
+
+                    b.Navigation("TipoEvento");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.Orcamento", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Cadastros.Cliente", "Cliente")
@@ -2240,6 +2778,12 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_orcamentos_clientes_clienteid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.CondicaoPagamento", "CondicaoPagamento")
+                        .WithMany()
+                        .HasForeignKey("CondicaoPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_orcamentos_condicoespagamento_condicaopagamentoid");
 
                     b.HasOne("BuffetSharp.Domain.Cadastros.Espaco", "Espaco")
                         .WithMany()
@@ -2267,6 +2811,8 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_orcamentos_usuarios_vendedorid");
 
                     b.Navigation("Cliente");
+
+                    b.Navigation("CondicaoPagamento");
 
                     b.Navigation("Espaco");
 
@@ -2312,6 +2858,12 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_movimentacoesestoque_eventos_eventoid");
 
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", null)
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_movimentacoesestoque_fornecedores_fornecedorid");
+
                     b.HasOne("BuffetSharp.Domain.Estoque.Produto", "Produto")
                         .WithMany()
                         .HasForeignKey("ProdutoId")
@@ -2351,6 +2903,33 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("UnidadeMedida");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.ProdutoEmbalagem", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_produtoembalagens_fornecedores_fornecedorid");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.Produto", null)
+                        .WithMany("Embalagens")
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_produtoembalagens_produtos_produtoid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.UnidadeMedida", "UnidadeMedida")
+                        .WithMany()
+                        .HasForeignKey("UnidadeMedidaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_produtoembalagens_unidadesmedida_unidademedidaid");
+
+                    b.Navigation("Fornecedor");
+
+                    b.Navigation("UnidadeMedida");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.Convidado", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
@@ -2369,6 +2948,12 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_eventos_clientes_clienteid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.CondicaoPagamento", "CondicaoPagamento")
+                        .WithMany()
+                        .HasForeignKey("CondicaoPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_eventos_condicoespagamento_condicaopagamentoid");
 
                     b.HasOne("BuffetSharp.Domain.Cadastros.Espaco", "Espaco")
                         .WithMany()
@@ -2403,6 +2988,8 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_eventos_usuarios_vendedorid");
 
                     b.Navigation("Cliente");
+
+                    b.Navigation("CondicaoPagamento");
 
                     b.Navigation("Espaco");
 
@@ -2537,6 +3124,27 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("FormaPagamento");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Cliente", b =>
+                {
+                    b.Navigation("Contatos");
+
+                    b.Navigation("Enderecos");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Fornecedor", b =>
+                {
+                    b.Navigation("Contatos");
+
+                    b.Navigation("Enderecos");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Funcionario", b =>
+                {
+                    b.Navigation("Contatos");
+
+                    b.Navigation("Enderecos");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cardapio.ItemCardapio", b =>
                 {
                     b.Navigation("Ingredientes");
@@ -2554,6 +3162,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Evento");
 
                     b.Navigation("Servicos");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.Produto", b =>
+                {
+                    b.Navigation("Embalagens");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.Evento", b =>

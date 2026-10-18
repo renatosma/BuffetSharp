@@ -100,6 +100,7 @@ internal sealed class FormPrincipal : FormBase
             new("COMERCIAL", "Clientes", Icones.Contato, [Adm, Com, Fin], () => Cadastro(DefinicoesCadastros.Clientes)),
             new("COMERCIAL", "Degustações", Icones.Estrela, [Adm, Com], () => n.Abrir<FormDegustacoes>()),
             new("COMERCIAL", "Contratos", Icones.Pagina, [Adm, Com, Fin], () => n.Abrir<FormContratos>()),
+            new("COMERCIAL", "Modelos de contrato", Icones.Documento, [Adm, Com], () => Cadastro(DefinicoesCadastros.ModelosContrato)),
 
             new("EVENTOS", "Eventos", Icones.Bandeira, todos, () => n.Abrir<FormEventos>()),
 
@@ -125,6 +126,7 @@ internal sealed class FormPrincipal : FormBase
             new("CADASTROS", "Seções do cardápio", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.CategoriasCardapio)),
             new("CADASTROS", "Unidades de medida", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.UnidadesMedida)),
             new("CADASTROS", "Formas de pagamento", Icones.Cartao, [Adm, Fin], () => Cadastro(DefinicoesCadastros.FormasPagamento)),
+            new("CADASTROS", "Condições de pagamento", Icones.Calendario, [Adm, Com, Fin], () => Cadastro(DefinicoesCadastros.CondicoesPagamento)),
 
             new("ADMINISTRAÇÃO", "Usuários", Icones.Cadeado, [Adm], () => n.Abrir<FormUsuarios>()),
             new("ADMINISTRAÇÃO", "Auditoria", Icones.Escudo, [Adm], () => n.Abrir<FormAuditoria>())

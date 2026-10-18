@@ -44,9 +44,21 @@ internal sealed class ContratoConfig : IEntityTypeConfiguration<Contrato>
         b.Property(x => x.NomeRepresentante).HasMaxLength(150);
         b.Property(x => x.MotivoCancelamento).HasMaxLength(500);
         b.HasOne(x => x.Evento).WithMany().HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<ModeloContrato>().WithMany().HasForeignKey(x => x.ModeloContratoId).OnDelete(DeleteBehavior.Restrict);
 
         // Um único contrato vigente (não cancelado) por evento.
         b.HasIndex(x => x.EventoId).IsUnique().HasFilter("[Status] <> 'Cancelado'");
+    }
+}
+
+internal sealed class ModeloContratoConfig : IEntityTypeConfiguration<ModeloContrato>
+{
+    public void Configure(EntityTypeBuilder<ModeloContrato> b)
+    {
+        b.ToTable("ModelosContrato");
+        b.Property(x => x.Conteudo).IsRequired();
+        b.HasOne(x => x.TipoEvento).WithMany().HasForeignKey(x => x.TipoEventoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.Nome).IsUnique();
     }
 }
 

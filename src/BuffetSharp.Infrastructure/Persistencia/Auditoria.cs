@@ -23,6 +23,9 @@ internal static class Auditoria
 
     private const int TamanhoMaximoTexto = 300;
 
+    private static readonly (string Campo, string Dono)[] Donos =
+        [("ClienteId", "cliente"), ("FornecedorId", "fornecedor"), ("FuncionarioId", "funcionário")];
+
     internal sealed class Pendente(EntityEntry entrada, AcaoAuditoria acao, List<AlteracaoCampo> alteracoes)
     {
         public EntityEntry Entrada { get; } = entrada;
@@ -138,6 +141,14 @@ internal static class Auditoria
         descricao ??= Ler("Titulo") ?? Ler("Nome") ?? Ler("RazaoSocial") ?? Ler("Descricao") ?? Ler("Login") ?? Ler("Destinatario");
         if (descricao is null && tipo.GetMethod(nameof(ToString), Type.EmptyTypes)?.DeclaringType != typeof(object))
             descricao = entidade.ToString();
+
+        // Itens de listas ligados ao dono por chave sem propriedade na classe (ex.: contatos adicionais do cliente).
+        foreach (var (campo, dono) in Donos)
+        {
+            if (entrada.Metadata.FindProperty(campo) is { } chaveDono && chaveDono.IsShadowProperty() &&
+                entrada.Property(campo).CurrentValue is int idDono)
+                descricao = $"{descricao} • {dono} {idDono}".TrimStart(' ', '•');
+        }
 
         if (entidade is not Domain.Eventos.Evento && Ler("EventoId") is { } eventoId)
             descricao = $"{descricao} • EVT-{int.Parse(eventoId):D5}".TrimStart(' ', '•');

@@ -23,6 +23,7 @@ internal static class DialogosEvento
         var clientes = await lookups.ListarAsync(TipoLookup.Clientes);
         var tipos = await lookups.ListarAsync(TipoLookup.TiposEvento);
         var espacos = await lookups.ListarAsync(TipoLookup.Espacos);
+        var condicoes = await lookups.ListarAsync(TipoLookup.CondicoesPagamento, somenteAtivos: false);
 
         var e = new EditorCampos(3);
         e.Texto("Título do evento", () => input.Titulo, v => input.Titulo = v ?? "", nameof(input.Titulo), 150, span: 3,
@@ -41,6 +42,8 @@ internal static class DialogosEvento
         e.Hora("Início", () => input.HoraInicio, v => input.HoraInicio = v);
         e.Hora("Término", () => input.HoraFim, v => input.HoraFim = v);
         e.Decimal("Valor total do contrato (R$)", () => input.ValorTotal, v => input.ValorTotal = v, nameof(input.ValorTotal));
+        e.Lista("Condição de pagamento", condicoes, () => input.CondicaoPagamentoId, v => input.CondicaoPagamentoId = v,
+            nameof(input.CondicaoPagamentoId), permitirVazio: true);
         e.Lista("Vendedor (comissão)", vendedores, () => input.VendedorId, v => input.VendedorId = v, nameof(input.VendedorId),
             permitirVazio: true, span: 2);
         e.Texto("Observações", () => input.Observacoes, v => input.Observacoes = v, nameof(input.Observacoes), 2000, span: 3, linhas: 3);
@@ -52,32 +55,64 @@ internal static class DialogosEvento
         return dialogo.ShowDialog(dono) == DialogResult.OK ? salvo : null;
     }
 
+    /// <param name="condicaoPadrao">Condição de pagamento do evento: já abre com o plano calculado por ela.</param>
     public static async Task<bool> PlanoPagamentoAsync(IWin32Window dono, EventoService servico, IConsultasLookup lookups,
-        int eventoId, decimal saldoAParcelar, DateOnly dataEvento)
+        int eventoId, decimal saldoAParcelar, DateOnly dataEvento, int? condicaoPadrao = null)
     {
         var formas = await lookups.ListarAsync(TipoLookup.FormasPagamento);
+        var condicoes = await lookups.ListarAsync(TipoLookup.CondicoesPagamento);
         var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var plano = new PlanoPagamentoInput
-        {
-            Quantidade = Math.Clamp((dataEvento.DayNumber - hoje.DayNumber) / 30, 1, 10),
-            PrimeiroVencimento = hoje.AddMonths(1),
-            ValorEntrada = Math.Round(saldoAParcelar * 0.3m, 2),
-            VencimentoEntrada = hoje.AddDays(2),
-            FormaPagamentoId = formas.FirstOrDefault()?.Id
-        };
+        var plano = condicaoPadrao is { } condicaoId && condicoes.Any(c => c.Id == condicaoId)
+            ? await servico.SugerirPlanoAsync(eventoId, condicaoId)
+            : new PlanoPagamentoInput
+            {
+                Quantidade = Math.Clamp((dataEvento.DayNumber - hoje.DayNumber) / 30, 1, 10),
+                PrimeiroVencimento = hoje.AddMonths(1),
+                ValorEntrada = Math.Round(saldoAParcelar * 0.3m, 2),
+                VencimentoEntrada = hoje.AddDays(2),
+                FormaPagamentoId = formas.FirstOrDefault()?.Id
+            };
+        plano.FormaPagamentoId ??= formas.FirstOrDefault()?.Id;
 
         var e = new EditorCampos();
         e.Informacao("Saldo a parcelar", () => Textos.Moeda(saldoAParcelar));
         e.Informacao("Data do evento", () => dataEvento.ToString("dd/MM/yyyy"));
-        e.Decimal("Entrada (R$)", () => plano.ValorEntrada, v => plano.ValorEntrada = v);
-        e.Data("Vencimento da entrada", () => plano.VencimentoEntrada, v => plano.VencimentoEntrada = v);
-        e.Inteiro("Quantidade de parcelas (após a entrada)", () => plano.Quantidade, v => plano.Quantidade = v, minimo: 1, maximo: 48);
-        e.Data("Primeiro vencimento", () => plano.PrimeiroVencimento, v => plano.PrimeiroVencimento = v ?? hoje);
-        e.Lista("Forma de pagamento", formas, () => plano.FormaPagamentoId, v => plano.FormaPagamentoId = v, permitirVazio: true, span: 2);
+        var condicao = e.Lista("Condição de pagamento (preenche o plano)", condicoes, () => plano.CondicaoPagamentoId,
+            v => plano.CondicaoPagamentoId = v, permitirVazio: true, span: 2);
+        var entrada = e.Decimal("Entrada (R$)", () => plano.ValorEntrada, v => plano.ValorEntrada = v);
+        var vencimentoEntrada = e.Data("Vencimento da entrada", () => plano.VencimentoEntrada, v => plano.VencimentoEntrada = v);
+        var quantidade = e.Inteiro("Quantidade de parcelas (após a entrada)", () => plano.Quantidade, v => plano.Quantidade = v,
+            minimo: 1, maximo: 48);
+        var primeiro = e.Data("Primeiro vencimento", () => plano.PrimeiroVencimento, v => plano.PrimeiroVencimento = v ?? hoje);
+        var intervalo = e.Inteiro("Intervalo entre parcelas (dias; 0 = mensal)", () => plano.IntervaloDias ?? 0,
+            v => plano.IntervaloDias = v, minimo: 0, maximo: 365);
+        var forma = e.Lista("Forma de pagamento", formas, () => plano.FormaPagamentoId, v => plano.FormaPagamentoId = v, permitirVazio: true);
+
+        // Escolher a condição recalcula entrada, parcelas e vencimentos (os campos continuam editáveis).
+        condicao.SelectionChangeCommitted += async (_, _) =>
+        {
+            if (condicao.SelectedItem is not ItemLookup { Id: > 0 } item)
+                return;
+            try
+            {
+                var sugerido = await servico.SugerirPlanoAsync(eventoId, item.Id);
+                entrada.Value = Math.Clamp(sugerido.ValorEntrada, entrada.Minimum, entrada.Maximum);
+                vencimentoEntrada.Value = (sugerido.VencimentoEntrada ?? sugerido.PrimeiroVencimento).ToDateTime(TimeOnly.MinValue);
+                quantidade.Value = Math.Clamp(sugerido.Quantidade, 1, 48);
+                primeiro.Value = sugerido.PrimeiroVencimento.ToDateTime(TimeOnly.MinValue);
+                intervalo.Value = sugerido.IntervaloDias ?? 0;
+                if (sugerido.FormaPagamentoId is { } formaId && formas.Any(f => f.Id == formaId))
+                    forma.SelectedIndex = formas.Select((f, i) => (f, i)).First(x => x.f.Id == formaId).i + 1;
+            }
+            catch (Exception ex)
+            {
+                Mensagens.Erro(dono, ex);
+            }
+        };
 
         using var dialogo = new FormEdicao("Plano de pagamento",
-            "Parcelas em aberto serão substituídas; parcelas já pagas são mantidas. Vencimentos mensais a partir do primeiro.",
-            e, () => servico.GerarParcelasAsync(eventoId, plano), 620);
+            "Parcelas em aberto serão substituídas; parcelas já pagas são mantidas. Escolha uma condição para preencher o plano ou ajuste à mão.",
+            e, () => servico.GerarParcelasAsync(eventoId, plano), 640);
         return dialogo.ShowDialog(dono) == DialogResult.OK;
     }
 

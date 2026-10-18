@@ -1,4 +1,5 @@
 using BuffetSharp.Application.Abstracoes;
+using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Comercial;
@@ -13,17 +14,52 @@ namespace BuffetSharp.WinForms.Formularios.Eventos;
 /// <summary>Emissão, assinatura, impressão, envio e cancelamento de contratos.</summary>
 internal static class DialogosContrato
 {
-    /// <summary>Gera a minuta para revisão e emite o contrato. Retorna o Id ou nulo se cancelado.</summary>
-    public static async Task<int?> EmitirAsync(IWin32Window dono, ContratoService servico, int eventoId)
+    private const int ModeloEmBranco = -1;
+    private const int ModeloDoSistema = -2;
+
+    /// <summary>
+    /// Gera a minuta pelo modelo escolhido (sugerido: o do tipo do evento ou o padrão), permite revisar o texto e emite o
+    /// contrato. Também permite começar um contrato em branco. Retorna o Id ou nulo se cancelado.
+    /// </summary>
+    public static async Task<int?> EmitirAsync(IWin32Window dono, ContratoService servico, IConsultasLookup lookups, int eventoId)
     {
-        var texto = await servico.GerarMinutaAsync(eventoId);
+        var modelos = (await lookups.ListarAsync(TipoLookup.ModelosContrato)).ToList();
+        if (modelos.Count == 0)
+            modelos.Add(new ItemLookup { Id = ModeloDoSistema, Nome = "Modelo padrão do sistema" });
+        modelos.Add(new ItemLookup { Id = ModeloEmBranco, Nome = "Contrato em branco (escrever do zero)" });
+
+        int? modeloId = await servico.ModeloSugeridoAsync(eventoId) ?? modelos[0].Id;
+        Task<string> GerarAsync(int? id) => servico.GerarMinutaAsync(eventoId, id > 0 ? id : null, id == ModeloEmBranco);
+
+        var texto = await GerarAsync(modeloId);
+        var textoGerado = texto;
         int? emitido = null;
         var e = new EditorCampos(1);
-        e.Texto("Texto do contrato", () => texto, v => texto = v, "Texto", 100_000, linhas: 26);
+        var modelo = e.Lista("Modelo de contrato", modelos, () => modeloId, v => modeloId = v, "Modelo");
+        var caixa = e.Texto("Texto do contrato", () => texto, v => texto = v, "Texto", 100_000, linhas: 24);
+
+        static string Normalizar(string? valor) => (valor ?? "").ReplaceLineEndings("\n").Trim();
+        modelo.SelectionChangeCommitted += async (_, _) =>
+        {
+            if (modelo.SelectedItem is not ItemLookup item)
+                return;
+            if (Normalizar(caixa.Text) != Normalizar(textoGerado) &&
+                !Mensagens.Confirmar(dono, "O texto foi alterado. Substituir pelo texto do modelo escolhido?", "Trocar modelo"))
+                return;
+            try
+            {
+                textoGerado = await GerarAsync(item.Id);
+                caixa.Text = textoGerado.ReplaceLineEndings();
+            }
+            catch (Exception ex)
+            {
+                Mensagens.Erro(dono, ex);
+            }
+        };
 
         using var dialogo = new FormEdicao("Emitir contrato",
-            "Revise e ajuste o texto se necessário. Após a emissão ele é protegido por um código de integridade e não pode mais ser alterado.",
-            e, async () => emitido = await servico.EmitirAsync(eventoId, texto ?? ""), 860);
+            "Escolha o modelo, revise e ajuste o texto se necessário. Após a emissão ele é protegido por um código de integridade e não pode mais ser alterado.",
+            e, async () => emitido = await servico.EmitirAsync(eventoId, texto ?? "", modeloId > 0 ? modeloId : null), 860);
         return dialogo.ShowDialog(dono) == DialogResult.OK ? emitido : null;
     }
 

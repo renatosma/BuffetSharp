@@ -42,5 +42,29 @@ public class MovimentacaoEstoque : Entidade
     public string? Observacao { get; private set; }
     public int? EventoId { get; private set; }
 
+    /// <summary>Fornecedor da compra (entradas).</summary>
+    public int? FornecedorId { get; private set; }
+
+    /// <summary>Unidade em que foi comprado (ex.: CX), quando diferente da unidade do estoque.</summary>
+    public string? UnidadeCompra { get; private set; }
+
+    /// <summary>Quantidade comprada na unidade de compra (ex.: 2 CX).</summary>
+    public decimal? QuantidadeCompra { get; private set; }
+
+    /// <summary>Unidades do estoque em cada unidade de compra, na data da compra.</summary>
+    public decimal? FatorConversao { get; private set; }
+
+    /// <summary>Custo de cada unidade de compra (ex.: R$ 45,00 a caixa).</summary>
+    public decimal? CustoUnitarioCompra { get; private set; }
+
     public decimal ValorTotal => Math.Round(Math.Abs(Quantidade) * CustoUnitario, 2);
+
+    internal void RegistrarCompra(int? fornecedorId, string? unidade, decimal? quantidade, decimal? fator, decimal? custoUnitario)
+    {
+        FornecedorId = fornecedorId;
+        UnidadeCompra = unidade;
+        QuantidadeCompra = quantidade;
+        FatorConversao = fator;
+        CustoUnitarioCompra = custoUnitario;
+    }
 }

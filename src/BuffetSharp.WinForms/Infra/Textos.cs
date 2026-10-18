@@ -64,6 +64,10 @@ internal static class Textos
         PerfilUsuario.Comercial => "Comercial",
         PerfilUsuario.Financeiro => "Financeiro",
         PerfilUsuario.Operacional => "Operacional",
+        TipoContato.Celular => "Celular",
+        TipoContato.Telefone => "Telefone",
+        TipoContato.WhatsApp => "WhatsApp",
+        TipoContato.Email => "E-mail",
         _ => valor.ToString()
     };
 
@@ -112,7 +116,10 @@ internal static class Textos
         ["Evento"] = "Evento", ["EventoServico"] = "Serviço do evento", ["EventoFuncionario"] = "Equipe do evento",
         ["Convidado"] = "Convidado", ["EventoMaterial"] = "Material do evento", ["Parcela"] = "Parcela (a receber)",
         ["ContaPagar"] = "Conta a pagar", ["Usuario"] = "Usuário", ["Material"] = "Material", ["Contrato"] = "Contrato",
-        ["Degustacao"] = "Degustação", ["FechamentoComissao"] = "Fechamento de comissão"
+        ["Degustacao"] = "Degustação", ["FechamentoComissao"] = "Fechamento de comissão",
+        ["ContatoAdicional"] = "Contato adicional", ["EnderecoAdicional"] = "Endereço adicional",
+        ["CondicaoPagamento"] = "Condição de pagamento", ["ModeloContrato"] = "Modelo de contrato",
+        ["ProdutoEmbalagem"] = "Embalagem do produto"
     };
 
     /// <summary>Nome amigável da entidade gravado na auditoria.</summary>
