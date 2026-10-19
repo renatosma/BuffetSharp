@@ -137,18 +137,57 @@ internal static class DefinicoesCadastros
         TextoBusca = x => $"{x.Nome} {x.Final}",
         Nome = x => x.Nome,
         LarguraEditor = 600,
-        Campos = async (e, x, lookups) =>
+        Campos = async (e, x, contexto) =>
         {
-            var fornecedores = await lookups.ListarAsync(TipoLookup.Fornecedores, somenteAtivos: false);
+            var fornecedores = await contexto.Lookups.ListarAsync(TipoLookup.Fornecedores, somenteAtivos: false);
             e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 60, dica: "Ex.: Itaú Empresarial");
             e.Texto("Final (4 dígitos)", () => x.Final, v => x.Final = v, nameof(x.Final), 4);
             e.Inteiro("Dia de fechamento da fatura", () => x.DiaFechamento, v => x.DiaFechamento = v, nameof(x.DiaFechamento), 1, 31);
             e.Inteiro("Dia de vencimento da fatura", () => x.DiaVencimento, v => x.DiaVencimento = v, nameof(x.DiaVencimento), 1, 31);
-            e.Lista("Banco emissor (fornecedor das faturas)", fornecedores, () => x.FornecedorId, v => x.FornecedorId = v,
+            var banco = e.Lista("Banco emissor (fornecedor das faturas)", fornecedores, () => x.FornecedorId, v => x.FornecedorId = v,
                 nameof(x.FornecedorId), permitirVazio: true, span: 2);
+            e.BotaoAoLado(banco, "Novo banco", Icones.Adicionar).Click += async (botao, _) =>
+            {
+                var dono = ((Control)botao!).FindForm()!;
+                try
+                {
+                    if (await NovoBancoAsync(dono, contexto.Navegador) is not { } novo)
+                        return;
+                    var opcoes = ((IEnumerable<ItemLookup>)banco.DataSource!).Append(novo).ToList();
+                    banco.DataSource = opcoes;
+                    banco.SelectedIndex = opcoes.Count - 1;
+                }
+                catch (Exception ex)
+                {
+                    Mensagens.Erro(dono, ex);
+                }
+            };
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
         }
     };
+
+    /// <summary>
+    /// Cadastra o banco emissor do cartão sem sair da tela. Ele fica como fornecedor, porque as parcelas da fatura são
+    /// contas a pagar para ele.
+    /// </summary>
+    private static async Task<ItemLookup?> NovoBancoAsync(IWin32Window dono, Navegador navegador)
+    {
+        var banco = new Fornecedor();
+        var e = new EditorCampos(2);
+        e.Texto("Razão social", () => banco.RazaoSocial, v => banco.RazaoSocial = v ?? "", nameof(banco.RazaoSocial), 150, span: 2,
+            dica: "Ex.: Itaú Unibanco S.A.");
+        e.Texto("Nome nas listas", () => banco.NomeFantasia, v => banco.NomeFantasia = v, nameof(banco.NomeFantasia), 150,
+            dica: "Ex.: Itaú");
+        e.Documento("CNPJ", () => banco.Documento, v => banco.Documento = v, nameof(banco.Documento));
+        e.Texto("Observações", () => banco.Observacoes, v => banco.Observacoes = v, nameof(banco.Observacoes), 1000, span: 2,
+            dica: "Ex.: gerente, agência, central de atendimento");
+
+        var servico = navegador.Servico<ICadastroService<Fornecedor>>();
+        using var dialogo = new FormEdicao("Novo banco",
+            "O banco fica cadastrado em Fornecedores: as parcelas da fatura do cartão viram contas a pagar para ele.",
+            e, async () => banco = await servico.SalvarAsync(banco), 560);
+        return dialogo.ShowDialog(dono) == DialogResult.OK ? new ItemLookup { Id = banco.Id, Nome = banco.NomeExibicao } : null;
+    }
 
     public static readonly DefinicaoCadastro<CondicaoPagamento> CondicoesPagamento = new()
     {
@@ -163,9 +202,9 @@ internal static class DefinicoesCadastros
         TextoBusca = x => $"{x.Nome} {x.Descricao} {x.Resumo}",
         Nome = x => x.Nome,
         LarguraEditor = 640,
-        Campos = async (e, x, lookups) =>
+        Campos = async (e, x, contexto) =>
         {
-            var formas = await lookups.ListarAsync(TipoLookup.FormasPagamento, somenteAtivos: false);
+            var formas = await contexto.Lookups.ListarAsync(TipoLookup.FormasPagamento, somenteAtivos: false);
             e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 80, span: 2, dica: "Ex.: 30% de entrada + 5x");
             e.Texto("Texto na proposta e no contrato (opcional)", () => x.Descricao, v => x.Descricao = v, nameof(x.Descricao), 300,
                 span: 2, linhas: 2, dica: "Vazio: usa o resumo calculado pelas regras abaixo");
@@ -225,13 +264,13 @@ internal static class DefinicoesCadastros
                 await ctx.Recarregar();
             })
         ],
-        Campos = async (e, x, lookups) =>
+        Campos = async (e, x, contexto) =>
         {
             // Um modelo novo começa com o texto do contrato padrão, para ser adaptado.
             if (x.EhNovo && string.IsNullOrWhiteSpace(x.Conteudo))
                 x.Conteudo = GeradorContrato.ModeloPadrao;
 
-            var tipos = await lookups.ListarAsync(TipoLookup.TiposEvento, somenteAtivos: false);
+            var tipos = await contexto.Lookups.ListarAsync(TipoLookup.TiposEvento, somenteAtivos: false);
             e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 100, dica: "Ex.: Contrato de casamento");
             e.Lista("Tipo de evento (vazio = todos)", tipos, () => x.TipoEventoId, v => x.TipoEventoId = v, nameof(x.TipoEventoId),
                 permitirVazio: true);
@@ -486,9 +525,9 @@ internal static class DefinicoesCadastros
         TextoBusca = x => $"{x.Nome} {x.Cargo?.Nome} {x.Cpf} {x.Telefone}",
         Nome = x => x.Nome,
         LarguraEditor = 760,
-        Campos = async (e, x, lookups) =>
+        Campos = async (e, x, contexto) =>
         {
-            var cargos = await lookups.ListarAsync(TipoLookup.Cargos, somenteAtivos: false);
+            var cargos = await contexto.Lookups.ListarAsync(TipoLookup.Cargos, somenteAtivos: false);
             e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 150, span: 2);
             var cargo = e.Lista("Cargo", cargos, () => x.CargoId, v => x.CargoId = v ?? 0, nameof(x.CargoId));
             var diaria = e.Decimal("Valor da diária (R$)", () => x.ValorDiaria, v => x.ValorDiaria = v, nameof(x.ValorDiaria));
@@ -533,9 +572,9 @@ internal static class DefinicoesCadastros
             new("Compra", Icones.Adicionar, (m, ctx) => AjustarPatrimonioAsync(ctx, m, entrada: true)),
             new("Baixa", Icones.Excluir, (m, ctx) => AjustarPatrimonioAsync(ctx, m, entrada: false))
         ],
-        Campos = async (e, x, lookups) =>
+        Campos = async (e, x, contexto) =>
         {
-            var fornecedores = await lookups.ListarAsync(TipoLookup.Fornecedores, somenteAtivos: false);
+            var fornecedores = await contexto.Lookups.ListarAsync(TipoLookup.Fornecedores, somenteAtivos: false);
             e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 100, span: 2);
             e.Opcoes("Categoria", () => x.Categoria, v => x.Categoria = v, nameof(x.Categoria));
             if (x.EhNovo)
@@ -597,11 +636,11 @@ internal static class DefinicoesCadastros
                 return Task.CompletedTask;
             })
         ],
-        Campos = async (e, x, lookups) =>
+        Campos = async (e, x, contexto) =>
         {
-            var categorias = await lookups.ListarAsync(TipoLookup.CategoriasProduto, somenteAtivos: false);
-            var unidades = await lookups.ListarAsync(TipoLookup.UnidadesMedida, somenteAtivos: false);
-            var fornecedores = await lookups.ListarAsync(TipoLookup.Fornecedores, somenteAtivos: false);
+            var categorias = await contexto.Lookups.ListarAsync(TipoLookup.CategoriasProduto, somenteAtivos: false);
+            var unidades = await contexto.Lookups.ListarAsync(TipoLookup.UnidadesMedida, somenteAtivos: false);
+            var fornecedores = await contexto.Lookups.ListarAsync(TipoLookup.Fornecedores, somenteAtivos: false);
 
             e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 120, span: 2);
             e.Texto("Código (SKU)", () => x.Codigo, v => x.Codigo = v, nameof(x.Codigo), 30);

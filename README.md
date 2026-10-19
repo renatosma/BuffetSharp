@@ -155,6 +155,12 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   evento), separadas das formas de pagamento (PIX, cartão...). Aparecem na proposta, no plano de pagamento e no contrato.
 - **Financeiro**: contas a receber e a pagar, com pagamento (juros ou desconto pelo valor pago),
   estorno e despesas recorrentes. Despesas podem ser vinculadas a um evento.
+- **Parcelamento de contas a pagar**: como o plano de pagamento do evento. A **compra parcelada** divide o valor total
+  em entrada + parcelas, mensais ou a cada N dias, e pode ser preenchida por uma condição de pagamento. Em **juntar e
+  parcelar**, várias contas em aberto do mesmo fornecedor viram um parcelamento novo: as originais ficam canceladas e
+  ligadas a ele. As parcelas levam o código do parcelamento (`PAR-00001`) e o documento (NF, boleto). Enquanto nenhuma
+  parcela for paga, o parcelamento pode ser desfeito e as contas juntadas voltam a ficar em aberto. Pagar várias contas
+  do mesmo fornecedor de uma vez continua no "Pagar", como no recebimento.
 - **Relatórios**: faturamento por tipo de evento, ranking de pacotes, lucratividade por evento
   (com o custo real do estoque após a realização), fluxo de caixa e conversão de orçamentos.
 - **Envio da proposta**: por e-mail (corpo em HTML e proposta em PDF anexa) ou por WhatsApp (abre o
@@ -192,6 +198,9 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 - Um espaço não aceita dois eventos sobrepostos. A regra considera o **intervalo de montagem**,
   configurável, e eventos que terminam após a meia-noite.
 - Não é possível aprovar orçamento expirado, sem espaço ou com data passada.
+- Só se juntam contas em aberto do mesmo fornecedor, da mesma categoria e do mesmo evento (ou todas sem evento), para os
+  relatórios de despesa e o resultado do evento continuarem corretos. A fatura do cartão não é reparcelada (ela se
+  desfaz pelo estorno do pagamento feito com o cartão). Uma parcela não é excluída sozinha nem troca de fornecedor.
 - O plano de pagamento preserva as parcelas pagas e recalcula o saldo. Os centavos vão para a última
   parcela.
 - Cancelar o evento cancela as parcelas em aberto. Evento realizado ou cancelado não pode mais ser
@@ -211,10 +220,11 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **186 testes** (xUnit v3): 171 de domínio, integração e bancos, e 15 das telas.
+São **202 testes** (xUnit v3): 186 de domínio, integração e bancos, e 16 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
-  pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais e faixas etárias.
+  pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias e
+  parcelamento de contas a pagar.
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação, tradução de erros de banco). O banco é

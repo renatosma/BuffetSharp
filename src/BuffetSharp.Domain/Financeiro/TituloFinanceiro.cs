@@ -161,9 +161,22 @@ public class Parcela : TituloFinanceiro
 public class ContaPagar : TituloFinanceiro
 {
     public const int TamanhoDescricao = 150;
+    public const int TamanhoDocumento = 60;
 
     private ContaPagar()
     {
+    }
+
+    /// <summary>Parcela de um parcelamento (compra parcelada ou contas agrupadas).</summary>
+    internal ContaPagar(ParcelamentoPagar parcelamento, ParcelaPlanejada parcela, int? formaPagamentoId)
+        : this(Numerar(parcelamento.Descricao, parcela), parcelamento.Categoria, parcela.Valor, parcela.Vencimento,
+            parcelamento.FornecedorId, parcelamento.EventoId)
+    {
+        Parcelamento = parcelamento;
+        NumeroParcela = parcela.Numero;
+        Documento = parcelamento.Documento;
+        FormaPagamentoId = formaPagamentoId;
+        Observacao = parcelamento.Observacao;
     }
 
     public ContaPagar(string descricao, CategoriaDespesa categoria, decimal valor, DateOnly vencimento,
@@ -191,6 +204,30 @@ public class ContaPagar : TituloFinanceiro
 
     public bool EhFaturaCartao => OrigemBaixaFormaId is not null || OrigemBaixaForma is not null;
 
+    /// <summary>Número da nota fiscal, boleto ou fatura do fornecedor.</summary>
+    public string? Documento { get; private set; }
+
+    /// <summary>Parcelamento do qual esta conta é parcela (nulo nas contas avulsas).</summary>
+    public int? ParcelamentoId { get; private set; }
+    public ParcelamentoPagar? Parcelamento { get; private set; }
+
+    /// <summary>Número da parcela no parcelamento (0 = entrada).</summary>
+    public int? NumeroParcela { get; private set; }
+
+    /// <summary>Parcelamento que substituiu esta conta (ela fica cancelada até o parcelamento ser desfeito).</summary>
+    public int? AgrupadaEmId { get; private set; }
+    public ParcelamentoPagar? AgrupadaEm { get; private set; }
+
+    public bool EhParcela => ParcelamentoId is not null || Parcelamento is not null;
+    public bool FoiAgrupada => AgrupadaEmId is not null || AgrupadaEm is not null;
+
+    public void DefinirDocumento(string? documento)
+    {
+        Validador.Garantir(documento is null || documento.Trim().Length <= TamanhoDocumento,
+            $"O documento pode ter no máximo {TamanhoDocumento} caracteres.");
+        Documento = string.IsNullOrWhiteSpace(documento) ? null : documento.Trim();
+    }
+
     public void Alterar(string descricao, CategoriaDespesa categoria, decimal valor, DateOnly vencimento,
         int? fornecedorId, int? eventoId, string? observacao)
     {
@@ -200,6 +237,9 @@ public class ContaPagar : TituloFinanceiro
             Validador.Garantir(valor == Valor && categoria == Categoria && fornecedorId == FornecedorId,
                 "Na fatura do cartão só a descrição, o vencimento, o evento e a observação podem mudar. Para corrigir o valor, estorne o pagamento feito com o cartão.");
         }
+        if (EhParcela)
+            Validador.Garantir(fornecedorId == FornecedorId,
+                "O fornecedor de uma parcela não pode mudar. Desfaça o parcelamento para refazê-lo com outro fornecedor.");
         DefinirValores(descricao, valor, vencimento);
         Categoria = categoria;
         FornecedorId = fornecedorId;
@@ -213,6 +253,30 @@ public class ContaPagar : TituloFinanceiro
         base.Cancelar();
     }
 
+    /// <summary>A conta passa a fazer parte de um parcelamento novo (fica cancelada, ligada a ele).</summary>
+    internal void AgruparEm(ParcelamentoPagar parcelamento)
+    {
+        Validador.Garantir(Status == StatusTitulo.Aberto, $"'{Descricao}' não está em aberto.");
+        Validador.Garantir(!EhFaturaCartao, $"'{Descricao}' é parcela da fatura de um cartão e não pode ser reparcelada.");
+        Status = StatusTitulo.Cancelado;
+        AgrupadaEm = parcelamento;
+    }
+
+    /// <summary>Desfaz o <see cref="AgruparEm"/>: a conta volta a ficar em aberto.</summary>
+    internal void Desagrupar()
+    {
+        Validador.Garantir(FoiAgrupada && Status == StatusTitulo.Cancelado, $"'{Descricao}' não foi reparcelada.");
+        Status = StatusTitulo.Aberto;
+        AgrupadaEm = null;
+        AgrupadaEmId = null;
+    }
+
+    private static string Numerar(string descricao, ParcelaPlanejada parcela)
+    {
+        var sufixo = parcela.Entrada ? " (entrada)" : $" ({parcela.Numero}/{parcela.Quantidade})";
+        return descricao[..Math.Min(descricao.Length, TamanhoDescricao - sufixo.Length)] + sufixo;
+    }
+
     protected override TituloFinanceiro CriarSaldo(decimal valor)
     {
         var saldo = new ContaPagar
@@ -224,6 +288,10 @@ public class ContaPagar : TituloFinanceiro
             Evento = Evento,
             OrigemBaixaFormaId = OrigemBaixaFormaId,
             OrigemBaixaForma = OrigemBaixaForma,
+            Documento = Documento,
+            ParcelamentoId = ParcelamentoId,
+            Parcelamento = Parcelamento,
+            NumeroParcela = NumeroParcela,
             FormaPagamentoId = FormaPagamentoId,
             Observacao = Observacao
         };

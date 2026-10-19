@@ -258,6 +258,32 @@ internal sealed class EditorCampos
         _coluna = _colunas;
     }
 
+    /// <summary>Coloca um botão ao lado de um campo já adicionado (ex.: "Novo banco" ao lado da lista).</summary>
+    public Button BotaoAoLado(Control campo, string texto, char? icone = null)
+    {
+        var bloco = (TableLayoutPanel)(campo.Parent ?? throw new InvalidOperationException("O campo ainda não foi adicionado."));
+        var posicao = bloco.GetPositionFromControl(campo);
+        bloco.Controls.Remove(campo);
+
+        var linha = new TableLayoutPanel
+        {
+            ColumnCount = 2,
+            RowCount = 1,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0)
+        };
+        linha.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        linha.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        var botao = Tema.BotaoSecundario(texto, icone);
+        botao.Margin = new Padding(8, 0, 0, 0);
+        linha.Controls.Add(campo, 0, 0);
+        linha.Controls.Add(botao, 1, 0);
+        bloco.Controls.Add(linha, posicao.Column, posicao.Row);
+        return botao;
+    }
+
     /// <summary>Ação extra executada ao carregar os campos (ex.: preencher uma lista editável).</summary>
     public void AoCarregar(Action acao) => _carregar.Add(acao);
 

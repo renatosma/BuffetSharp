@@ -91,17 +91,7 @@ public sealed class BaixaService(IBuffetDbContextFactory fabrica, TimeProvider r
     public async Task<BaixaResumo?> ObterDoTituloAsync(TipoBaixa tipo, int tituloId, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var consulta = db.Baixas.AsNoTracking()
-            .Include(b => b.Titulos).ThenInclude(t => t.Parcela)
-            .Include(b => b.Titulos).ThenInclude(t => t.ContaPagar)
-            .Include(b => b.Formas).ThenInclude(f => f.FormaPagamento)
-            .Include(b => b.Formas).ThenInclude(f => f.Conta)
-            .Include(b => b.Formas).ThenInclude(f => f.Cartao)
-            .Include(b => b.Formas).ThenInclude(f => f.Faturas);
-        var baixa = await (tipo == TipoBaixa.Recebimento
-                ? consulta.Where(b => b.Tipo == tipo && b.Titulos.Any(t => t.ParcelaId == tituloId))
-                : consulta.Where(b => b.Tipo == tipo && b.Titulos.Any(t => t.ContaPagarId == tituloId)))
-            .OrderByDescending(b => b.Id).FirstOrDefaultAsync(ct);
+        var baixa = await CarregarDoTituloAsync(db, tipo, tituloId, ct);
         if (baixa is null)
             return null;
 
@@ -110,6 +100,79 @@ public sealed class BaixaService(IBuffetDbContextFactory fabrica, TimeProvider r
             baixa.Formas.Select(f => $"{f.FormaPagamento?.Nome}: {f.Valor:C}" +
                                      (f.Conta is not null ? $" ({f.Conta.Nome})" : f.Cartao is not null ? $" ({f.Cartao}, {f.Parcelas}x)" : "")).ToList(),
             baixa.Formas.Sum(f => f.Faturas.Count));
+    }
+
+    /// <summary>
+    /// Como o título foi pago: data, quem registrou, formas (conta, caixa ou cartão com as faturas), juros e desconto, as
+    /// outras contas quitadas no mesmo pagamento e, no pagamento parcial, para onde foi o restante. Nulo se não houver baixa.
+    /// </summary>
+    public async Task<DetalhePagamento?> DetalharDoTituloAsync(TipoBaixa tipo, int tituloId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var baixa = await CarregarDoTituloAsync(db, tipo, tituloId, ct);
+        if (baixa is null)
+            return null;
+
+        var recebimento = baixa.Tipo == TipoBaixa.Recebimento;
+        static string Situacao(StatusTitulo status) => status switch
+        {
+            StatusTitulo.Pago => "paga",
+            StatusTitulo.Cancelado => "cancelada",
+            _ => "em aberto"
+        };
+
+        // A conta consultada vem primeiro; as demais foram quitadas no mesmo pagamento.
+        var titulos = baixa.Titulos
+            .OrderByDescending(t => t.Titulo.Id == tituloId).ThenBy(t => t.Titulo.Descricao)
+            .Select(t => new PagamentoTitulo(t.Titulo.Id, t.Titulo.Descricao, t.Valor, t.Juros, t.Desconto, t.ValorEfetivo,
+                t.Saldo is { } saldo ? $"{saldo.Valor:C} ficou para \"{saldo.Descricao}\" ({Situacao(saldo.Status)})" : null))
+            .ToList();
+        var formas = baixa.Formas
+            .Select(f => new PagamentoForma(
+                f.FormaPagamento?.Nome ?? "-",
+                f.FormaPagamento?.Tipo ?? TipoFormaPagamento.Outros,
+                f.Valor,
+                f.Conta is not null ? $"{(recebimento ? "Entrou em" : "Saiu de")} {f.Conta.Nome}"
+                    : f.Cartao is not null ? $"Cartão {f.Cartao} em {f.Parcelas}x" : null,
+                f.Faturas.OrderBy(x => x.Vencimento)
+                    .Select(x => $"{x.Vencimento:dd/MM/yyyy}  {x.Valor:C}  ({Situacao(x.Status)})").ToList()))
+            .ToList();
+        return new DetalhePagamento(baixa.Id, baixa.Tipo, baixa.Data, baixa.Total, baixa.Usuario, baixa.CriadoEm, baixa.Observacao,
+            titulos, formas);
+    }
+
+    /// <summary>
+    /// Para o título criado com o restante de um pagamento parcial: de qual conta ele veio, quando e quanto foi pago.
+    /// </summary>
+    public async Task<string?> OrigemDoSaldoAsync(TipoBaixa tipo, int tituloId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var baixa = await db.Baixas.AsNoTracking()
+            .Include(b => b.Titulos).ThenInclude(t => t.Parcela)
+            .Include(b => b.Titulos).ThenInclude(t => t.ContaPagar)
+            .Where(b => b.Tipo == tipo && b.Titulos.Any(t => t.SaldoParcelaId == tituloId || t.SaldoContaPagarId == tituloId))
+            .OrderByDescending(b => b.Id).FirstOrDefaultAsync(ct);
+        var item = baixa?.Titulos.FirstOrDefault(t => t.SaldoParcelaId == tituloId || t.SaldoContaPagarId == tituloId);
+        return item is null
+            ? null
+            : $"Restante do pagamento parcial de \"{item.Titulo.Descricao}\" em {baixa!.Data:dd/MM/yyyy} (foram pagos {item.ValorEfetivo:C}).";
+    }
+
+    private static Task<Baixa?> CarregarDoTituloAsync(IBuffetDbContext db, TipoBaixa tipo, int tituloId, CancellationToken ct)
+    {
+        var consulta = db.Baixas.AsNoTracking()
+            .Include(b => b.Titulos).ThenInclude(t => t.Parcela)
+            .Include(b => b.Titulos).ThenInclude(t => t.ContaPagar)
+            .Include(b => b.Titulos).ThenInclude(t => t.SaldoParcela)
+            .Include(b => b.Titulos).ThenInclude(t => t.SaldoContaPagar)
+            .Include(b => b.Formas).ThenInclude(f => f.FormaPagamento)
+            .Include(b => b.Formas).ThenInclude(f => f.Conta)
+            .Include(b => b.Formas).ThenInclude(f => f.Cartao)
+            .Include(b => b.Formas).ThenInclude(f => f.Faturas);
+        return (tipo == TipoBaixa.Recebimento
+                ? consulta.Where(b => b.Tipo == tipo && b.Titulos.Any(t => t.ParcelaId == tituloId))
+                : consulta.Where(b => b.Tipo == tipo && b.Titulos.Any(t => t.ContaPagarId == tituloId)))
+            .OrderByDescending(b => b.Id).FirstOrDefaultAsync(ct);
     }
 
     /// <summary>Desfaz a baixa: títulos, movimentos nas contas e faturas de cartão geradas.</summary>

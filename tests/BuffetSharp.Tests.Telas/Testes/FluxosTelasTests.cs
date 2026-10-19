@@ -47,6 +47,32 @@ public class FluxosTelasTests(AmbienteTelas ambiente)
         });
 
     [Fact]
+    public void Cartao_tem_novo_banco_ao_lado_do_emissor_e_grava_com_o_banco_escolhido() =>
+        Robo.Executar(ambiente, robo =>
+        {
+            var principal = robo.Entrar();
+            var tela = robo.AbrirMenu<FormCadastro<CartaoCredito>>(principal, "Cartões de crédito");
+
+            robo.Dialogo<FormEdicao>(() => robo.Clicar(tela, "Novo"), dialogo =>
+            {
+                var emissor = Robo.Campo<ComboBox>(dialogo, "Banco emissor (fornecedor das faturas)");
+                var novoBanco = Descendentes(dialogo).OfType<Button>().Single(b => b.Text.Trim() == "Novo banco");
+                Assert.Same(emissor.Parent, novoBanco.Parent); // o botão fica na mesma linha da lista
+
+                robo.Preencher(dialogo, "Nome", "Cartão do teste");
+                robo.Preencher(dialogo, "Final (4 dígitos)", "9876");
+                robo.Escolher(dialogo, "Banco emissor (fornecedor das faturas)", "Banco do Brasil");
+                robo.Clicar(dialogo, "Salvar");
+            }, "novo cartão");
+
+            robo.Esperar(() => Robo.Linhas<CartaoCredito>(Robo.Grade(tela))
+                .Any(c => c.Nome == "Cartão do teste" && c.Fornecedor?.NomeFantasia == "Banco do Brasil"), "cartão com o banco na lista");
+        });
+
+    private static IEnumerable<Control> Descendentes(Control raiz) =>
+        raiz.Controls.Cast<Control>().SelectMany(c => new[] { c }.Concat(Descendentes(c)));
+
+    [Fact]
     public void Compra_de_material_aumenta_o_patrimonio() =>
         Robo.Executar(ambiente, robo =>
         {

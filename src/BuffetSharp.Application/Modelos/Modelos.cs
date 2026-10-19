@@ -1,4 +1,5 @@
 using BuffetSharp.Application.Abstracoes;
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
@@ -192,6 +193,20 @@ public sealed class BaixaFormaInput
 public sealed record BaixaResumo(int Id, TipoBaixa Tipo, DateOnly Data, decimal Total, IReadOnlyList<string> Titulos,
     IReadOnlyList<string> Formas, int FaturasGeradas);
 
+/// <summary>Como uma conta foi paga (ou uma parcela recebida): o pagamento inteiro, com as outras contas quitadas junto.</summary>
+public sealed record DetalhePagamento(int BaixaId, TipoBaixa Tipo, DateOnly Data, decimal Total, string? Usuario, DateTime RegistradoEm,
+    string? Observacao, IReadOnlyList<PagamentoTitulo> Titulos, IReadOnlyList<PagamentoForma> Formas);
+
+/// <summary>Conta quitada no pagamento: valor abatido + juros − desconto = pago.</summary>
+/// <param name="Restante">No pagamento parcial, para onde foi o restante (ex.: "R$ 300,00 ficou para \"Boleto (saldo)\"").</param>
+public sealed record PagamentoTitulo(int TituloId, string Descricao, decimal Abatido, decimal Juros, decimal Desconto, decimal Pago,
+    string? Restante);
+
+/// <summary>Forma usada no pagamento.</summary>
+/// <param name="Onde">Conta ou caixa movimentado, ou o cartão com o número de parcelas.</param>
+/// <param name="Faturas">Parcelas da fatura do cartão geradas em contas a pagar (vencimento, valor e situação).</param>
+public sealed record PagamentoForma(string Forma, TipoFormaPagamento Tipo, decimal Valor, string? Onde, IReadOnlyList<string> Faturas);
+
 /// <summary>Lançamento avulso numa conta: aporte, retirada, tarifa, rendimento...</summary>
 public sealed class MovimentoInput
 {
@@ -228,12 +243,45 @@ public sealed class ContaPagarInput
     public DateOnly Vencimento { get; set; }
     public int? FornecedorId { get; set; }
     public int? EventoId { get; set; }
+
+    /// <summary>Nota fiscal, boleto ou fatura do fornecedor.</summary>
+    public string? Documento { get; set; }
     public string? Observacao { get; set; }
     public StatusTitulo Status { get; set; } = StatusTitulo.Aberto;
 
     /// <summary>Para lançamentos recorrentes (ex.: aluguel): repete por N meses.</summary>
     public int Repeticoes { get; set; } = 1;
+
+    /// <summary>Somente leitura: parcelamento do qual a conta é parcela ("PAR-00001") ou no qual foi juntada.</summary>
+    public string? Parcelamento { get; set; }
+
+    /// <summary>Somente leitura: quando, quanto e com que forma foi pago.</summary>
+    public DateOnly? DataPagamento { get; set; }
+    public decimal? ValorPago { get; set; }
+    public string? FormaPagamento { get; set; }
+    public TipoFormaPagamento? TipoFormaPagamento { get; set; }
 }
+
+/// <summary>
+/// Compra parcelada (valor total, sem contas) ou contas em aberto do mesmo fornecedor juntadas e reparceladas
+/// (<see cref="ContasAgrupadasIds"/>; o total é a soma delas e categoria, fornecedor e evento vêm delas).
+/// </summary>
+public sealed class ParcelamentoInput
+{
+    public string Descricao { get; set; } = string.Empty;
+    public CategoriaDespesa Categoria { get; set; } = CategoriaDespesa.Insumos;
+    public int? FornecedorId { get; set; }
+    public int? EventoId { get; set; }
+    public string? Documento { get; set; }
+    public string? Observacao { get; set; }
+    public decimal ValorTotal { get; set; }
+    public List<int> ContasAgrupadasIds { get; set; } = [];
+    public PlanoPagamentoInput Plano { get; set; } = new();
+}
+
+/// <summary>Resumo de um parcelamento para confirmar o desfazer.</summary>
+public sealed record ParcelamentoInfo(int Id, string Codigo, string Descricao, decimal ValorTotal, int Parcelas, int ContasAgrupadas,
+    bool PodeDesfazer);
 
 public sealed class UsuarioInput
 {

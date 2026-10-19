@@ -86,7 +86,7 @@ internal sealed class ConsultasContas(FabricaConexao conexoes) : IConsultasConta
             """;
         const string pagar = """
             SELECT cp.Id, cp.Descricao, cp.EventoId, e.Titulo AS EventoTitulo, cp.Vencimento, cp.Valor,
-                   cp.FornecedorId AS PessoaId, COALESCE(fo.NomeFantasia, fo.RazaoSocial) AS Pessoa
+                   cp.FornecedorId AS PessoaId, COALESCE(fo.NomeFantasia, fo.RazaoSocial) AS Pessoa, cp.Categoria, cp.Documento
               FROM ContasPagar cp
               LEFT JOIN Fornecedores fo ON fo.Id = cp.FornecedorId
               LEFT JOIN Eventos e ON e.Id = cp.EventoId

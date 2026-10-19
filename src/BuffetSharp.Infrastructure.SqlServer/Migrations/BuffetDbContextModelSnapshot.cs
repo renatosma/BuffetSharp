@@ -2113,6 +2113,9 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AgrupadaEmId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("datetime2");
 
@@ -2132,6 +2135,10 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("Documento")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
                     b.Property<int?>("EventoId")
                         .HasColumnType("int");
 
@@ -2141,11 +2148,17 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<int?>("FornecedorId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("NumeroParcela")
+                        .HasColumnType("int");
+
                     b.Property<string>("Observacao")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<int?>("OrigemBaixaFormaId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ParcelamentoId")
                         .HasColumnType("int");
 
                     b.Property<string>("Status")
@@ -2166,6 +2179,8 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AgrupadaEmId");
+
                     b.HasIndex("DataPagamento");
 
                     b.HasIndex("EventoId");
@@ -2175,6 +2190,8 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.HasIndex("FornecedorId");
 
                     b.HasIndex("OrigemBaixaFormaId");
+
+                    b.HasIndex("ParcelamentoId");
 
                     b.HasIndex("Status", "Vencimento");
 
@@ -2389,6 +2406,57 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.HasIndex("Status", "Vencimento");
 
                     b.ToTable("Parcelas", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Documento")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int?>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FornecedorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("ValorTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventoId");
+
+                    b.HasIndex("FornecedorId");
+
+                    b.ToTable("ParcelamentosPagar", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Seguranca.Usuario", b =>
@@ -2939,6 +3007,11 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ContaPagar", b =>
                 {
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", "AgrupadaEm")
+                        .WithMany("Agrupadas")
+                        .HasForeignKey("AgrupadaEmId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", "Evento")
                         .WithMany()
                         .HasForeignKey("EventoId")
@@ -2959,6 +3032,13 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .HasForeignKey("OrigemBaixaFormaId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", "Parcelamento")
+                        .WithMany("Parcelas")
+                        .HasForeignKey("ParcelamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AgrupadaEm");
+
                     b.Navigation("Evento");
 
                     b.Navigation("FormaPagamento");
@@ -2966,6 +3046,8 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Navigation("Fornecedor");
 
                     b.Navigation("OrigemBaixaForma");
+
+                    b.Navigation("Parcelamento");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.FechamentoComissao", b =>
@@ -3046,6 +3128,23 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Navigation("FormaPagamento");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", "Evento")
+                        .WithMany()
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Evento");
+
+                    b.Navigation("Fornecedor");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Cliente", b =>
                 {
                     b.Navigation("Contatos");
@@ -3116,6 +3215,13 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Navigation("Faturas");
 
                     b.Navigation("Movimento");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", b =>
+                {
+                    b.Navigation("Agrupadas");
+
+                    b.Navigation("Parcelas");
                 });
 #pragma warning restore 612, 618
         }

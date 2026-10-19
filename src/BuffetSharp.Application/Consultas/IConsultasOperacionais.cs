@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Eventos;
@@ -163,6 +164,9 @@ public sealed record ParcelaResumo
     public DateTime? DataPagamento { get; init; }
     public decimal? ValorPago { get; init; }
     public string? FormaPagamento { get; init; }
+
+    /// <summary>Natureza da forma (cartão de crédito, débito, PIX...): a do pagamento, ou a prevista se em aberto.</summary>
+    public TipoFormaPagamento? TipoFormaPagamento { get; init; }
     public int DiasAtraso { get; init; }
     public string EventoCodigo => $"EVT-{EventoId:D5}";
 }
@@ -182,7 +186,20 @@ public sealed record ContaPagarResumo
     public DateTime? DataPagamento { get; init; }
     public decimal? ValorPago { get; init; }
     public string? FormaPagamento { get; init; }
+
+    /// <summary>Natureza da forma (cartão de crédito, débito, PIX...): a do pagamento, ou a prevista se em aberto.</summary>
+    public TipoFormaPagamento? TipoFormaPagamento { get; init; }
     public int DiasAtraso { get; init; }
+
+    /// <summary>Nota fiscal, boleto ou fatura do fornecedor.</summary>
+    public string? Documento { get; init; }
+    public int? ParcelamentoId { get; init; }
+
+    /// <summary>Parcelamento em que esta conta (cancelada) foi juntada.</summary>
+    public int? AgrupadaEmId { get; init; }
+
+    /// <summary>"PAR-00001" na parcela; "→ PAR-00001" na conta juntada.</summary>
+    public string? Parcelamento => ParcelamentoId is { } p ? $"PAR-{p:D5}" : AgrupadaEmId is { } a ? $"→ PAR-{a:D5}" : null;
 }
 
 public interface IConsultasFinanceiro

@@ -341,38 +341,15 @@ public class Evento : Entidade
         DateOnly? vencimentoEntrada = null, int? formaPagamentoId = null, int? intervaloDias = null)
     {
         GarantirConfirmado();
-        Validador.Garantir(quantidade is >= 1 and <= 48, "A quantidade de parcelas deve estar entre 1 e 48.");
-        Validador.Garantir(valorEntrada >= 0, "O valor de entrada não pode ser negativo.");
-        Validador.Garantir(intervaloDias is null or (>= 1 and <= 365), "O intervalo entre as parcelas deve estar entre 1 e 365 dias.");
-
-        foreach (var aberta in _parcelas.Where(p => p.Status == StatusTitulo.Aberto).ToList())
-            _parcelas.Remove(aberta);
-
-        var saldo = ValorNaoParcelado;
+        var restantes = _parcelas.Where(p => p.Status != StatusTitulo.Aberto).ToList();
+        var saldo = ValorTotal - restantes.Where(p => p.Status != StatusTitulo.Cancelado).Sum(p => p.Valor);
         Validador.Garantir(saldo > 0, "Não há saldo a parcelar para este evento.");
-        Validador.Garantir(valorEntrada < saldo || (valorEntrada == saldo && quantidade == 1),
-            "A entrada deve ser menor que o saldo a parcelar.");
+        var plano = PlanoParcelas.Calcular(saldo, quantidade, primeiroVencimento, valorEntrada, vencimentoEntrada, intervaloDias);
 
+        _parcelas.RemoveAll(p => p.Status == StatusTitulo.Aberto);
         var numero = _parcelas.Count == 0 ? 0 : _parcelas.Max(p => p.Numero);
-        var geradas = new List<Parcela>();
-
-        if (valorEntrada > 0)
-        {
-            geradas.Add(new Parcela(this, ++numero, valorEntrada, vencimentoEntrada ?? primeiroVencimento,
-                formaPagamentoId, "Entrada"));
-            saldo -= valorEntrada;
-        }
-
-        if (saldo > 0)
-        {
-            var valorParcela = Math.Round(saldo / quantidade, 2, MidpointRounding.ToZero);
-            for (var i = 0; i < quantidade; i++)
-            {
-                var valor = i == quantidade - 1 ? saldo - valorParcela * (quantidade - 1) : valorParcela;
-                var vencimento = intervaloDias is { } dias ? primeiroVencimento.AddDays(i * dias) : primeiroVencimento.AddMonths(i);
-                geradas.Add(new Parcela(this, ++numero, valor, vencimento, formaPagamentoId, $"Parcela {i + 1}/{quantidade}"));
-            }
-        }
+        var geradas = plano.Select(p => new Parcela(this, ++numero, p.Valor, p.Vencimento, formaPagamentoId,
+            p.Entrada ? "Entrada" : $"Parcela {p.Numero}/{p.Quantidade}")).ToList();
 
         Validador.Garantir(geradas.Max(p => p.Vencimento) <= DataEvento.AddDays(60),
             "O plano de pagamento não pode terminar mais de 60 dias após o evento.");

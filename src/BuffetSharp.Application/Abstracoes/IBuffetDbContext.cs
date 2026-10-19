@@ -38,6 +38,7 @@ public interface IBuffetDbContext : IDisposable, IAsyncDisposable
     DbSet<Evento> Eventos { get; }
     DbSet<Parcela> Parcelas { get; }
     DbSet<ContaPagar> ContasPagar { get; }
+    DbSet<ParcelamentoPagar> ParcelamentosPagar { get; }
     DbSet<Usuario> Usuarios { get; }
     DbSet<Material> Materiais { get; }
     DbSet<Contrato> Contratos { get; }

@@ -189,7 +189,7 @@ internal sealed class ConsultasFinanceiro(FabricaConexao conexoes) : IConsultasF
     {
         const string sql = """
             SELECT p.Id, p.EventoId, e.Titulo AS EventoTitulo, e.ClienteId, c.Nome AS Cliente, p.Numero, p.Descricao, p.Vencimento,
-                   p.Valor, p.Status, p.DataPagamento, p.ValorPago, f.Nome AS FormaPagamento
+                   p.Valor, p.Status, p.DataPagamento, p.ValorPago, f.Nome AS FormaPagamento, f.Tipo AS TipoFormaPagamento
               FROM Parcelas p
               JOIN Eventos e ON e.Id = p.EventoId
               JOIN Clientes c ON c.Id = e.ClienteId
@@ -213,7 +213,9 @@ internal sealed class ConsultasFinanceiro(FabricaConexao conexoes) : IConsultasF
         const string sql = """
             SELECT cp.Id, cp.Descricao, cp.Categoria, cp.FornecedorId, COALESCE(fo.NomeFantasia, fo.RazaoSocial) AS Fornecedor,
                    cp.EventoId, e.Titulo AS Evento,
-                   cp.Vencimento, cp.Valor, cp.Status, cp.DataPagamento, cp.ValorPago, f.Nome AS FormaPagamento
+                   cp.Vencimento, cp.Valor, cp.Status, cp.DataPagamento, cp.ValorPago, f.Nome AS FormaPagamento,
+                   f.Tipo AS TipoFormaPagamento,
+                   cp.Documento, cp.ParcelamentoId, cp.AgrupadaEmId
               FROM ContasPagar cp
               LEFT JOIN Fornecedores fo ON fo.Id = cp.FornecedorId
               LEFT JOIN Eventos e ON e.Id = cp.EventoId
@@ -223,7 +225,7 @@ internal sealed class ConsultasFinanceiro(FabricaConexao conexoes) : IConsultasF
                AND (@Status IS NULL OR cp.Status = @Status)
                AND (@SomenteVencidos = 0 OR (cp.Status = 'Aberto' AND cp.Vencimento < @Hoje))
                AND (@Texto IS NULL OR UPPER(cp.Descricao) LIKE @Texto ESCAPE '!' OR UPPER(fo.RazaoSocial) LIKE @Texto ESCAPE '!'
-                    OR UPPER(fo.NomeFantasia) LIKE @Texto ESCAPE '!')
+                    OR UPPER(fo.NomeFantasia) LIKE @Texto ESCAPE '!' OR UPPER(cp.Documento) LIKE @Texto ESCAPE '!')
              ORDER BY cp.Vencimento, cp.Id
             """;
 

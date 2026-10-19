@@ -23,13 +23,29 @@ internal sealed class ContaPagarConfig : IEntityTypeConfiguration<ContaPagar>
     public void Configure(EntityTypeBuilder<ContaPagar> b)
     {
         b.ToTable("ContasPagar");
-        b.Property(x => x.Descricao).HasMaxLength(150).IsRequired();
+        b.Property(x => x.Descricao).HasMaxLength(ContaPagar.TamanhoDescricao).IsRequired();
+        b.Property(x => x.Documento).HasMaxLength(ContaPagar.TamanhoDocumento);
         b.Property(x => x.Observacao).HasMaxLength(500);
         b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Evento).WithMany().HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.FormaPagamento).WithMany().HasForeignKey(x => x.FormaPagamentoId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.Status, x.Vencimento });
         b.HasIndex(x => x.DataPagamento);
+    }
+}
+
+internal sealed class ParcelamentoPagarConfig : IEntityTypeConfiguration<ParcelamentoPagar>
+{
+    public void Configure(EntityTypeBuilder<ParcelamentoPagar> b)
+    {
+        b.ToTable("ParcelamentosPagar");
+        b.Property(x => x.Descricao).HasMaxLength(ContaPagar.TamanhoDescricao).IsRequired();
+        b.Property(x => x.Documento).HasMaxLength(ContaPagar.TamanhoDocumento);
+        b.Property(x => x.Observacao).HasMaxLength(ParcelamentoPagar.TamanhoObservacao);
+        b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Evento).WithMany().HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Parcelas).WithOne(c => c.Parcelamento).HasForeignKey(c => c.ParcelamentoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Agrupadas).WithOne(c => c.AgrupadaEm).HasForeignKey(c => c.AgrupadaEmId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

@@ -18,7 +18,7 @@ internal sealed class DefinicaoCadastro<T> where T : Entidade, new()
     public Func<IQueryable<T>, IQueryable<T>>? Consulta { get; init; }
     public required Action<Grade<T>> Colunas { get; init; }
     public required Func<T, string> TextoBusca { get; init; }
-    public required Func<EditorCampos, T, IConsultasLookup, Task> Campos { get; init; }
+    public required Func<EditorCampos, T, ContextoEditor, Task> Campos { get; init; }
     public required Func<T, string> Nome { get; init; }
     public int ColunasEditor { get; init; } = 2;
     public int LarguraEditor { get; init; } = 680;
@@ -29,6 +29,9 @@ internal sealed class DefinicaoCadastro<T> where T : Entidade, new()
 internal sealed record AcaoCadastro<T>(string Texto, char Icone, Func<T, ContextoCadastro, Task> Executar);
 
 internal sealed record ContextoCadastro(IWin32Window Dono, Navegador Navegador, Func<Task> Recarregar);
+
+/// <summary>O que os campos do editor podem usar: os combos e, para cadastrar algo relacionado ali mesmo, os serviços.</summary>
+internal sealed record ContextoEditor(IConsultasLookup Lookups, Navegador Navegador);
 
 internal sealed class FormCadastro<T> : FormListagem<T> where T : Entidade, new()
 {
@@ -110,7 +113,7 @@ internal sealed class FormCadastro<T> : FormListagem<T> where T : Entidade, new(
     private async Task AbrirEditorAsync(T entidade, string titulo)
     {
         var editor = new EditorCampos(_definicao.ColunasEditor);
-        await _definicao.Campos(editor, entidade, _lookups);
+        await _definicao.Campos(editor, entidade, new ContextoEditor(_lookups, _navegador));
 
         var subtitulo = entidade.EhNovo ? null : $"{_definicao.Nome(entidade)}  •  código {entidade.Id}";
         using var dialogo = new FormEdicao(titulo, subtitulo, editor, () => _servico.SalvarAsync(entidade), _definicao.LarguraEditor);

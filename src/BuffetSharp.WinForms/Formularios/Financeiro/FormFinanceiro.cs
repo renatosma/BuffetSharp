@@ -70,6 +70,18 @@ internal sealed class FormContasReceber : FormTitulos<ParcelaResumo>
             if (await DialogoBaixa.EstornarAsync(this, _baixas, TipoBaixa.Recebimento, p.Id, $"{p.Descricao} ({p.Cliente})"))
                 await CarregarAsync();
         });
+        Botao("Ver recebimento", Icones.Confirmar, async () =>
+        {
+            if (Selecionado() is not { } p)
+                return;
+            if (p.Status != StatusTitulo.Pago)
+            {
+                Mensagens.Aviso(this, "Selecione uma parcela recebida.");
+                return;
+            }
+            await PainelPagamento.ExibirAsync(this, _baixas, TipoBaixa.Recebimento, p.Id, $"{p.Descricao} - {p.Cliente}",
+                p.DataPagamento, p.ValorPago, p.FormaPagamento, p.TipoFormaPagamento);
+        });
         Botao("Abrir evento", Icones.Bandeira, () => Selecionado() is { } p ? AoAbrirAsync(p) : Task.CompletedTask);
 
         Grade.Data("Vencimento", p => p.Vencimento, peso: 20, cor: p => p.DiasAtraso > 0 ? Tema.Perigo : null)
@@ -81,8 +93,9 @@ internal sealed class FormContasReceber : FormTitulos<ParcelaResumo>
             .Numero("Atraso (dias)", p => p.DiasAtraso, peso: 15, cor: p => p.DiasAtraso > 0 ? Tema.Perigo : null)
             .Data("Pago em", p => p.DataPagamento, peso: 18)
             .Moeda("Valor pago", p => p.ValorPago, 20)
-            .Texto("Forma", p => p.FormaPagamento, 22)
-            .Busca(p => $"{p.Cliente} {p.EventoCodigo} {p.EventoTitulo} {p.Descricao} {p.FormaPagamento}");
+            .Texto("Recebido com", p => PainelPagamento.PagoCom(p.Status, p.FormaPagamento, p.TipoFormaPagamento), 26)
+            .Busca(p => $"{p.Cliente} {p.EventoCodigo} {p.EventoTitulo} {p.Descricao} {p.FormaPagamento} " +
+                        PainelPagamento.PagoCom(p.Status, p.FormaPagamento, p.TipoFormaPagamento));
     }
 
     protected override async Task CarregarAsync() => Exibir(await _consultas.ListarParcelasAsync(FiltroAtual(), Hoje));
@@ -133,8 +146,15 @@ internal sealed class FormContasPagar : FormTitulos<ContaPagarResumo>
         _baixas = baixas;
 
         Botao("Nova conta", Icones.Adicionar, () => EditarAsync(0), destaque: true);
+        Botao("Compra parcelada", Icones.Cartao, async () =>
+        {
+            if (await DialogoParcelamento.ExibirAsync(this, _financeiro, _contas, _lookups))
+                await CarregarAsync();
+        });
         Botao("Editar", Icones.Editar, () => Selecionado() is { } c ? EditarAsync(c.Id) : Task.CompletedTask);
         Botao("Pagar", Icones.Banco, PagarAsync);
+        Botao("Juntar e parcelar", Icones.Adicionar, JuntarAsync);
+        Botao("Desfazer parcelamento", Icones.Desfazer, DesfazerParcelamentoAsync);
         Botao("Estornar", Icones.Desfazer, async () =>
         {
             if (Selecionado() is not { } c)
@@ -154,12 +174,16 @@ internal sealed class FormContasPagar : FormTitulos<ContaPagarResumo>
             .Texto("Descrição", c => c.Descricao, 60)
             .Texto("Categoria", c => Textos.Exibir(c.Categoria), 22)
             .Texto("Fornecedor", c => c.Fornecedor, 35)
+            .Texto("Documento", c => c.Documento, 20)
+            .Texto("Parcelamento", c => c.Parcelamento, 18)
             .Texto("Evento", c => c.Evento, 40)
             .Moeda("Valor", c => c.Valor, 20)
             .Status("Situação", c => c.Status, 16)
             .Data("Pago em", c => c.DataPagamento, peso: 18)
             .Moeda("Valor pago", c => c.ValorPago, 20)
-            .Busca(c => $"{c.Descricao} {c.Categoria} {c.Fornecedor} {c.Evento}");
+            .Texto("Pago com", c => PainelPagamento.PagoCom(c.Status, c.FormaPagamento, c.TipoFormaPagamento), 26)
+            .Busca(c => $"{c.Descricao} {c.Categoria} {c.Fornecedor} {c.Evento} {c.Documento} {c.Parcelamento} {c.FormaPagamento} " +
+                        PainelPagamento.PagoCom(c.Status, c.FormaPagamento, c.TipoFormaPagamento));
     }
 
     protected override async Task CarregarAsync() => Exibir(await _consultas.ListarContasPagarAsync(FiltroAtual(), Hoje));
@@ -182,15 +206,41 @@ internal sealed class FormContasPagar : FormTitulos<ContaPagarResumo>
         e.Opcoes("Categoria", () => input.Categoria, v => input.Categoria = v);
         e.Decimal("Valor (R$)", () => input.Valor, v => input.Valor = v, nameof(input.Valor));
         e.Data("Vencimento", () => input.Vencimento, v => input.Vencimento = v ?? Hoje, nameof(input.Vencimento));
+        e.Texto("Documento (NF, boleto)", () => input.Documento, v => input.Documento = v, nameof(input.Documento), 60);
         if (id == 0)
             e.Inteiro("Repetir por (meses)", () => input.Repeticoes, v => input.Repeticoes = v, minimo: 1, maximo: 24);
+        else if (input.Parcelamento is not null)
+            e.Informacao("Parcelamento", () => input.Parcelamento);
         e.Lista("Fornecedor", fornecedores, () => input.FornecedorId, v => input.FornecedorId = v, permitirVazio: true, span: 2);
         e.Lista("Vincular ao evento (custo extra do evento)", eventos, () => input.EventoId, v => input.EventoId = v, permitirVazio: true, span: 2);
         e.Texto("Observação", () => input.Observacao, v => input.Observacao = v, maximo: 500, span: 2, linhas: 2);
 
-        using var dialogo = new FormEdicao(id == 0 ? "Nova conta a pagar" : "Editar conta a pagar",
-            id == 0 ? "Use \"Repetir por\" para despesas recorrentes (aluguel, energia...)." : null,
-            e, () => _financeiro.SalvarContaAsync(input), 640, somenteLeitura: input.Status != StatusTitulo.Aberto);
+        // Conta paga: mostra como foi paga. Conta em aberto que é o restante de um pagamento parcial: de onde veio.
+        string? subtitulo = id == 0
+            ? "Use \"Repetir por\" para despesas recorrentes (aluguel, energia...). Para dividir um valor em parcelas, use \"Compra parcelada\"."
+            : null;
+        var largura = 640;
+        if (input.Status == StatusTitulo.Pago)
+        {
+            subtitulo = "Conta paga. Para alterá-la, estorne o pagamento.";
+            if (await _baixas.DetalharDoTituloAsync(TipoBaixa.Pagamento, id) is { } pagamento)
+            {
+                PainelPagamento.Adicionar(e, pagamento);
+                largura = 900;
+            }
+            else
+            {
+                PainelPagamento.AdicionarResumo(e, false, input.DataPagamento?.ToDateTime(TimeOnly.MinValue), input.ValorPago,
+                    input.FormaPagamento, input.TipoFormaPagamento);
+            }
+        }
+        else if (id > 0 && await _baixas.OrigemDoSaldoAsync(TipoBaixa.Pagamento, id) is { } origem)
+        {
+            e.Informacao("Pagamento parcial", () => origem, span: 2);
+        }
+
+        using var dialogo = new FormEdicao(id == 0 ? "Nova conta a pagar" : input.Status == StatusTitulo.Pago ? "Conta paga" : "Editar conta a pagar",
+            subtitulo, e, () => _financeiro.SalvarContaAsync(input), largura, somenteLeitura: input.Status != StatusTitulo.Aberto);
         if (dialogo.ShowDialog(this) == DialogResult.OK)
             await CarregarAsync();
     }
@@ -209,6 +259,43 @@ internal sealed class FormContasPagar : FormTitulos<ContaPagarResumo>
             return;
         await CarregarAsync();
         Grade.Selecionar(c => c.Id == conta.Id);
+    }
+
+    private async Task JuntarAsync()
+    {
+        if (Selecionado() is not { } conta)
+            return;
+        if (conta.Status != StatusTitulo.Aberto)
+        {
+            Mensagens.Aviso(this, "Selecione uma conta em aberto. As outras contas em aberto do mesmo fornecedor aparecem para juntar.");
+            return;
+        }
+        if (await DialogoParcelamento.ExibirAsync(this, _financeiro, _contas, _lookups, conta))
+            await CarregarAsync();
+    }
+
+    private async Task DesfazerParcelamentoAsync()
+    {
+        if (Selecionado() is not { } conta)
+            return;
+        if ((conta.ParcelamentoId ?? conta.AgrupadaEmId) is not { } id)
+        {
+            Mensagens.Aviso(this, "Selecione uma parcela (ou uma conta juntada) de um parcelamento.");
+            return;
+        }
+        var parcelamento = await _financeiro.ObterParcelamentoAsync(id);
+        if (!parcelamento.PodeDesfazer)
+        {
+            Mensagens.Aviso(this, $"{parcelamento.Codigo} já tem parcela paga (ou juntada em outro parcelamento). Estorne o pagamento antes de desfazê-lo.");
+            return;
+        }
+        var texto = $"Desfazer o parcelamento {parcelamento.Codigo} - {parcelamento.Descricao} ({Textos.Moeda(parcelamento.ValorTotal)})?" +
+                    $"{Environment.NewLine}{Environment.NewLine}As {parcelamento.Parcelas} parcela(s) serão excluídas" +
+                    (parcelamento.ContasAgrupadas > 0 ? $" e as {parcelamento.ContasAgrupadas} conta(s) juntadas voltam a ficar em aberto." : ".");
+        if (!Mensagens.Confirmar(this, texto, "Desfazer", perigoso: true))
+            return;
+        await _financeiro.DesfazerParcelamentoAsync(id);
+        await CarregarAsync();
     }
 
     private async Task AcaoAsync(Func<ContaPagarResumo, Task> acao, string verbo)

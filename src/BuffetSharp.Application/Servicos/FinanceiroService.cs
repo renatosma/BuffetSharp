@@ -6,14 +6,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BuffetSharp.Application.Servicos;
 
-public sealed class FinanceiroService(IBuffetDbContextFactory fabrica)
+public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvider relogio)
 {
-    // Recebimentos e pagamentos ficam no BaixaService; aqui, o cadastro das contas a pagar.
+    // Recebimentos e pagamentos ficam no BaixaService; aqui, o cadastro das contas a pagar e os parcelamentos.
+
+    private DateOnly Hoje => DateOnly.FromDateTime(relogio.GetLocalNow().DateTime);
 
     public async Task<ContaPagarInput> ObterContaAsync(int id, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var c = await db.ContasPagar.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct)
+        var c = await db.ContasPagar.AsNoTracking().Include(x => x.FormaPagamento).FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new RegraNegocioException("Conta não encontrada.");
         return new ContaPagarInput
         {
@@ -24,8 +26,14 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica)
             Vencimento = c.Vencimento,
             FornecedorId = c.FornecedorId,
             EventoId = c.EventoId,
+            Documento = c.Documento,
             Observacao = c.Observacao,
-            Status = c.Status
+            Status = c.Status,
+            DataPagamento = c.DataPagamento,
+            ValorPago = c.ValorPago,
+            FormaPagamento = c.FormaPagamento?.Nome,
+            TipoFormaPagamento = c.FormaPagamento?.Tipo,
+            Parcelamento = c.ParcelamentoId is { } p ? $"PAR-{p:D5}" : c.AgrupadaEmId is { } a ? $"juntada em PAR-{a:D5}" : null
         };
     }
 
@@ -40,6 +48,7 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica)
                 var descricao = input.Repeticoes > 1 ? $"{input.Descricao} ({i + 1}/{input.Repeticoes})" : input.Descricao;
                 var conta = new ContaPagar(descricao, input.Categoria, input.Valor, input.Vencimento.AddMonths(i),
                     input.FornecedorId, input.EventoId) { Observacao = input.Observacao };
+                conta.DefinirDocumento(input.Documento);
                 db.ContasPagar.Add(conta);
             }
         }
@@ -49,6 +58,7 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica)
                         ?? throw new RegraNegocioException("Conta não encontrada.");
             conta.Alterar(input.Descricao, input.Categoria, input.Valor, input.Vencimento, input.FornecedorId,
                 input.EventoId, input.Observacao);
+            conta.DefinirDocumento(input.Documento);
         }
         await db.SaveChangesAsync(ct);
     }
@@ -64,9 +74,92 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica)
         Validador.Garantir(conta.Status != StatusTitulo.Pago, "Contas pagas não podem ser excluídas. Estorne antes.");
         Validador.Garantir(!conta.EhFaturaCartao,
             "Esta conta é parcela da fatura de um cartão. Para desfazê-la, estorne o pagamento feito com o cartão.");
+        Validador.Garantir(!conta.EhParcela && !conta.FoiAgrupada,
+            $"Esta conta faz parte do parcelamento PAR-{conta.ParcelamentoId ?? conta.AgrupadaEmId:D5}. Use \"Desfazer parcelamento\" ou cancele a parcela.");
         db.ContasPagar.Remove(conta);
         await db.SaveChangesAsync(ct);
     }
+
+    // ------------------------- Parcelamentos -------------------------
+
+    /// <summary>
+    /// Plano sugerido pela condição de pagamento para o valor. A quitação "antes do evento" só limita quando a conta está
+    /// vinculada a um evento.
+    /// </summary>
+    public async Task<PlanoPagamentoInput> SugerirPlanoAsync(int condicaoPagamentoId, decimal valor, int? eventoId,
+        CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var condicao = await db.CondicoesPagamento.AsNoTracking().FirstOrDefaultAsync(c => c.Id == condicaoPagamentoId, ct)
+                       ?? throw new RegraNegocioException("Condição de pagamento não encontrada.");
+        var dataEvento = eventoId is { } id
+            ? DateOnly.FromDateTime(await db.Eventos.Where(e => e.Id == id).Select(e => e.Inicio).FirstAsync(ct))
+            : DateOnly.MaxValue;
+        var plano = condicao.Simular(valor, Hoje, dataEvento);
+        return new PlanoPagamentoInput
+        {
+            Quantidade = plano.Quantidade,
+            PrimeiroVencimento = plano.PrimeiroVencimento,
+            ValorEntrada = plano.ValorEntrada,
+            VencimentoEntrada = plano.VencimentoEntrada ?? plano.PrimeiroVencimento,
+            FormaPagamentoId = condicao.FormaPagamentoId,
+            IntervaloDias = plano.IntervaloDias ?? 0,
+            CondicaoPagamentoId = condicao.Id
+        };
+    }
+
+    /// <summary>Gera uma compra parcelada ou junta as contas informadas num parcelamento novo. Retorna o Id.</summary>
+    public async Task<int> ParcelarAsync(ParcelamentoInput input, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        ParcelamentoPagar parcelamento;
+        if (input.ContasAgrupadasIds.Count == 0)
+        {
+            parcelamento = new ParcelamentoPagar(input.Descricao, input.Categoria, input.ValorTotal, input.FornecedorId,
+                input.EventoId, input.Documento, input.Observacao);
+        }
+        else
+        {
+            var ids = input.ContasAgrupadasIds.Distinct().ToList();
+            var contas = await db.ContasPagar.Where(c => ids.Contains(c.Id)).ToListAsync(ct);
+            Validador.Garantir(contas.Count == ids.Count, "Uma das contas não existe mais. Atualize a lista.");
+            parcelamento = ParcelamentoPagar.Agrupar(contas, input.Descricao, input.Documento, input.Observacao);
+        }
+
+        var plano = input.Plano;
+        parcelamento.GerarParcelas(plano.Quantidade, plano.PrimeiroVencimento, plano.ValorEntrada, plano.VencimentoEntrada,
+            plano.FormaPagamentoId, plano.IntervaloDias is > 0 ? plano.IntervaloDias : null);
+        db.ParcelamentosPagar.Add(parcelamento);
+        await db.SaveChangesAsync(ct);
+        return parcelamento.Id;
+    }
+
+    public async Task<ParcelamentoInfo> ObterParcelamentoAsync(int parcelamentoId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var p = await CarregarParcelamentoAsync(db, parcelamentoId, ct);
+        return new ParcelamentoInfo(p.Id, p.Codigo, p.Descricao, p.ValorTotal, p.Parcelas.Count, p.Agrupadas.Count, p.PodeDesfazer);
+    }
+
+    /// <summary>As contas juntadas voltam a ficar em aberto e as parcelas são excluídas.</summary>
+    public async Task DesfazerParcelamentoAsync(int parcelamentoId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var parcelamento = await CarregarParcelamentoAsync(db, parcelamentoId, ct);
+        foreach (var item in parcelamento.Desfazer())
+        {
+            switch (item)
+            {
+                case ContaPagar conta: db.ContasPagar.Remove(conta); break;
+                case ParcelamentoPagar p: db.ParcelamentosPagar.Remove(p); break;
+            }
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task<ParcelamentoPagar> CarregarParcelamentoAsync(IBuffetDbContext db, int id, CancellationToken ct) =>
+        await db.ParcelamentosPagar.Include(p => p.Parcelas).Include(p => p.Agrupadas).FirstOrDefaultAsync(p => p.Id == id, ct)
+        ?? throw new RegraNegocioException("Parcelamento não encontrado.");
 
     private async Task AlterarAsync<T>(int id, Action<T> acao, CancellationToken ct) where T : TituloFinanceiro
     {

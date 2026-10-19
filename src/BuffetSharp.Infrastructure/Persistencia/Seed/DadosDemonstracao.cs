@@ -65,6 +65,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await RegistrarComprasRecentesAsync(ct);
         await CriarDegustacoesAsync(ct);
         await FecharComissoesAsync(ct);
+        await CriarCompraParceladaAsync(ct);
     }
 
     // =====================================================================
@@ -188,7 +189,16 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             SaldoInicial = 85_000,
             DataSaldoInicial = inicio
         };
-        _cartao = new CartaoCredito { Nome = "Cartão Empresarial", Final = "4321", DiaFechamento = 25, DiaVencimento = 5 };
+        // O banco emissor do cartão é um fornecedor: as parcelas da fatura são contas a pagar para ele.
+        var emissor = new Fornecedor
+        {
+            RazaoSocial = "Banco do Brasil S.A.",
+            NomeFantasia = "Banco do Brasil",
+            Contato = "Gerente PJ",
+            Observacoes = "Banco emissor do Cartão Empresarial."
+        };
+        db.Fornecedores.Add(emissor);
+        _cartao = new CartaoCredito { Nome = "Cartão Empresarial", Final = "4321", DiaFechamento = 25, DiaVencimento = 5, Fornecedor = emissor };
         db.ContasFinanceiras.Add(_banco);
         db.CartoesCredito.Add(_cartao);
 
@@ -830,6 +840,17 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                 db.ContasPagar.Add(new ContaPagar($"Manutenção de equipamentos de cozinha - {mes:MM/yyyy}",
                     CategoriaDespesa.Manutencao, 600 + _rnd.Next(0, 1800), mes.AddDays(24)));
         }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Equipamento comprado em entrada + 5x: as parcelas já vencidas estão pagas.</summary>
+    private async Task CriarCompraParceladaAsync(CancellationToken ct)
+    {
+        var compra = new ParcelamentoPagar("Forno combinado 10 GN", CategoriaDespesa.Manutencao, 18_900m, documento: "NF 18.452");
+        compra.GerarParcelas(5, Hoje.AddMonths(-1), 3_900m, Hoje.AddMonths(-2));
+        foreach (var parcela in compra.Parcelas.Where(p => p.Vencimento < Hoje).ToList())
+            Pagar(parcela, parcela.Vencimento, _formas["Boleto Bancário"]);
+        db.ParcelamentosPagar.Add(compra);
         await db.SaveChangesAsync(ct);
     }
 

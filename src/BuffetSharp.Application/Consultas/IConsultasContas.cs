@@ -69,6 +69,10 @@ public sealed record TituloEmAberto
     public decimal Valor { get; init; }
     public int? PessoaId { get; init; }
     public string? Pessoa { get; init; }
+
+    /// <summary>Categoria da despesa (somente contas a pagar).</summary>
+    public CategoriaDespesa? Categoria { get; init; }
+    public string? Documento { get; init; }
     public string? Referencia => EventoId is { } id ? $"EVT-{id:D5} - {EventoTitulo}" : null;
 }
 

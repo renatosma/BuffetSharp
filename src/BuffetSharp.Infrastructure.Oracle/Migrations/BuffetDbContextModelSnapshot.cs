@@ -2649,6 +2649,10 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
 
                     OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AgrupadaEmId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("AGRUPADAEMID");
+
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("ATUALIZADOEM");
@@ -2673,6 +2677,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(150)")
                         .HasColumnName("DESCRICAO");
 
+                    b.Property<string>("Documento")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("DOCUMENTO");
+
                     b.Property<int?>("EventoId")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("EVENTOID");
@@ -2685,6 +2694,10 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("FORNECEDORID");
 
+                    b.Property<int?>("NumeroParcela")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("NUMEROPARCELA");
+
                     b.Property<string>("Observacao")
                         .HasMaxLength(500)
                         .HasColumnType("NVARCHAR2(500)")
@@ -2693,6 +2706,10 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<int?>("OrigemBaixaFormaId")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("ORIGEMBAIXAFORMAID");
+
+                    b.Property<int?>("ParcelamentoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("PARCELAMENTOID");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -2717,6 +2734,9 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.HasKey("Id")
                         .HasName("PK_CONTASPAGAR");
 
+                    b.HasIndex("AgrupadaEmId")
+                        .HasDatabaseName("IX_CONTASPAGAR_AGRUPADAEMID");
+
                     b.HasIndex("DataPagamento")
                         .HasDatabaseName("IX_CONTASPAGAR_DATAPAGAMENTO");
 
@@ -2731,6 +2751,9 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
 
                     b.HasIndex("OrigemBaixaFormaId")
                         .HasDatabaseName("IX_CONTASPAGAR_ORIGEMBAIXAFORMAID");
+
+                    b.HasIndex("ParcelamentoId")
+                        .HasDatabaseName("IX_CONTASPAGAR_PARCELAMENTOID");
 
                     b.HasIndex("Status", "Vencimento")
                         .HasDatabaseName("IX_CONTASPAGAR_STATUS_VENCIMENTO");
@@ -3001,6 +3024,70 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasDatabaseName("IX_PARCELAS_STATUS_VENCIMENTO");
 
                     b.ToTable("PARCELAS", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("CATEGORIA");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("DESCRICAO");
+
+                    b.Property<string>("Documento")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("DOCUMENTO");
+
+                    b.Property<int?>("EventoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("EVENTOID");
+
+                    b.Property<int?>("FornecedorId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("FORNECEDORID");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("OBSERVACAO");
+
+                    b.Property<decimal>("ValorTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("VALORTOTAL");
+
+                    b.HasKey("Id")
+                        .HasName("PK_PARCELAMENTOSPAGAR");
+
+                    b.HasIndex("EventoId")
+                        .HasDatabaseName("IX_PARCELAMENTOSPAGAR_EVENTOID");
+
+                    b.HasIndex("FornecedorId")
+                        .HasDatabaseName("IX_PARCELAMENTOSPAGAR_FORNECEDORID");
+
+                    b.ToTable("PARCELAMENTOSPAGAR", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Seguranca.Usuario", b =>
@@ -3625,6 +3712,12 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ContaPagar", b =>
                 {
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", "AgrupadaEm")
+                        .WithMany("Agrupadas")
+                        .HasForeignKey("AgrupadaEmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_CONTASPAGAR_PARCELAMENTOSPAGAR_AGRUPADAEMID");
+
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", "Evento")
                         .WithMany()
                         .HasForeignKey("EventoId")
@@ -3649,6 +3742,14 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("FK_CONTASPAGAR_BAIXAFORMAS_ORIGEMBAIXAFORMAID");
 
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", "Parcelamento")
+                        .WithMany("Parcelas")
+                        .HasForeignKey("ParcelamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_CONTASPAGAR_PARCELAMENTOSPAGAR_PARCELAMENTOID");
+
+                    b.Navigation("AgrupadaEm");
+
                     b.Navigation("Evento");
 
                     b.Navigation("FormaPagamento");
@@ -3656,6 +3757,8 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("Fornecedor");
 
                     b.Navigation("OrigemBaixaForma");
+
+                    b.Navigation("Parcelamento");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.FechamentoComissao", b =>
@@ -3745,6 +3848,25 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("FormaPagamento");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", "Evento")
+                        .WithMany()
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_PARCELAMENTOSPAGAR_EVENTOS_EVENTOID");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_PARCELAMENTOSPAGAR_FORNECEDORES_FORNECEDORID");
+
+                    b.Navigation("Evento");
+
+                    b.Navigation("Fornecedor");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Cliente", b =>
                 {
                     b.Navigation("Contatos");
@@ -3815,6 +3937,13 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("Faturas");
 
                     b.Navigation("Movimento");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", b =>
+                {
+                    b.Navigation("Agrupadas");
+
+                    b.Navigation("Parcelas");
                 });
 #pragma warning restore 612, 618
         }
