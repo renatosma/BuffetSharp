@@ -34,7 +34,7 @@ public class Orcamento : Entidade
     }
 
     public Orcamento(int clienteId, int tipoEventoId, DateOnly data, TimeOnly horaInicio, TimeOnly horaFim,
-        int convidados, DateOnly validoAte)
+        QuantidadesConvidados convidados, DateOnly validoAte)
     {
         AlterarDados(clienteId, tipoEventoId, data, horaInicio, horaFim, convidados, validoAte, null);
     }
@@ -63,7 +63,11 @@ public class Orcamento : Entidade
 
     public DateTime Inicio { get; private set; }
     public DateTime Fim { get; private set; }
+
+    /// <summary>Total de pessoas (inteira + meia + isentos).</summary>
     public int QuantidadeConvidados { get; private set; }
+    public int ConvidadosMeia { get; private set; }
+    public int ConvidadosIsentos { get; private set; }
     public DateOnly ValidoAte { get; private set; }
     public StatusOrcamento Status { get; private set; } = StatusOrcamento.Rascunho;
 
@@ -72,6 +76,11 @@ public class Orcamento : Entidade
     public decimal ValorEspaco { get; private set; }
     public decimal PercentualDesconto { get; private set; }
     public decimal ValorTotal { get; private set; }
+
+    /// <summary>Regra de idades do pacote, congelada (a meia pode ser negociada).</summary>
+    public int IdadeMaximaIsento { get; private set; } = RegraFaixasEtarias.Padrao.IdadeMaximaIsento;
+    public int IdadeMaximaMeia { get; private set; } = RegraFaixasEtarias.Padrao.IdadeMaximaMeia;
+    public decimal PercentualMeia { get; private set; } = RegraFaixasEtarias.Padrao.PercentualMeia;
 
     public string? Observacoes { get; private set; }
     public string? MotivoRecusa { get; private set; }
@@ -85,6 +94,9 @@ public class Orcamento : Entidade
     /// <summary>Histórico de envios da proposta ao cliente (e-mail e WhatsApp).</summary>
     public IReadOnlyCollection<EnvioProposta> Envios => _envios;
 
+    public QuantidadesConvidados QuantidadesPorFaixa => new(QuantidadeConvidados, ConvidadosMeia, ConvidadosIsentos);
+    public RegraFaixasEtarias RegraFaixas => new(IdadeMaximaIsento, IdadeMaximaMeia, PercentualMeia);
+
     public DateOnly DataEvento => DateOnly.FromDateTime(Inicio);
     public TimeOnly HoraInicio => TimeOnly.FromDateTime(Inicio);
     public TimeOnly HoraFim => TimeOnly.FromDateTime(Fim);
@@ -94,28 +106,31 @@ public class Orcamento : Entidade
     public bool EstaExpirado(DateOnly hoje) => Status == StatusOrcamento.Enviado && ValidoAte < hoje;
 
     public ResumoValores Resumo => CalculadoraValores.Calcular(
-        ValorPorPessoa, QuantidadeConvidados, ValorEspaco, _servicos.Sum(s => s.Total), PercentualDesconto);
+        ValorPorPessoa, QuantidadesPorFaixa, ValorEspaco, _servicos.Sum(s => s.Total), PercentualDesconto, RegraFaixas);
 
     public void AlterarDados(int clienteId, int tipoEventoId, DateOnly data, TimeOnly horaInicio, TimeOnly horaFim,
-        int convidados, DateOnly validoAte, string? observacoes)
+        QuantidadesConvidados convidados, DateOnly validoAte, string? observacoes)
     {
         GarantirEditavel();
         Validador.Garantir(clienteId > 0, "Selecione o cliente.");
         Validador.Garantir(tipoEventoId > 0, "Selecione o tipo de evento.");
-        Validador.Garantir(convidados > 0, "Informe a quantidade de convidados.");
+        convidados.Validar();
         Validador.Garantir(validoAte <= data, "A validade do orçamento não pode ser posterior à data do evento.");
 
         (Inicio, Fim) = PeriodoEvento.Calcular(data, horaInicio, horaFim);
         ClienteId = clienteId;
         TipoEventoId = tipoEventoId;
-        QuantidadeConvidados = convidados;
+        QuantidadeConvidados = convidados.Total;
+        ConvidadosMeia = convidados.Meia;
+        ConvidadosIsentos = convidados.Isentos;
         ValidoAte = validoAte;
         Observacoes = observacoes;
         Recalcular();
     }
 
     /// <param name="valorNegociado">Preço por pessoa negociado; quando nulo, usa o preço de tabela do pacote.</param>
-    public void DefinirPacote(Pacote? pacote, decimal? valorNegociado = null)
+    /// <param name="percentualMeiaNegociado">Percentual da meia negociado; quando nulo, usa o do pacote.</param>
+    public void DefinirPacote(Pacote? pacote, decimal? valorNegociado = null, decimal? percentualMeiaNegociado = null)
     {
         GarantirEditavel();
         if (pacote is null)
@@ -127,13 +142,16 @@ public class Orcamento : Entidade
         else
         {
             Validador.Garantir(pacote.Ativo, $"O pacote '{pacote.Nome}' está inativo.");
-            Validador.Garantir(QuantidadeConvidados >= pacote.MinimoConvidados,
-                $"O pacote '{pacote.Nome}' exige no mínimo {pacote.MinimoConvidados} convidados.");
+            Validador.Garantir(QuantidadesPorFaixa.Pagantes >= pacote.MinimoConvidados,
+                $"O pacote '{pacote.Nome}' exige no mínimo {pacote.MinimoConvidados} convidados pagantes.");
             Validador.Garantir(valorNegociado is null or > 0, "O valor por pessoa deve ser maior que zero.");
+            var regra = pacote.RegraFaixas with { PercentualMeia = percentualMeiaNegociado ?? pacote.PercentualMeia };
+            regra.Validar();
 
             PacoteId = pacote.Id;
             Pacote = pacote;
             ValorPorPessoa = valorNegociado ?? pacote.PrecoPorPessoa;
+            (IdadeMaximaIsento, IdadeMaximaMeia, PercentualMeia) = regra;
         }
         Recalcular();
     }
@@ -265,7 +283,7 @@ public class Orcamento : Entidade
     {
         var data = DataEvento < hoje ? hoje.AddDays(30) : DataEvento;
         var validade = hoje.AddDays(diasValidade);
-        var copia = new Orcamento(ClienteId, TipoEventoId, data, HoraInicio, HoraFim, QuantidadeConvidados,
+        var copia = new Orcamento(ClienteId, TipoEventoId, data, HoraInicio, HoraFim, QuantidadesPorFaixa,
             validade > data ? data : validade)
         {
             PacoteId = PacoteId,
@@ -275,6 +293,9 @@ public class Orcamento : Entidade
             ValorPorPessoa = ValorPorPessoa,
             ValorEspaco = ValorEspaco,
             PercentualDesconto = PercentualDesconto,
+            IdadeMaximaIsento = IdadeMaximaIsento,
+            IdadeMaximaMeia = IdadeMaximaMeia,
+            PercentualMeia = PercentualMeia,
             Observacoes = Observacoes
         };
         foreach (var s in _servicos)

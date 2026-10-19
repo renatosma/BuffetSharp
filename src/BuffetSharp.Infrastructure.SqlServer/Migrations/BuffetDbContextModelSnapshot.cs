@@ -934,6 +934,12 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<int>("IdadeMaximaIsento")
+                        .HasColumnType("int");
+
+                    b.Property<int>("IdadeMaximaMeia")
+                        .HasColumnType("int");
+
                     b.Property<int>("MinimoConvidados")
                         .HasColumnType("int");
 
@@ -941,6 +947,10 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("PercentualMeia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("PrecoPorPessoa")
                         .HasPrecision(18, 2)
@@ -1204,6 +1214,12 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<int?>("CondicaoPagamentoId")
                         .HasColumnType("int");
 
+                    b.Property<int>("ConvidadosIsentos")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ConvidadosMeia")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
@@ -1218,6 +1234,12 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 
                     b.Property<DateTime>("Fim")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("IdadeMaximaIsento")
+                        .HasColumnType("int");
+
+                    b.Property<int>("IdadeMaximaMeia")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("datetime2");
@@ -1236,6 +1258,10 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<decimal>("PercentualDesconto")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("PercentualMeia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("int");
@@ -1627,6 +1653,12 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<int?>("CondicaoPagamentoId")
                         .HasColumnType("int");
 
+                    b.Property<int>("ConvidadosIsentos")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ConvidadosMeia")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
@@ -1638,6 +1670,12 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 
                     b.Property<DateTime>("Fim")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("IdadeMaximaIsento")
+                        .HasColumnType("int");
+
+                    b.Property<int>("IdadeMaximaMeia")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("datetime2");
@@ -1659,6 +1697,10 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<decimal>("PercentualComissao")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("PercentualMeia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("int");

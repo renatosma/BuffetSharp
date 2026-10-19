@@ -1152,6 +1152,14 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(1000)")
                         .HasColumnName("DESCRICAO");
 
+                    b.Property<int>("IdadeMaximaIsento")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("IDADEMAXIMAISENTO");
+
+                    b.Property<int>("IdadeMaximaMeia")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("IDADEMAXIMAMEIA");
+
                     b.Property<int>("MinimoConvidados")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("MINIMOCONVIDADOS");
@@ -1161,6 +1169,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("NOME");
+
+                    b.Property<decimal>("PercentualMeia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("PERCENTUALMEIA");
 
                     b.Property<decimal>("PrecoPorPessoa")
                         .HasPrecision(18, 2)
@@ -1491,6 +1504,14 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("CONDICAOPAGAMENTOID");
 
+                    b.Property<int>("ConvidadosIsentos")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("CONVIDADOSISENTOS");
+
+                    b.Property<int>("ConvidadosMeia")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("CONVIDADOSMEIA");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("CRIADOEM");
@@ -1510,6 +1531,14 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<DateTime>("Fim")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("FIM");
+
+                    b.Property<int>("IdadeMaximaIsento")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("IDADEMAXIMAISENTO");
+
+                    b.Property<int>("IdadeMaximaMeia")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("IDADEMAXIMAMEIA");
 
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("TIMESTAMP(7)")
@@ -1533,6 +1562,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("DECIMAL(5,2)")
                         .HasColumnName("PERCENTUALDESCONTO");
+
+                    b.Property<decimal>("PercentualMeia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("PERCENTUALMEIA");
 
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("NUMBER(10)")
@@ -2030,6 +2064,14 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("CONDICAOPAGAMENTOID");
 
+                    b.Property<int>("ConvidadosIsentos")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("CONVIDADOSISENTOS");
+
+                    b.Property<int>("ConvidadosMeia")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("CONVIDADOSMEIA");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("CRIADOEM");
@@ -2045,6 +2087,14 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<DateTime>("Fim")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("FIM");
+
+                    b.Property<int>("IdadeMaximaIsento")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("IDADEMAXIMAISENTO");
+
+                    b.Property<int>("IdadeMaximaMeia")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("IDADEMAXIMAMEIA");
 
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("TIMESTAMP(7)")
@@ -2072,6 +2122,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("DECIMAL(5,2)")
                         .HasColumnName("PERCENTUALCOMISSAO");
+
+                    b.Property<decimal>("PercentualMeia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("PERCENTUALMEIA");
 
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("NUMBER(10)")

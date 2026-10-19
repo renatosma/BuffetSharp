@@ -636,7 +636,7 @@ internal sealed class FormEventoDetalhe : FormBase
             ("Data", e.Inicio.ToString("dddd, dd/MM/yyyy", Textos.PtBr)),
             ("Horário", $"{e.Inicio:HH:mm} às {e.Fim:HH:mm}"),
             ("Espaço", e.Espaco?.Nome ?? "-"),
-            ("Convidados contratados", e.QuantidadeConvidados.ToString()),
+            ("Convidados contratados", TextosFaixas.Resumo(e.QuantidadesPorFaixa)),
             ("Pessoas na lista", e.TotalPessoasNaLista.ToString()),
             ("Situação", Textos.Exibir(e.Status)));
 
@@ -816,7 +816,9 @@ internal sealed class FormEventoDetalhe : FormBase
         Par("Data", e.Inicio.ToString("dd/MM/yyyy (dddd)", Textos.PtBr));
         Par("Horário", $"{e.Inicio:HH:mm} às {e.Fim:HH:mm} ({(e.Fim - e.Inicio).TotalHours:0.#} h)");
         Par("Pacote", e.Pacote is null ? null : $"{e.Pacote.Nome} - {Textos.Moeda(e.ValorPorPessoa)}/pessoa");
-        Par("Convidados", e.QuantidadeConvidados.ToString());
+        Par("Convidados", TextosFaixas.Resumo(e.QuantidadesPorFaixa));
+        if (e.ConvidadosMeia > 0 || e.ConvidadosIsentos > 0)
+            Par("Crianças", e.RegraFaixas.Descricao);
         Par("Vendedor", e.Vendedor is null ? null : $"{e.Vendedor.Nome} ({e.PercentualComissao:0.##}% de comissão)");
         if (e.Orcamento is not null)
             Par("Orçamento", e.Orcamento.Codigo);

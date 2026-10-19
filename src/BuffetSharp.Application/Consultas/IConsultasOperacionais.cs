@@ -234,9 +234,13 @@ public sealed record PacoteResumo
     public decimal PrecoPorPessoa { get; init; }
     public decimal CustoPorPessoa { get; init; }
     public int MinimoConvidados { get; init; }
+    public int IdadeMaximaIsento { get; init; }
+    public int IdadeMaximaMeia { get; init; }
+    public decimal PercentualMeia { get; init; }
     public int QuantidadeItens { get; init; }
     public bool Ativo { get; init; }
     public decimal MargemPercentual => PrecoPorPessoa == 0 ? 0 : Math.Round((PrecoPorPessoa - CustoPorPessoa) / PrecoPorPessoa * 100, 1);
+    public RegraFaixasEtarias RegraFaixas => new(IdadeMaximaIsento, IdadeMaximaMeia, PercentualMeia);
 }
 
 public sealed record ItemComposicao

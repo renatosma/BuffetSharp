@@ -69,6 +69,8 @@ public sealed class EventoService(
             HoraInicio = e.HoraInicio,
             HoraFim = e.HoraFim,
             Convidados = e.QuantidadeConvidados,
+            ConvidadosMeia = e.ConvidadosMeia,
+            ConvidadosIsentos = e.ConvidadosIsentos,
             ValorTotal = e.ValorTotal,
             CondicaoPagamentoId = e.CondicaoPagamentoId,
             Observacoes = e.Observacoes
@@ -94,7 +96,7 @@ public sealed class EventoService(
         if (input.Id == 0)
         {
             evento = new Evento(input.Titulo, input.ClienteId, input.TipoEventoId, input.EspacoId, input.Data,
-                input.HoraInicio, input.HoraFim, input.Convidados, input.ValorTotal);
+                input.HoraInicio, input.HoraFim, input.QuantidadesPorFaixa, input.ValorTotal);
             db.Eventos.Add(evento);
         }
         else
@@ -102,7 +104,7 @@ public sealed class EventoService(
             evento = await db.Eventos.Include(e => e.Parcelas).FirstOrDefaultAsync(e => e.Id == input.Id, ct)
                      ?? throw new RegraNegocioException("Evento não encontrado.");
             evento.AlterarDados(input.Titulo, input.EspacoId, input.Data, input.HoraInicio, input.HoraFim,
-                input.Convidados, input.Observacoes);
+                input.QuantidadesPorFaixa, input.Observacoes);
             if (evento.ValorTotal != input.ValorTotal)
                 evento.AjustarValorTotal(input.ValorTotal);
         }

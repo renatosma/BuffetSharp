@@ -33,7 +33,7 @@ public class Evento : Entidade
 
     /// <summary>Evento fechado diretamente, sem orçamento prévio.</summary>
     public Evento(string titulo, int clienteId, int tipoEventoId, int espacoId, DateOnly data,
-        TimeOnly horaInicio, TimeOnly horaFim, int convidados, decimal valorTotal)
+        TimeOnly horaInicio, TimeOnly horaFim, QuantidadesConvidados convidados, decimal valorTotal)
     {
         Validador.Garantir(clienteId > 0, "Selecione o cliente.");
         Validador.Garantir(tipoEventoId > 0, "Selecione o tipo de evento.");
@@ -76,10 +76,19 @@ public class Evento : Entidade
 
     public DateTime Inicio { get; private set; }
     public DateTime Fim { get; private set; }
+
+    /// <summary>Total de pessoas contratado (inteira + meia + isentos).</summary>
     public int QuantidadeConvidados { get; private set; }
+    public int ConvidadosMeia { get; private set; }
+    public int ConvidadosIsentos { get; private set; }
 
     public decimal ValorPorPessoa { get; private set; }
     public decimal ValorTotal { get; private set; }
+
+    /// <summary>Regra de idades congelada do orçamento (na venda direta, a padrão).</summary>
+    public int IdadeMaximaIsento { get; private set; } = RegraFaixasEtarias.Padrao.IdadeMaximaIsento;
+    public int IdadeMaximaMeia { get; private set; } = RegraFaixasEtarias.Padrao.IdadeMaximaMeia;
+    public decimal PercentualMeia { get; private set; } = RegraFaixasEtarias.Padrao.PercentualMeia;
 
     public StatusEvento Status { get; private set; } = StatusEvento.Confirmado;
     public string? Observacoes { get; private set; }
@@ -92,6 +101,9 @@ public class Evento : Entidade
     public IReadOnlyCollection<Convidado> Convidados => _convidados;
     public IReadOnlyCollection<Parcela> Parcelas => _parcelas;
     public IReadOnlyCollection<EventoMaterial> Materiais => _materiais;
+
+    public QuantidadesConvidados QuantidadesPorFaixa => new(QuantidadeConvidados, ConvidadosMeia, ConvidadosIsentos);
+    public RegraFaixasEtarias RegraFaixas => new(IdadeMaximaIsento, IdadeMaximaMeia, PercentualMeia);
 
     public DateOnly DataEvento => DateOnly.FromDateTime(Inicio);
     public TimeOnly HoraInicio => TimeOnly.FromDateTime(Inicio);
@@ -135,10 +147,13 @@ public class Evento : Entidade
             ValorTotal = orcamento.ValorTotal,
             VendedorId = orcamento.VendedorId,
             PercentualComissao = orcamento.VendedorId is null ? 0 : percentualComissao,
-            CondicaoPagamentoId = orcamento.CondicaoPagamentoId
+            CondicaoPagamentoId = orcamento.CondicaoPagamentoId,
+            IdadeMaximaIsento = orcamento.IdadeMaximaIsento,
+            IdadeMaximaMeia = orcamento.IdadeMaximaMeia,
+            PercentualMeia = orcamento.PercentualMeia
         };
         evento.AlterarDados(titulo, orcamento.EspacoId ?? 0, orcamento.DataEvento, orcamento.HoraInicio,
-            orcamento.HoraFim, orcamento.QuantidadeConvidados, orcamento.Observacoes);
+            orcamento.HoraFim, orcamento.QuantidadesPorFaixa, orcamento.Observacoes);
 
         foreach (var s in orcamento.Servicos)
             evento._servicos.Add(new EventoServico(s.ServicoAdicionalId, s.Descricao, s.Quantidade, s.ValorUnitario));
@@ -147,17 +162,19 @@ public class Evento : Entidade
     }
 
     public void AlterarDados(string titulo, int espacoId, DateOnly data, TimeOnly horaInicio, TimeOnly horaFim,
-        int convidados, string? observacoes)
+        QuantidadesConvidados convidados, string? observacoes)
     {
         GarantirConfirmado();
         Validador.Garantir(!string.IsNullOrWhiteSpace(titulo), "Informe o título do evento.");
         Validador.Garantir(espacoId > 0, "Selecione o espaço do evento.");
-        Validador.Garantir(convidados > 0, "Informe a quantidade de convidados.");
+        convidados.Validar();
 
         Titulo = titulo.Trim();
         EspacoId = espacoId;
         (Inicio, Fim) = PeriodoEvento.Calcular(data, horaInicio, horaFim);
-        QuantidadeConvidados = convidados;
+        QuantidadeConvidados = convidados.Total;
+        ConvidadosMeia = convidados.Meia;
+        ConvidadosIsentos = convidados.Isentos;
         Observacoes = observacoes;
     }
 

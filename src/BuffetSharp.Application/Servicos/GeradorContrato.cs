@@ -34,7 +34,7 @@ public static class GeradorContrato
         O evento será realizado em {{DATA_EVENTO_EXTENSO}}, das {{HORA_INICIO}} às {{HORA_FIM}}, no ambiente "{{ESPACO}}" ({{LOCAL_ENDERECO}}), cuja capacidade máxima é de {{CAPACIDADE}} pessoas. A prorrogação do horário dependerá da disponibilidade do espaço e será cobrada à parte.
 
         CLÁUSULA {{N}}ª - DOS CONVIDADOS
-        Os serviços foram contratados para {{CONVIDADOS}} convidados. A CONTRATANTE deverá confirmar o número final de convidados com antecedência mínima de {{DIAS_CONFIRMACAO}} dias da data do evento. {{EXCEDENTES}}
+        Os serviços foram contratados para {{CONVIDADOS}} convidados{{CONVIDADOS_DETALHE}}. {{FAIXAS_ETARIAS}} A CONTRATANTE deverá confirmar o número final de convidados com antecedência mínima de {{DIAS_CONFIRMACAO}} dias da data do evento. {{EXCEDENTES}}
 
         CLÁUSULA {{N}}ª - DO CARDÁPIO
         {{CARDAPIO}}
@@ -104,6 +104,12 @@ public static class GeradorContrato
                          (string.IsNullOrWhiteSpace(empresa.Telefone) ? "" : $", telefone {empresa.Telefone}") +
                          (string.IsNullOrWhiteSpace(empresa.Email) ? "" : $", e-mail {empresa.Email}");
 
+        var faixas = evento.QuantidadesPorFaixa;
+        var regra = evento.RegraFaixas;
+        var excedentesCriancas = !regra.TemMeia
+            ? $" (crianças {regra.FaixaIsentos}, sem custo)"
+            : $" (crianças {regra.FaixaMeia}, {Moeda(regra.ValorMeia(evento.ValorPorPessoa))}; {regra.FaixaIsentos}, sem custo)";
+
         var itensCardapio = string.Join("\n", cardapio.GroupBy(c => c.Categoria)
             .Select(g => $"• {g.Key}: {string.Join(", ", g.Select(i => i.Item))}"));
 
@@ -131,12 +137,18 @@ public static class GeradorContrato
                 : !string.IsNullOrWhiteSpace(empresa.Endereco) ? empresa.Endereco
                 : "nas dependências da CONTRATADA",
             ["CONVIDADOS"] = evento.QuantidadeConvidados.ToString(PtBr),
+            ["CONVIDADOS_DETALHE"] = TextosFaixas.DetalheContrato(faixas, regra),
+            ["CONVIDADOS_INTEIRA"] = faixas.Inteira.ToString(PtBr),
+            ["CONVIDADOS_MEIA"] = faixas.Meia.ToString(PtBr),
+            ["CONVIDADOS_ISENTOS"] = faixas.Isentos.ToString(PtBr),
+            ["FAIXAS_ETARIAS"] = regra.Descricao,
             ["DIAS_CONFIRMACAO"] = empresa.DiasConfirmacaoConvidados.ToString(PtBr),
             ["EXCEDENTES"] = evento.ValorPorPessoa > 0
-                ? $"Convidados excedentes serão cobrados ao valor de {Moeda(evento.ValorPorPessoa)} por pessoa, respeitada a capacidade do espaço."
+                ? $"Convidados excedentes serão cobrados ao valor de {Moeda(evento.ValorPorPessoa)} por pessoa{excedentesCriancas}, respeitada a capacidade do espaço."
                 : "O número de convidados deve respeitar a capacidade do espaço.",
             ["PACOTE"] = evento.Pacote?.Nome ?? "",
             ["VALOR_POR_PESSOA"] = Moeda(evento.ValorPorPessoa),
+            ["VALOR_MEIA"] = Moeda(regra.ValorMeia(evento.ValorPorPessoa)),
             ["CARDAPIO"] = cardapio.Count > 0
                 ? $"Será servido o cardápio do pacote \"{evento.Pacote?.Nome}\", composto por:\n{itensCardapio}"
                 : "O cardápio será definido entre as partes em documento anexo, que integra este contrato.",

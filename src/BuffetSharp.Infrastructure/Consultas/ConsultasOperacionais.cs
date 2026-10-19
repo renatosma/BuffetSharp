@@ -324,13 +324,15 @@ internal sealed class ConsultasEstoqueCardapio(FabricaConexao conexoes) : IConsu
                   FROM FichasTecnicas f JOIN Produtos p ON p.Id = f.ProdutoId
                  GROUP BY f.ItemCardapioId
             )
-            SELECT pc.Id, pc.Nome, pc.PrecoPorPessoa, pc.MinimoConvidados, pc.Ativo,
+            SELECT pc.Id, pc.Nome, pc.PrecoPorPessoa, pc.MinimoConvidados, pc.IdadeMaximaIsento, pc.IdadeMaximaMeia,
+                   pc.PercentualMeia, pc.Ativo,
                    COUNT(pi.ItemCardapioId) AS QuantidadeItens,
                    CAST(COALESCE(SUM(ci.Custo), 0) AS DECIMAL(18, 4)) AS CustoPorPessoa
               FROM Pacotes pc
               LEFT JOIN PacoteItens pi ON pi.PacoteId = pc.Id
               LEFT JOIN CustoItem ci ON ci.ItemCardapioId = pi.ItemCardapioId
-             GROUP BY pc.Id, pc.Nome, pc.PrecoPorPessoa, pc.MinimoConvidados, pc.Ativo
+             GROUP BY pc.Id, pc.Nome, pc.PrecoPorPessoa, pc.MinimoConvidados, pc.IdadeMaximaIsento, pc.IdadeMaximaMeia,
+                      pc.PercentualMeia, pc.Ativo
              ORDER BY pc.PrecoPorPessoa
             """;
 

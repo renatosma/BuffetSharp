@@ -72,11 +72,12 @@ public sealed class PropostaService(
             .Append($"Olá, {o.Cliente!.Nome.Split(' ')[0]}! Aqui é do *{opcoes.NomeEmpresa}*.\n\n")
             .Append($"Segue a proposta *{o.Codigo}* para o seu evento:\n")
             .Append($"📅 {o.Inicio.ToString("dddd, dd/MM/yyyy", PtBr)}, das {o.Inicio:HH:mm} às {o.Fim:HH:mm}\n")
-            .Append($"👥 {o.QuantidadeConvidados} convidados\n");
+            .Append($"👥 {TextosFaixas.Resumo(o.QuantidadesPorFaixa)}\n");
         if (o.Espaco is not null)
             texto.Append($"📍 {o.Espaco.Nome}\n");
         if (o.Pacote is not null)
-            texto.Append($"🍽️ Pacote {o.Pacote.Nome} ({Moeda(o.ValorPorPessoa)} por pessoa)\n");
+            texto.Append($"🍽️ Pacote {o.Pacote.Nome} ({Moeda(o.ValorPorPessoa)} por pessoa)\n")
+                .Append($"🧒 {o.RegraFaixas.Descricao}\n");
         if (o.Servicos.Count > 0)
             texto.Append($"✨ Serviços: {string.Join(", ", o.Servicos.Select(s => s.Descricao))}\n");
         if (resumo.Desconto > 0)
@@ -141,7 +142,7 @@ public sealed class PropostaService(
         Linha("Evento", o.TipoEvento?.Nome ?? "-");
         Linha("Data", o.Inicio.ToString("dddd, dd/MM/yyyy", PtBr));
         Linha("Horário", $"{o.Inicio:HH:mm} às {o.Fim:HH:mm}");
-        Linha("Convidados", $"{o.QuantidadeConvidados} pessoas");
+        Linha("Convidados", TextosFaixas.Resumo(o.QuantidadesPorFaixa));
         if (o.Espaco is not null)
             Linha("Espaço", o.Espaco.Nome);
         if (o.Pacote is not null)
@@ -171,7 +172,8 @@ public sealed class PropostaService(
         html.Append("<h3 style=\"color:#8b1e3f\">Investimento</h3><table style=\"border-collapse:collapse;width:100%\">");
         void Valor(string rotulo, string valor) =>
             html.Append($"<tr><td style=\"{Celula}\">{H(rotulo)}</td><td style=\"{Celula};text-align:right\">{H(valor)}</td></tr>");
-        Valor($"Alimentação ({o.QuantidadeConvidados} × {Moeda(o.ValorPorPessoa)})", Moeda(resumo.Alimentacao));
+        foreach (var (descricao, valor) in TextosFaixas.LinhasAlimentacao(o.ValorPorPessoa, o.QuantidadesPorFaixa, o.RegraFaixas))
+            Valor(descricao, Moeda(valor));
         Valor("Locação do espaço", Moeda(resumo.Espaco));
         Valor("Serviços adicionais", Moeda(resumo.Servicos));
         if (resumo.Desconto > 0)
@@ -183,6 +185,8 @@ public sealed class PropostaService(
             html.Append($"<p><b>Condição de pagamento:</b> {H(condicao.Texto)}<br>" +
                         $"{H(TextosPagamento.Simulacao(condicao, resumo.Total, DateOnly.FromDateTime(Agora), o.DataEvento))}</p>");
 
+        if (o.Pacote is not null)
+            html.Append($"<p>{H(o.RegraFaixas.Descricao)}</p>");
         html.Append($"<p style=\"color:#6e6a66\">Proposta válida até {o.ValidoAte:dd/MM/yyyy}. A reserva da data é confirmada mediante assinatura do contrato e pagamento da entrada.</p>");
         if (!string.IsNullOrWhiteSpace(o.Observacoes))
             html.Append($"<p><b>Observações:</b> {H(o.Observacoes)}</p>");

@@ -88,6 +88,13 @@ public class FluxosTelasTests(AmbienteTelas ambiente)
                 esperado = pacote.Valor * 120 + espaco.Valor;
                 Assert.Equal(Textos.Moeda(esperado), Robo.Interno<Label>(editor, "_total").Text);
 
+                // Crianças: 20 com meia (50% no Prata) e 10 isentas; continuam 120 pessoas no espaço.
+                robo.Preencher(editor, "Crianças com meia", 20);
+                robo.Preencher(editor, "Crianças isentas", 10);
+                esperado = pacote.Valor * 90 + Math.Round(pacote.Valor * 0.5m, 2) * 20 + espaco.Valor;
+                Assert.Equal(Textos.Moeda(esperado), Robo.Interno<Label>(editor, "_total").Text);
+                Assert.Contains("pagantes: 110", Robo.Interno<Label>(editor, "_faixas").Text);
+
                 var disponivel = Robo.Interno<Label>(editor, "_disponivel");
                 robo.Esperar(() => disponivel.Text.StartsWith('✔'), "verificação de disponibilidade do espaço");
 

@@ -18,10 +18,13 @@ public static class CalculadoraValores
 {
     public const decimal DescontoMaximoPercentual = 30m;
 
-    public static ResumoValores Calcular(decimal valorPorPessoa, int convidados, decimal valorEspaco,
-        decimal totalServicos, decimal percentualDesconto)
+    /// <param name="convidados">Inteira paga o valor por pessoa, meia o percentual da regra e isentos não pagam.</param>
+    /// <param name="regra">Regra da meia; nula usa a <see cref="RegraFaixasEtarias.Padrao"/>.</param>
+    public static ResumoValores Calcular(decimal valorPorPessoa, QuantidadesConvidados convidados, decimal valorEspaco,
+        decimal totalServicos, decimal percentualDesconto, RegraFaixasEtarias? regra = null)
     {
-        var alimentacao = Math.Round(valorPorPessoa * convidados, 2);
+        var valorMeia = (regra ?? RegraFaixasEtarias.Padrao).ValorMeia(valorPorPessoa);
+        var alimentacao = Math.Round(valorPorPessoa * convidados.Inteira, 2) + Math.Round(valorMeia * convidados.Meia, 2);
         var subtotal = alimentacao + valorEspaco + totalServicos;
         var desconto = Math.Round(subtotal * percentualDesconto / 100m, 2);
         return new ResumoValores(alimentacao, valorEspaco, totalServicos, subtotal, desconto, subtotal - desconto);

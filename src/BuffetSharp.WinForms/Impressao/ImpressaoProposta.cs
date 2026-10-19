@@ -30,7 +30,8 @@ internal static class ImpressaoProposta
 
         var valorPessoa = o.ValorPorPessoa ?? 0;
         var valorEspaco = o.ValorEspaco ?? 0;
-        var resumo = CalculadoraValores.Calcular(valorPessoa, o.Convidados, valorEspaco, o.Servicos.Sum(s => s.Total), o.PercentualDesconto);
+        var resumo = CalculadoraValores.Calcular(valorPessoa, o.QuantidadesPorFaixa, valorEspaco, o.Servicos.Sum(s => s.Total),
+            o.PercentualDesconto, o.RegraFaixas);
 
         var doc = new DocumentoImpresso($"Proposta comercial {o.Codigo}", empresa.NomeEmpresa);
         doc.Subtitulo(string.Join("  •  ", new[] { empresa.Documento, empresa.Telefone, empresa.Email, empresa.Endereco }
@@ -40,7 +41,7 @@ internal static class ImpressaoProposta
         doc.Campos(3,
             ("Cliente", Nome(clientes, o.ClienteId)),
             ("Tipo de evento", Nome(tipos, o.TipoEventoId)),
-            ("Convidados", $"{o.Convidados} pessoas"),
+            ("Convidados", TextosFaixas.Resumo(o.QuantidadesPorFaixa)),
             ("Data", o.Data.ToString("dddd, dd/MM/yyyy", Textos.PtBr)),
             ("Horário", $"{o.HoraInicio:HH\\:mm} às {o.HoraFim:HH\\:mm}"),
             ("Espaço", Nome(espacos, o.EspacoId)));
@@ -64,12 +65,10 @@ internal static class ImpressaoProposta
         }
 
         doc.Secao("Investimento");
-        var linhas = new List<string[]>
-        {
-            new[] { $"Alimentação ({o.Convidados} × {Textos.Moeda(valorPessoa)})", Textos.Moeda(resumo.Alimentacao) },
-            new[] { "Locação do espaço", Textos.Moeda(resumo.Espaco) },
-            new[] { "Serviços adicionais", Textos.Moeda(resumo.Servicos) }
-        };
+        var linhas = TextosFaixas.LinhasAlimentacao(valorPessoa, o.QuantidadesPorFaixa, o.RegraFaixas)
+            .Select(l => new[] { l.Descricao, Textos.Moeda(l.Valor) }).ToList();
+        linhas.Add(["Locação do espaço", Textos.Moeda(resumo.Espaco)]);
+        linhas.Add(["Serviços adicionais", Textos.Moeda(resumo.Servicos)]);
         if (resumo.Desconto > 0)
             linhas.Add([$"Desconto ({o.PercentualDesconto:0.##}%)", "- " + Textos.Moeda(resumo.Desconto)]);
         doc.Tabela(["Descrição", "Valor"], linhas, [4, 1.6f], [false, true]);
@@ -84,6 +83,8 @@ internal static class ImpressaoProposta
             if (simulacao.Length > 0)
                 doc.Paragrafo(simulacao + ".");
         }
+        if (o.PacoteId is not null)
+            doc.Paragrafo(o.RegraFaixas.Descricao);
         doc.Paragrafo($"Proposta válida até {o.ValidoAte:dd/MM/yyyy}. A reserva da data é confirmada mediante assinatura do contrato " +
                       "e pagamento da entrada. Quantidade final de convidados deve ser confirmada com 10 dias de antecedência.");
         if (!string.IsNullOrWhiteSpace(o.Observacoes))

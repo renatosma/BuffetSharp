@@ -36,6 +36,9 @@ public sealed class PacoteInput
     public string? Descricao { get; set; }
     public decimal PrecoPorPessoa { get; set; }
     public int MinimoConvidados { get; set; } = 1;
+    public int IdadeMaximaIsento { get; set; } = RegraFaixasEtarias.Padrao.IdadeMaximaIsento;
+    public int IdadeMaximaMeia { get; set; } = RegraFaixasEtarias.Padrao.IdadeMaximaMeia;
+    public decimal PercentualMeia { get; set; } = RegraFaixasEtarias.Padrao.PercentualMeia;
     public bool Ativo { get; set; } = true;
     public List<int> ItensCardapioIds { get; set; } = [];
 }
@@ -60,11 +63,25 @@ public sealed class OrcamentoInput
     public DateOnly Data { get; set; }
     public TimeOnly HoraInicio { get; set; } = new(19, 0);
     public TimeOnly HoraFim { get; set; } = new(23, 59);
+    /// <summary>Total de pessoas (inteira + meia + isentos).</summary>
     public int Convidados { get; set; } = 100;
+    public int ConvidadosMeia { get; set; }
+    public int ConvidadosIsentos { get; set; }
     public DateOnly ValidoAte { get; set; }
 
     /// <summary>Quando nulo, usa o preço de tabela do pacote.</summary>
     public decimal? ValorPorPessoa { get; set; }
+
+    /// <summary>Percentual do valor por pessoa cobrado na meia; quando nulo, usa o do pacote.</summary>
+    public decimal? PercentualMeia { get; set; }
+
+    /// <summary>Idades da regra (somente leitura: vêm do pacote).</summary>
+    public int IdadeMaximaIsento { get; set; } = RegraFaixasEtarias.Padrao.IdadeMaximaIsento;
+    public int IdadeMaximaMeia { get; set; } = RegraFaixasEtarias.Padrao.IdadeMaximaMeia;
+
+    public QuantidadesConvidados QuantidadesPorFaixa => new(Convidados, ConvidadosMeia, ConvidadosIsentos);
+    public RegraFaixasEtarias RegraFaixas =>
+        new(IdadeMaximaIsento, IdadeMaximaMeia, PercentualMeia ?? RegraFaixasEtarias.Padrao.PercentualMeia);
 
     /// <summary>Quando nulo, usa o valor de locação do espaço.</summary>
     public decimal? ValorEspaco { get; set; }
@@ -96,7 +113,12 @@ public sealed class EventoInput
     public DateOnly Data { get; set; }
     public TimeOnly HoraInicio { get; set; } = new(19, 0);
     public TimeOnly HoraFim { get; set; } = new(23, 59);
+
+    /// <summary>Total de pessoas (inteira + meia + isentos).</summary>
     public int Convidados { get; set; } = 100;
+    public int ConvidadosMeia { get; set; }
+    public int ConvidadosIsentos { get; set; }
+    public QuantidadesConvidados QuantidadesPorFaixa => new(Convidados, ConvidadosMeia, ConvidadosIsentos);
     public decimal ValorTotal { get; set; }
     public int? CondicaoPagamentoId { get; set; }
     public string? Observacoes { get; set; }

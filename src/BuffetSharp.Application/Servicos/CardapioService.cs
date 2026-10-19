@@ -80,6 +80,9 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
             Descricao = pacote.Descricao,
             PrecoPorPessoa = pacote.PrecoPorPessoa,
             MinimoConvidados = pacote.MinimoConvidados,
+            IdadeMaximaIsento = pacote.IdadeMaximaIsento,
+            IdadeMaximaMeia = pacote.IdadeMaximaMeia,
+            PercentualMeia = pacote.PercentualMeia,
             Ativo = pacote.Ativo,
             ItensCardapioIds = pacote.Itens.Select(i => i.ItemCardapioId).ToList()
         };
@@ -99,6 +102,9 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
         pacote.Descricao = input.Descricao;
         pacote.PrecoPorPessoa = input.PrecoPorPessoa;
         pacote.MinimoConvidados = input.MinimoConvidados;
+        pacote.IdadeMaximaIsento = input.IdadeMaximaIsento;
+        pacote.IdadeMaximaMeia = input.IdadeMaximaMeia;
+        pacote.PercentualMeia = input.PercentualMeia;
         pacote.Ativo = input.Ativo;
         Validador.Validar(pacote);
         pacote.DefinirItens(input.ItensCardapioIds);

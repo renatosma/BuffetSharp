@@ -128,6 +128,12 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 - **Orçamentos**: pacote e espaço com valor negociável, serviços adicionais (fixos ou por pessoa),
   desconto, condição de pagamento com a simulação das parcelas e resumo em tempo real. A disponibilidade do espaço é verificada durante a edição.
   Ciclo Rascunho → Enviado → Aprovado/Recusado, duplicação e **proposta impressa**.
+- **Faixas etárias**: cada pacote define até que idade a criança é isenta, até que idade paga meia e o percentual da
+  meia (padrão: até 5 anos isenta, de 6 a 10 anos meia de 50%). No orçamento e no evento informam-se o total de
+  convidados e quantas crianças pagam meia ou são isentas. A meia pode ser negociada. A regra fica congelada no
+  orçamento e passa para o evento, a proposta (impressa, e-mail e WhatsApp) separa inteira, meia e isentos, e o contrato
+  ganha os campos `{{CONVIDADOS_DETALHE}}`, `{{CONVIDADOS_INTEIRA}}`, `{{CONVIDADOS_MEIA}}`, `{{CONVIDADOS_ISENTOS}}`,
+  `{{FAIXAS_ETARIAS}}` e `{{VALOR_MEIA}}`.
 - **Eventos**: criados ao aprovar o orçamento ou em venda direta. A tela tem:
   - resumo com **resultado estimado** (receita − insumos − equipe − despesas);
   - insumos previstos;
@@ -180,6 +186,9 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 
 - O orçamento respeita o **mínimo de convidados do pacote** e a **capacidade do espaço**. O desconto
   é limitado a 30%.
+- O mínimo do pacote conta só os **pagantes** (inteira + meia). A capacidade do espaço, os insumos e os materiais
+  consideram todas as pessoas, inclusive os isentos. Os serviços cobrados por pessoa acompanham os pagantes. O valor da
+  meia é arredondado por criança.
 - Um espaço não aceita dois eventos sobrepostos. A regra considera o **intervalo de montagem**,
   configurável, e eventos que terminam após a meia-noite.
 - Não é possível aprovar orçamento expirado, sem espaço ou com data passada.
@@ -202,10 +211,10 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **150 testes** (xUnit v3): 136 de domínio, integração e bancos, e 14 das telas.
+São **186 testes** (xUnit v3): 171 de domínio, integração e bancos, e 15 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
-  pagamento, modelos de contrato, valor por extenso, conversão de embalagens e contatos adicionais.
+  pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais e faixas etárias.
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação, tradução de erros de banco). O banco é

@@ -38,6 +38,8 @@ internal static class DialogosEvento
         }
         e.Lista("Espaço", espacos, () => input.EspacoId, v => input.EspacoId = v ?? 0, nameof(input.EspacoId), span: 2);
         e.Inteiro("Convidados", () => input.Convidados, v => input.Convidados = v, nameof(input.Convidados), 1, 10_000);
+        e.Inteiro("Crianças com meia", () => input.ConvidadosMeia, v => input.ConvidadosMeia = v, nameof(input.ConvidadosMeia), 0, 10_000);
+        e.Inteiro("Crianças isentas", () => input.ConvidadosIsentos, v => input.ConvidadosIsentos = v, nameof(input.ConvidadosIsentos), 0, 10_000);
         e.Data("Data", () => input.Data, v => input.Data = v ?? input.Data, nameof(input.Data));
         e.Hora("Início", () => input.HoraInicio, v => input.HoraInicio = v);
         e.Hora("Término", () => input.HoraFim, v => input.HoraFim = v);

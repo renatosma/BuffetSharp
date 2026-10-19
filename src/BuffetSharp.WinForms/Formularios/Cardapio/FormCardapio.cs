@@ -2,6 +2,7 @@ using System.ComponentModel;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
+using BuffetSharp.Domain.Comercial;
 using BuffetSharp.WinForms.Infra;
 
 namespace BuffetSharp.WinForms.Formularios.Cardapio;
@@ -168,7 +169,8 @@ internal sealed class FormPacotes : FormListagem<PacoteResumo>
             .Moeda("Preço / pessoa", p => p.PrecoPorPessoa, 22)
             .Numero("Custo / pessoa", p => p.CustoPorPessoa, "C2", 22)
             .Numero("Margem (%)", p => p.MargemPercentual, "N1", 18, p => p.MargemPercentual < 40 ? Tema.Alerta : Tema.Sucesso)
-            .Numero("Mín. convidados", p => p.MinimoConvidados, peso: 18)
+            .Numero("Mín. pagantes", p => p.MinimoConvidados, peso: 18)
+            .Texto("Crianças", p => $"isentas até {p.IdadeMaximaIsento} • meia {p.PercentualMeia:0.##}% até {p.IdadeMaximaMeia}", 30)
             .Numero("Itens", p => p.QuantidadeItens, peso: 12)
             .SimNao("Ativo", p => p.Ativo, 12)
             .CorDaLinha(p => p.Ativo ? null : Tema.Neutro)
@@ -205,9 +207,23 @@ internal sealed class FormPacotes : FormListagem<PacoteResumo>
         e.Texto("Nome do pacote", () => input.Nome, v => input.Nome = v ?? "", nameof(input.Nome), 100);
         preco = e.Decimal("Preço por pessoa (R$)", () => input.PrecoPorPessoa, v => input.PrecoPorPessoa = v, nameof(input.PrecoPorPessoa));
         preco.ValueChanged += (_, _) => Atualizar();
-        e.Inteiro("Mínimo de convidados", () => input.MinimoConvidados, v => input.MinimoConvidados = v, nameof(input.MinimoConvidados), 1, 10_000);
+        e.Inteiro("Mínimo de convidados pagantes", () => input.MinimoConvidados, v => input.MinimoConvidados = v, nameof(input.MinimoConvidados), 1, 10_000);
         e.Texto("Descrição (impressa na proposta)", () => input.Descricao, v => input.Descricao = v, nameof(input.Descricao), 1000, span: 3, linhas: 2);
         e.Marcador("Ativo", () => input.Ativo, v => input.Ativo = v);
+        e.Secao("Crianças (faixas etárias)");
+        var isento = e.Inteiro("Isentas até (anos)", () => input.IdadeMaximaIsento, v => input.IdadeMaximaIsento = v,
+            nameof(input.IdadeMaximaIsento), 0, RegraFaixasEtarias.IdadeMaximaCrianca);
+        var meia = e.Inteiro("Pagam meia até (anos)", () => input.IdadeMaximaMeia, v => input.IdadeMaximaMeia = v,
+            nameof(input.IdadeMaximaMeia), 0, RegraFaixasEtarias.IdadeMaximaCrianca);
+        var percentual = e.Decimal("Meia (% do preço por pessoa)", () => input.PercentualMeia, v => input.PercentualMeia = v,
+            nameof(input.PercentualMeia), 2, 0, 100);
+        var regra = new Label { AutoSize = true, ForeColor = Tema.TextoSuave };
+        void AtualizarRegra() => regra.Text =
+            new RegraFaixasEtarias((int)isento.Value, (int)Math.Max(meia.Value, isento.Value), percentual.Value).Descricao;
+        foreach (var numero in new[] { isento, meia, percentual })
+            numero.ValueChanged += (_, _) => AtualizarRegra();
+        e.Livre(regra);
+        e.AoCarregar(AtualizarRegra);
         e.Secao("Itens incluídos");
         e.Livre(lista);
         e.Livre(resumo);

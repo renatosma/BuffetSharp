@@ -54,8 +54,13 @@ public sealed class OrcamentoService(
             HoraInicio = o.HoraInicio,
             HoraFim = o.HoraFim,
             Convidados = o.QuantidadeConvidados,
+            ConvidadosMeia = o.ConvidadosMeia,
+            ConvidadosIsentos = o.ConvidadosIsentos,
             ValidoAte = o.ValidoAte,
             ValorPorPessoa = o.ValorPorPessoa,
+            PercentualMeia = o.PercentualMeia,
+            IdadeMaximaIsento = o.IdadeMaximaIsento,
+            IdadeMaximaMeia = o.IdadeMaximaMeia,
             ValorEspaco = o.ValorEspaco,
             PercentualDesconto = o.PercentualDesconto,
             CondicaoPagamentoId = o.CondicaoPagamentoId,
@@ -80,7 +85,7 @@ public sealed class OrcamentoService(
         if (input.Id == 0)
         {
             orcamento = new Orcamento(input.ClienteId, input.TipoEventoId, input.Data, input.HoraInicio, input.HoraFim,
-                input.Convidados, input.ValidoAte);
+                input.QuantidadesPorFaixa, input.ValidoAte);
             db.Orcamentos.Add(orcamento);
         }
         else
@@ -90,10 +95,10 @@ public sealed class OrcamentoService(
         }
 
         orcamento.AlterarDados(input.ClienteId, input.TipoEventoId, input.Data, input.HoraInicio, input.HoraFim,
-            input.Convidados, input.ValidoAte, input.Observacoes);
+            input.QuantidadesPorFaixa, input.ValidoAte, input.Observacoes);
 
         var pacote = input.PacoteId is { } pacoteId ? await db.Pacotes.FindAsync([pacoteId], ct) : null;
-        orcamento.DefinirPacote(pacote, pacote is null ? null : input.ValorPorPessoa);
+        orcamento.DefinirPacote(pacote, pacote is null ? null : input.ValorPorPessoa, pacote is null ? null : input.PercentualMeia);
 
         var espaco = input.EspacoId is { } espacoId ? await db.Espacos.FindAsync([espacoId], ct) : null;
         orcamento.DefinirEspaco(espaco, espaco is null ? null : input.ValorEspaco);

@@ -1155,6 +1155,14 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("descricao");
 
+                    b.Property<int>("IdadeMaximaIsento")
+                        .HasColumnType("integer")
+                        .HasColumnName("idademaximaisento");
+
+                    b.Property<int>("IdadeMaximaMeia")
+                        .HasColumnType("integer")
+                        .HasColumnName("idademaximameia");
+
                     b.Property<int>("MinimoConvidados")
                         .HasColumnType("integer")
                         .HasColumnName("minimoconvidados");
@@ -1164,6 +1172,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("nome");
+
+                    b.Property<decimal>("PercentualMeia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("percentualmeia");
 
                     b.Property<decimal>("PrecoPorPessoa")
                         .HasPrecision(18, 2)
@@ -1496,6 +1509,14 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("condicaopagamentoid");
 
+                    b.Property<int>("ConvidadosIsentos")
+                        .HasColumnType("integer")
+                        .HasColumnName("convidadosisentos");
+
+                    b.Property<int>("ConvidadosMeia")
+                        .HasColumnType("integer")
+                        .HasColumnName("convidadosmeia");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("criadoem");
@@ -1515,6 +1536,14 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<DateTime>("Fim")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("fim");
+
+                    b.Property<int>("IdadeMaximaIsento")
+                        .HasColumnType("integer")
+                        .HasColumnName("idademaximaisento");
+
+                    b.Property<int>("IdadeMaximaMeia")
+                        .HasColumnType("integer")
+                        .HasColumnName("idademaximameia");
 
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("timestamp without time zone")
@@ -1538,6 +1567,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)")
                         .HasColumnName("percentualdesconto");
+
+                    b.Property<decimal>("PercentualMeia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("percentualmeia");
 
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("integer")
@@ -2036,6 +2070,14 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("condicaopagamentoid");
 
+                    b.Property<int>("ConvidadosIsentos")
+                        .HasColumnType("integer")
+                        .HasColumnName("convidadosisentos");
+
+                    b.Property<int>("ConvidadosMeia")
+                        .HasColumnType("integer")
+                        .HasColumnName("convidadosmeia");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("criadoem");
@@ -2051,6 +2093,14 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<DateTime>("Fim")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("fim");
+
+                    b.Property<int>("IdadeMaximaIsento")
+                        .HasColumnType("integer")
+                        .HasColumnName("idademaximaisento");
+
+                    b.Property<int>("IdadeMaximaMeia")
+                        .HasColumnType("integer")
+                        .HasColumnName("idademaximameia");
 
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("timestamp without time zone")
@@ -2078,6 +2128,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)")
                         .HasColumnName("percentualcomissao");
+
+                    b.Property<decimal>("PercentualMeia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("percentualmeia");
 
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("integer")

@@ -32,6 +32,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private EditorCampos _editor = new(3);
     private readonly BindingList<ServicoItemInput> _servicos = [];
     private IReadOnlyList<ItemLookup> _pacotes = [];
+    private Dictionary<int, PacoteResumo> _regrasPacotes = [];
     private IReadOnlyList<ItemLookup> _espacos = [];
     private IReadOnlyList<ItemLookup> _catalogoServicos = [];
     private List<CondicaoPagamento> _condicoes = [];
@@ -41,6 +42,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly Label _status = new() { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(12, 8, 0, 0) };
     private readonly Label _disponivel = new() { AutoSize = true, Font = Tema.FonteNegrito };
     private readonly Label _simulacaoPagamento = new() { AutoSize = true, ForeColor = Tema.TextoSuave };
+    private readonly Label _faixas = new() { AutoSize = true, ForeColor = Tema.TextoSuave };
     private readonly DataGridView _gradeServicos = new() { Height = 150 };
     private readonly ComboBox _novoServico = new() { Width = 260, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly System.Windows.Forms.Timer _atrasoDisponibilidade = new() { Interval = 450 };
@@ -56,7 +58,8 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly Label _alertas = new() { AutoSize = true, ForeColor = Tema.Alerta, MaximumSize = new Size(260, 0) };
     private readonly ListBox _composicao = new() { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, IntegralHeight = false };
 
-    private NumericUpDown _convidados = null!, _valorPessoa = null!, _valorLocacao = null!, _percentual = null!;
+    private NumericUpDown _convidados = null!, _meia = null!, _isentos = null!, _percentualMeia = null!;
+    private NumericUpDown _valorPessoa = null!, _valorLocacao = null!, _percentual = null!;
     private ComboBox _pacote = null!, _espaco = null!, _condicao = null!;
     private DateTimePicker _data = null!, _inicio = null!, _fim = null!;
 
@@ -157,6 +160,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
             var tipos = await _lookups.ListarAsync(TipoLookup.TiposEvento);
             var vendedores = await _lookups.ListarAsync(TipoLookup.Vendedores);
             _pacotes = await _lookups.ListarAsync(TipoLookup.Pacotes);
+            _regrasPacotes = (await _cardapio.ListarPacotesAsync()).ToDictionary(p => p.Id);
             _espacos = await _lookups.ListarAsync(TipoLookup.Espacos);
             _catalogoServicos = await _lookups.ListarAsync(TipoLookup.ServicosAdicionais);
             _condicoes = await _condicoesPagamento.ListarAsync(q => q.OrderBy(c => c.Nome));
@@ -191,9 +195,16 @@ internal sealed class FormOrcamentoEdicao : FormBase
         _data = e.Data("Data do evento", () => i.Data, v => i.Data = v ?? i.Data, nameof(i.Data));
         _inicio = e.Hora("Início", () => i.HoraInicio, v => i.HoraInicio = v);
         _fim = e.Hora("Término (pode passar da meia-noite)", () => i.HoraFim, v => i.HoraFim = v);
-        _convidados = e.Inteiro("Convidados", () => i.Convidados, v => i.Convidados = v, nameof(i.Convidados), 1, 10_000);
         e.Data("Proposta válida até", () => i.ValidoAte, v => i.ValidoAte = v ?? i.ValidoAte, nameof(i.ValidoAte));
-        e.Lista("Vendedor (comissão)", vendedores, () => i.VendedorId, v => i.VendedorId = v, nameof(i.VendedorId), permitirVazio: true);
+        e.Lista("Vendedor (comissão)", vendedores, () => i.VendedorId, v => i.VendedorId = v, nameof(i.VendedorId), permitirVazio: true, span: 2);
+
+        e.Secao("Convidados");
+        _convidados = e.Inteiro("Convidados", () => i.Convidados, v => i.Convidados = v, nameof(i.Convidados), 1, 10_000);
+        _meia = e.Inteiro("Crianças com meia", () => i.ConvidadosMeia, v => i.ConvidadosMeia = v, nameof(i.ConvidadosMeia), 0, 10_000);
+        _isentos = e.Inteiro("Crianças isentas", () => i.ConvidadosIsentos, v => i.ConvidadosIsentos = v, nameof(i.ConvidadosIsentos), 0, 10_000);
+        _percentualMeia = e.Decimal("Meia (% do valor por pessoa)", () => i.PercentualMeia ?? i.RegraFaixas.PercentualMeia,
+            v => i.PercentualMeia = v, nameof(i.PercentualMeia), 2, 0, 100);
+        e.Livre(_faixas);
 
         e.Secao("Cardápio e espaço");
         _pacote = e.Lista("Pacote", _pacotes, () => i.PacoteId, v => i.PacoteId = v, nameof(i.PacoteId), permitirVazio: true, span: 2);
@@ -278,7 +289,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
         {
             ServicoAdicionalId = servico.Id,
             Descricao = servico.Nome + (servico.Marcador ? " (por pessoa)" : ""),
-            Quantidade = servico.Marcador ? _convidados.Value : 1,
+            Quantidade = servico.Marcador ? Faixas().Pagantes : 1,
             ValorUnitario = servico.Valor
         });
     }
@@ -288,7 +299,15 @@ internal sealed class FormOrcamentoEdicao : FormBase
         _pacote.SelectedIndexChanged += async (_, _) =>
         {
             if (_pacote.SelectedItem is ItemLookup { Id: > 0 } pacote)
+            {
                 _valorPessoa.Value = pacote.Valor;
+                if (_regrasPacotes.GetValueOrDefault(pacote.Id) is { } regra)
+                {
+                    _input.IdadeMaximaIsento = regra.IdadeMaximaIsento;
+                    _input.IdadeMaximaMeia = regra.IdadeMaximaMeia;
+                    _percentualMeia.Value = regra.PercentualMeia;
+                }
+            }
             else
                 _valorPessoa.Value = 0;
             Recalcular();
@@ -300,15 +319,16 @@ internal sealed class FormOrcamentoEdicao : FormBase
             Recalcular();
             AgendarVerificacao();
         };
-        _convidados.ValueChanged += (_, _) =>
-        {
-            // Serviços cobrados por pessoa acompanham a quantidade de convidados.
-            foreach (var s in _servicos.Where(s => _catalogoServicos.Any(c => c.Id == s.ServicoAdicionalId && c.Marcador)))
-                s.Quantidade = _convidados.Value;
-            _servicos.ResetBindings();
-            Recalcular();
-        };
-        foreach (var numero in new[] { _valorPessoa, _valorLocacao, _percentual })
+        foreach (var quantidade in new[] { _convidados, _isentos })
+            quantidade.ValueChanged += (_, _) =>
+            {
+                // Serviços cobrados por pessoa acompanham os convidados pagantes (os isentos não pagam).
+                foreach (var s in _servicos.Where(s => _catalogoServicos.Any(c => c.Id == s.ServicoAdicionalId && c.Marcador)))
+                    s.Quantidade = Math.Max(Faixas().Pagantes, 0);
+                _servicos.ResetBindings();
+                Recalcular();
+            };
+        foreach (var numero in new[] { _meia, _percentualMeia, _valorPessoa, _valorLocacao, _percentual })
             numero.ValueChanged += (_, _) => Recalcular();
         _condicao.SelectedIndexChanged += (_, _) => Recalcular();
         _data.ValueChanged += (_, _) => Recalcular();
@@ -322,13 +342,27 @@ internal sealed class FormOrcamentoEdicao : FormBase
         _atrasoDisponibilidade.Start();
     }
 
+    private QuantidadesConvidados Faixas() => new((int)_convidados.Value, (int)_meia.Value, (int)_isentos.Value);
+
+    private RegraFaixasEtarias RegraFaixas() =>
+        new(_input.IdadeMaximaIsento, _input.IdadeMaximaMeia, _percentualMeia.Value);
+
     private void Recalcular()
     {
         if (_convidados is null)
             return;
-        var convidados = (int)_convidados.Value;
-        var resumo = CalculadoraValores.Calcular(_valorPessoa.Value, convidados, _valorLocacao.Value,
-            _servicos.Sum(s => s.Total), _percentual.Value);
+        var faixas = Faixas();
+        var regra = RegraFaixas();
+        var faixasValidas = faixas.Meia + faixas.Isentos <= faixas.Total;
+        var convidados = faixas.Total;
+        var resumo = CalculadoraValores.Calcular(_valorPessoa.Value, faixasValidas ? faixas : faixas.Total, _valorLocacao.Value,
+            _servicos.Sum(s => s.Total), _percentual.Value, regra);
+
+        _faixas.Text = !faixasValidas
+            ? "As crianças (meia e isentas) passam do total de convidados."
+            : $"Inteira: {faixas.Inteira}  •  meia ({regra.FaixaMeia}): {faixas.Meia} × {Textos.Moeda(regra.ValorMeia(_valorPessoa.Value))}" +
+              $"  •  isentas ({regra.FaixaIsentos}): {faixas.Isentos}  •  pagantes: {faixas.Pagantes}";
+        _faixas.ForeColor = faixasValidas ? Tema.TextoSuave : Tema.Perigo;
 
         _alimentacao.Text = Textos.Moeda(resumo.Alimentacao);
         _valorEspaco.Text = Textos.Moeda(resumo.Espaco);
@@ -339,8 +373,8 @@ internal sealed class FormOrcamentoEdicao : FormBase
         _porPessoa.Text = convidados > 0 ? $"{Textos.Moeda(resumo.Total / convidados)} por convidado" : "";
 
         var alertas = new List<string>();
-        if (_pacote.SelectedItem is ItemLookup { Id: > 0 } pacote && convidados < pacote.Numero)
-            alertas.Add($"⚠ O pacote exige no mínimo {pacote.Numero} convidados.");
+        if (_pacote.SelectedItem is ItemLookup { Id: > 0 } pacote && faixas.Pagantes < pacote.Numero)
+            alertas.Add($"⚠ O pacote exige no mínimo {pacote.Numero} convidados pagantes.");
         if (_espaco.SelectedItem is ItemLookup { Id: > 0 } espaco && convidados > espaco.Numero)
             alertas.Add($"⚠ O espaço comporta no máximo {espaco.Numero} pessoas.");
         _alertas.Text = string.Join(Environment.NewLine, alertas);
@@ -423,6 +457,8 @@ internal sealed class FormOrcamentoEdicao : FormBase
                 _input.Servicos = _servicos.ToList();
                 if (_input.ValorPorPessoa == 0)
                     _input.ValorPorPessoa = null; // usa o preço de tabela do pacote
+                if (_input.PacoteId is null)
+                    _input.PercentualMeia = null;
                 _input.Id = await _servico.SalvarAsync(_input);
                 if (enviar)
                     await _servico.EnviarAsync(_input.Id);

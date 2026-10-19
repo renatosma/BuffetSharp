@@ -346,6 +346,12 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         foreach (var (nome, preco, minimo, descricao, nomesItens) in pacotes)
         {
             var pacote = new Pacote { Nome = nome, PrecoPorPessoa = preco, MinimoConvidados = minimo, Descricao = descricao };
+            if (nome == "Infantil Alegria")
+            {
+                // Festa infantil: os pequenos são o público, então a isenção e a meia valem para idades menores.
+                pacote.IdadeMaximaIsento = 3;
+                pacote.IdadeMaximaMeia = 7;
+            }
             pacote.DefinirItens(nomesItens.Select(n => _itens[n].Id));
             _pacotes[nome] = pacote;
         }
@@ -442,7 +448,10 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
     private enum Destino { Realizado, Confirmado, Cancelado, Enviado, Recusado, Rascunho }
 
     private sealed record PlanoEvento(DateOnly Data, TipoEvento Tipo, Cliente Cliente, Espaco Espaco, Pacote Pacote,
-        int Convidados, TimeOnly Inicio, TimeOnly Fim, Destino Destino);
+        int Convidados, TimeOnly Inicio, TimeOnly Fim, Destino Destino, int Meia = 0, int Isentos = 0)
+    {
+        public QuantidadesConvidados Quantidades => new(Convidados, Meia, Isentos);
+    }
 
     private List<PlanoEvento> PlanejarEventos()
     {
@@ -481,7 +490,18 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                     _ => _rnd.NextDouble() < 0.5 ? _pacotes["Bronze"] : _pacotes["Prata"]
                 };
 
+                // Crianças (meia e isentas) em proporção fixa por tipo de festa; os pagantes cumprem o mínimo do pacote.
+                var (percentualMeia, percentualIsentos) = tipo.Nome switch
+                {
+                    "Aniversário Infantil" => (30, 15),
+                    "Batizado" => (15, 10),
+                    "Casamento" or "15 Anos" => (5, 5),
+                    _ => (0, 0)
+                };
                 convidados = Math.Max(convidados, pacote.MinimoConvidados);
+                var meia = convidados * percentualMeia / 100;
+                var isentos = convidados * percentualIsentos / 100;
+                convidados = Math.Max(convidados, pacote.MinimoConvidados + isentos);
 
                 var espaco = _espacos.Where(e => e.CapacidadeMaxima >= convidados && !ocupados.Contains((data, e.Id)))
                     .OrderBy(e => e.CapacidadeMaxima).FirstOrDefault();
@@ -514,7 +534,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                 if (dias == 0)
                     destino = Destino.Confirmado;
 
-                plano.Add(new PlanoEvento(data, tipo, cliente, espaco, pacote, convidados, inicio, fim, destino));
+                plano.Add(new PlanoEvento(data, tipo, cliente, espaco, pacote, convidados, inicio, fim, destino, meia, isentos));
             }
         }
         return plano;
@@ -551,7 +571,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         if (p.Destino == Destino.Enviado && validade < Hoje)
             validade = DateOnly.FromDayNumber(Math.Min(Hoje.AddDays(_rnd.Next(5, 15)).DayNumber, p.Data.DayNumber));
 
-        var orcamento = new Orcamento(p.Cliente.Id, p.Tipo.Id, p.Data, p.Inicio, p.Fim, p.Convidados, validade)
+        var orcamento = new Orcamento(p.Cliente.Id, p.Tipo.Id, p.Data, p.Inicio, p.Fim, p.Quantidades, validade)
         {
             CriadoEm = criacao.ToDateTime(new TimeOnly(10, 0))
         };
@@ -708,7 +728,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
 
         return opcoes.Where(_ => _rnd.NextDouble() < 0.55)
             .Select(nome => _servicos[nome])
-            .Select(s => (s, s.CobradoPorPessoa ? (decimal)p.Convidados : 1m, s.Preco))
+            .Select(s => (s, s.CobradoPorPessoa ? (decimal)p.Quantidades.Pagantes : 1m, s.Preco))
             .ToList();
     }
 
