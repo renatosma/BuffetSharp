@@ -5,6 +5,7 @@ using BuffetSharp.Domain.Auditoria;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Estoque;
+using BuffetSharp.Domain.Financeiro;
 using BuffetSharp.Tests.Telas.Infra;
 using BuffetSharp.WinForms.Controles;
 using BuffetSharp.WinForms.Formularios.Cadastros;
@@ -266,6 +267,41 @@ public class FluxosTelasTests(AmbienteTelas ambiente)
             Assert.Equal(AcaoAuditoria.Alteracao, registro.Acao);
             Assert.Equal("admin", registro.Usuario);
             Assert.Equal(new AlteracaoCampo(nameof(Cliente.Observacoes), cliente.Observacoes, observacao), Assert.Single(registro.Campos));
+        });
+
+    [Fact]
+    public void Recebimento_parcial_pela_tela_quita_parte_da_parcela_e_mantem_o_saldo() =>
+        Robo.Executar(ambiente, robo =>
+        {
+            var principal = robo.Entrar();
+            var tela = robo.AbrirMenu<FormContasReceber>(principal, "Contas a receber");
+            var grade = Robo.Grade(tela);
+            robo.Esperar(() => Robo.Linhas<ParcelaResumo>(grade).Any(p => p.Status == StatusTitulo.Aberto), "parcelas em aberto");
+            var parcela = Robo.Linhas<ParcelaResumo>(grade).First(p => p.Status == StatusTitulo.Aberto && p.Valor > 100m);
+            robo.SelecionarLinha<ParcelaResumo>(grade, p => p.Id == parcela.Id);
+
+            robo.Dialogo<FormEdicao>(() => robo.Clicar(tela, "Registrar recebimento"), dialogo =>
+            {
+                var grades = Robo.Descendentes(dialogo).OfType<DataGridView>().ToList();
+                var titulos = (System.ComponentModel.BindingList<DialogoBaixa.LinhaTitulo>)grades.Single(g => g.DataSource is System.ComponentModel.BindingList<DialogoBaixa.LinhaTitulo>).DataSource!;
+                var formas = (System.ComponentModel.BindingList<DialogoBaixa.LinhaForma>)grades.Single(g => g.DataSource is System.ComponentModel.BindingList<DialogoBaixa.LinhaForma>).DataSource!;
+                var linha = titulos.Single(t => t.Incluir);
+                Assert.Equal(parcela.Id, linha.Id);
+                Assert.Equal(parcela.Valor, Assert.Single(formas).Valor);
+                Assert.NotEqual(0, formas[0].ContaId);
+
+                linha.ABaixar = 100m;
+                formas[0].Valor = 100m;
+                robo.Clicar(dialogo, "Salvar");
+            }, "recebimento parcial");
+
+            robo.Esperar(() => Robo.Linhas<ParcelaResumo>(grade).Any(p => p.Id == parcela.Id && p.Status == StatusTitulo.Pago), "parcela paga na lista");
+            var doEvento = Robo.Linhas<ParcelaResumo>(grade).Where(p => p.EventoId == parcela.EventoId).ToList();
+            Assert.Equal(100m, doEvento.Single(p => p.Id == parcela.Id).Valor);
+            Assert.Contains(doEvento, p => p.Status == StatusTitulo.Aberto && p.Valor == parcela.Valor - 100m && p.Descricao.EndsWith("(saldo)"));
+
+            var contas = robo.AbrirMenu<FormContasFinanceiras>(principal, "Caixa e bancos");
+            robo.Esperar(() => Robo.Linhas<ContaFinanceiraResumo>(Robo.Grade(contas)).Count >= 2, "caixa e bancos listados");
         });
 
     private static int CriarEvento(Robo robo, DateOnly data)

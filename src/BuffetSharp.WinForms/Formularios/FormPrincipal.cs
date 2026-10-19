@@ -113,6 +113,7 @@ internal sealed class FormPrincipal : FormBase
 
             new("FINANCEIRO", "Contas a receber", Icones.Cartao, [Adm, Fin], () => n.Abrir<FormContasReceber>()),
             new("FINANCEIRO", "Contas a pagar", Icones.Banco, [Adm, Fin], () => n.Abrir<FormContasPagar>()),
+            new("FINANCEIRO", "Caixa e bancos", Icones.Dinheiro, [Adm, Fin], () => n.Abrir<FormContasFinanceiras>()),
             new("FINANCEIRO", "Comissões", Icones.Dinheiro, [Adm, Fin], () => n.Abrir<FormComissoes>()),
             new("FINANCEIRO", "Relatórios", Icones.Calculadora, [Adm, Fin], () => n.Abrir<FormRelatorios>()),
 
@@ -126,6 +127,7 @@ internal sealed class FormPrincipal : FormBase
             new("CADASTROS", "Seções do cardápio", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.CategoriasCardapio)),
             new("CADASTROS", "Unidades de medida", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.UnidadesMedida)),
             new("CADASTROS", "Formas de pagamento", Icones.Cartao, [Adm, Fin], () => Cadastro(DefinicoesCadastros.FormasPagamento)),
+            new("CADASTROS", "Cartões de crédito", Icones.Cartao, [Adm, Fin], () => Cadastro(DefinicoesCadastros.CartoesCredito)),
             new("CADASTROS", "Condições de pagamento", Icones.Calendario, [Adm, Com, Fin], () => Cadastro(DefinicoesCadastros.CondicoesPagamento)),
 
             new("ADMINISTRAÇÃO", "Usuários", Icones.Cadeado, [Adm], () => n.Abrir<FormUsuarios>()),

@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddSingleton<IConsultasComercial, ConsultasComercial>();
         services.AddSingleton<IConsultasEventos, ConsultasEventos>();
         services.AddSingleton<IConsultasFinanceiro, ConsultasFinanceiro>();
+        services.AddSingleton<IConsultasContas, ConsultasContas>();
         services.AddSingleton<IConsultasEstoqueCardapio, ConsultasEstoqueCardapio>();
         services.AddSingleton<IConsultasRelatorios, ConsultasRelatorios>();
         services.AddSingleton<IConsultasComissoes, ConsultasComissoes>();

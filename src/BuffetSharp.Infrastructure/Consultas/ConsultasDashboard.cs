@@ -29,7 +29,10 @@ internal sealed class ConsultasDashboard(FabricaConexao conexoes) : IConsultasDa
                          ELSE CAST(SUM(CASE WHEN Status = 'Aprovado' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS DECIMAL(5, 1)) END
                FROM Orcamentos
               WHERE Status IN ('Aprovado', 'Recusado') AND DecididoEm >= @Hoje90)                    AS TaxaConversao90Dias,
-            (SELECT COUNT(*) FROM Produtos WHERE Ativo = {verdadeiro} AND EstoqueAtual < EstoqueMinimo) AS ProdutosAbaixoMinimo
+            (SELECT COUNT(*) FROM Produtos WHERE Ativo = {verdadeiro} AND EstoqueAtual < EstoqueMinimo) AS ProdutosAbaixoMinimo,
+            (SELECT COALESCE(SUM(SaldoInicial), 0) FROM ContasFinanceiras WHERE Ativo = {verdadeiro})
+              + (SELECT COALESCE(SUM(m.Valor), 0) FROM MovimentosConta m
+                   JOIN ContasFinanceiras c ON c.Id = m.ContaFinanceiraId WHERE c.Ativo = {verdadeiro})      AS SaldoContas
         {semTabela}
         """;
 

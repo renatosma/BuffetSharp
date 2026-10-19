@@ -4,6 +4,7 @@ using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
+using BuffetSharp.Domain.Financeiro;
 using BuffetSharp.WinForms.Formularios.Comercial;
 using BuffetSharp.WinForms.Formularios.Estoque;
 using BuffetSharp.WinForms.Infra;
@@ -104,6 +105,7 @@ internal static class DefinicoesCadastros
         Descricao = "Meios aceitos no recebimento das parcelas e no pagamento de despesas.",
         Consulta = q => q.OrderBy(x => x.Nome),
         Colunas = g => g.Texto("Nome", x => x.Nome)
+            .Texto("Tipo", x => Textos.Exibir(x.Tipo), 30)
             .Numero("Máx. parcelas", x => x.MaximoParcelas, peso: 25)
             .Numero("Taxa (%)", x => x.TaxaPercentual, "N2", 25)
             .SimNao("Ativo", x => x.Ativo, 20),
@@ -112,11 +114,39 @@ internal static class DefinicoesCadastros
         LarguraEditor = 560,
         Campos = (e, x, _) =>
         {
-            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 60, span: 2);
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 60);
+            e.Opcoes("Tipo (para onde vai o dinheiro)", () => x.Tipo, v => x.Tipo = v, nameof(x.Tipo));
             e.Inteiro("Máximo de parcelas", () => x.MaximoParcelas, v => x.MaximoParcelas = v, nameof(x.MaximoParcelas), 1, 48);
             e.Decimal("Taxa da operadora (%)", () => x.TaxaPercentual, v => x.TaxaPercentual = v, nameof(x.TaxaPercentual), 2, 0, 100);
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
             return Task.CompletedTask;
+        }
+    };
+
+    public static readonly DefinicaoCadastro<CartaoCredito> CartoesCredito = new()
+    {
+        Titulo = "Cartões de crédito",
+        Singular = "cartão de crédito",
+        Descricao = "Cartões da empresa usados para pagar fornecedores. Cada pagamento gera as parcelas da fatura em contas a pagar.",
+        Consulta = q => q.Include(x => x.Fornecedor).OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Cartão", x => x.ToString(), 40)
+            .Numero("Fecha dia", x => x.DiaFechamento, peso: 18)
+            .Numero("Vence dia", x => x.DiaVencimento, peso: 18)
+            .Texto("Banco emissor", x => x.Fornecedor?.NomeFantasia ?? x.Fornecedor?.RazaoSocial, 35)
+            .SimNao("Ativo", x => x.Ativo, 15),
+        TextoBusca = x => $"{x.Nome} {x.Final}",
+        Nome = x => x.Nome,
+        LarguraEditor = 600,
+        Campos = async (e, x, lookups) =>
+        {
+            var fornecedores = await lookups.ListarAsync(TipoLookup.Fornecedores, somenteAtivos: false);
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 60, dica: "Ex.: Itaú Empresarial");
+            e.Texto("Final (4 dígitos)", () => x.Final, v => x.Final = v, nameof(x.Final), 4);
+            e.Inteiro("Dia de fechamento da fatura", () => x.DiaFechamento, v => x.DiaFechamento = v, nameof(x.DiaFechamento), 1, 31);
+            e.Inteiro("Dia de vencimento da fatura", () => x.DiaVencimento, v => x.DiaVencimento = v, nameof(x.DiaVencimento), 1, 31);
+            e.Lista("Banco emissor (fornecedor das faturas)", fornecedores, () => x.FornecedorId, v => x.FornecedorId = v,
+                nameof(x.FornecedorId), permitirVazio: true, span: 2);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
         }
     };
 

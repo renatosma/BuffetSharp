@@ -20,7 +20,9 @@ public enum TipoLookup
     Vendedores,
     Materiais,
     CondicoesPagamento,
-    ModelosContrato
+    ModelosContrato,
+    ContasFinanceiras,
+    CartoesCredito
 }
 
 /// <summary>
@@ -28,7 +30,7 @@ public enum TipoLookup
 /// Espaços (Valor = locação, Numero = capacidade), Pacotes (Valor = preço/pessoa, Numero = mínimo),
 /// Serviços (Valor = preço, Marcador = cobrado por pessoa), Funcionários (Valor = diária, Info = cargo),
 /// Produtos (Valor = custo médio, Info = unidade), Formas de pagamento (Numero = máx. parcelas),
-/// Vendedores (Valor = comissão %), Materiais (Valor = custo de locação, Numero = patrimônio, Info = categoria),
+/// Formas de pagamento (Info = tipo), Contas financeiras (Info = tipo, Marcador = é caixa), Vendedores (Valor = comissão %), Materiais (Valor = custo de locação, Numero = patrimônio, Info = categoria),
 /// Condições de pagamento (Valor = % de entrada, Numero = parcelas), Modelos de contrato (Numero = tipo de evento ou 0,
 /// Marcador = padrão).
 /// </summary>

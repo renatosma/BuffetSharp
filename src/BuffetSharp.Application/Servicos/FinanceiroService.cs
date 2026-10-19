@@ -8,15 +8,7 @@ namespace BuffetSharp.Application.Servicos;
 
 public sealed class FinanceiroService(IBuffetDbContextFactory fabrica)
 {
-    // ------------------------- Contas a receber -------------------------
-
-    public Task PagarParcelaAsync(int parcelaId, PagamentoInput pagamento, CancellationToken ct = default) =>
-        AlterarAsync<Parcela>(parcelaId, p => p.RegistrarPagamento(pagamento.Data, pagamento.Valor, pagamento.FormaPagamentoId), ct);
-
-    public Task EstornarParcelaAsync(int parcelaId, CancellationToken ct = default) =>
-        AlterarAsync<Parcela>(parcelaId, p => p.EstornarPagamento(), ct);
-
-    // ------------------------- Contas a pagar -------------------------
+    // Recebimentos e pagamentos ficam no BaixaService; aqui, o cadastro das contas a pagar.
 
     public async Task<ContaPagarInput> ObterContaAsync(int id, CancellationToken ct = default)
     {
@@ -61,12 +53,6 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica)
         await db.SaveChangesAsync(ct);
     }
 
-    public Task PagarContaAsync(int contaId, PagamentoInput pagamento, CancellationToken ct = default) =>
-        AlterarAsync<ContaPagar>(contaId, c => c.RegistrarPagamento(pagamento.Data, pagamento.Valor, pagamento.FormaPagamentoId), ct);
-
-    public Task EstornarContaAsync(int contaId, CancellationToken ct = default) =>
-        AlterarAsync<ContaPagar>(contaId, c => c.EstornarPagamento(), ct);
-
     public Task CancelarContaAsync(int contaId, CancellationToken ct = default) =>
         AlterarAsync<ContaPagar>(contaId, c => c.Cancelar(), ct);
 
@@ -76,6 +62,8 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica)
         var conta = await db.ContasPagar.FirstOrDefaultAsync(c => c.Id == contaId, ct)
                     ?? throw new RegraNegocioException("Conta não encontrada.");
         Validador.Garantir(conta.Status != StatusTitulo.Pago, "Contas pagas não podem ser excluídas. Estorne antes.");
+        Validador.Garantir(!conta.EhFaturaCartao,
+            "Esta conta é parcela da fatura de um cartão. Para desfazê-la, estorne o pagamento feito com o cartão.");
         db.ContasPagar.Remove(conta);
         await db.SaveChangesAsync(ct);
     }

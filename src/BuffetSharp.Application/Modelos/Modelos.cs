@@ -135,11 +135,66 @@ public sealed class EntradaEstoqueInput
     public string? Observacao { get; set; }
 }
 
-public sealed class PagamentoInput
+/// <summary>Recebimento ou pagamento de uma ou mais contas da mesma pessoa, com uma ou mais formas.</summary>
+public sealed class BaixaInput
 {
+    public TipoBaixa Tipo { get; set; }
+    public DateOnly Data { get; set; }
+    public string? Observacao { get; set; }
+    public List<BaixaTituloInput> Titulos { get; set; } = [];
+    public List<BaixaFormaInput> Formas { get; set; } = [];
+}
+
+public sealed class BaixaTituloInput
+{
+    /// <summary>Id da parcela (recebimento) ou da conta a pagar (pagamento).</summary>
+    public int TituloId { get; set; }
+
+    /// <summary>Quanto abater do título; menor que o valor dele = pagamento parcial.</summary>
+    public decimal Valor { get; set; }
+
+    public decimal Juros { get; set; }
+    public decimal Desconto { get; set; }
+}
+
+public sealed class BaixaFormaInput
+{
+    public int FormaPagamentoId { get; set; }
+    public decimal Valor { get; set; }
+    public int? ContaFinanceiraId { get; set; }
+    public int? CartaoCreditoId { get; set; }
+    public int Parcelas { get; set; } = 1;
+}
+
+/// <summary>O que um estorno vai desfazer, para o usuário confirmar.</summary>
+public sealed record BaixaResumo(int Id, TipoBaixa Tipo, DateOnly Data, decimal Total, IReadOnlyList<string> Titulos,
+    IReadOnlyList<string> Formas, int FaturasGeradas);
+
+/// <summary>Lançamento avulso numa conta: aporte, retirada, tarifa, rendimento...</summary>
+public sealed class MovimentoInput
+{
+    public int ContaFinanceiraId { get; set; }
+    public DateOnly Data { get; set; }
+    public bool Entrada { get; set; }
+    public decimal Valor { get; set; }
+    public string Descricao { get; set; } = string.Empty;
+}
+
+public sealed class TransferenciaInput
+{
+    public int OrigemId { get; set; }
+    public int DestinoId { get; set; }
     public DateOnly Data { get; set; }
     public decimal Valor { get; set; }
-    public int? FormaPagamentoId { get; set; }
+    public string? Descricao { get; set; }
+}
+
+public sealed class FechamentoInput
+{
+    public int ContaFinanceiraId { get; set; }
+    public DateOnly Ate { get; set; }
+    public decimal SaldoInformado { get; set; }
+    public string? Observacao { get; set; }
 }
 
 public sealed class ContaPagarInput

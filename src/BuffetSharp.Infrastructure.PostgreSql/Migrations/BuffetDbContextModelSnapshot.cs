@@ -682,6 +682,12 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(5,2)")
                         .HasColumnName("taxapercentual");
 
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
                     b.HasKey("Id")
                         .HasName("pk_formaspagamento");
 
@@ -2295,6 +2301,297 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("eventoservicos", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Baixa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<DateOnly>("Data")
+                        .HasColumnType("date")
+                        .HasColumnName("data");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("observacao");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.Property<string>("Usuario")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("usuario");
+
+                    b.HasKey("Id")
+                        .HasName("pk_baixas");
+
+                    b.HasIndex("Data")
+                        .HasDatabaseName("ix_baixas_data");
+
+                    b.ToTable("baixas", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaForma", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BaixaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("baixaid");
+
+                    b.Property<int?>("CartaoCreditoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("cartaocreditoid");
+
+                    b.Property<int?>("ContaFinanceiraId")
+                        .HasColumnType("integer")
+                        .HasColumnName("contafinanceiraid");
+
+                    b.Property<int>("FormaPagamentoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("formapagamentoid");
+
+                    b.Property<int>("Parcelas")
+                        .HasColumnType("integer")
+                        .HasColumnName("parcelas");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valor");
+
+                    b.HasKey("Id")
+                        .HasName("pk_baixaformas");
+
+                    b.HasIndex("BaixaId")
+                        .HasDatabaseName("ix_baixaformas_baixaid");
+
+                    b.HasIndex("CartaoCreditoId")
+                        .HasDatabaseName("ix_baixaformas_cartaocreditoid");
+
+                    b.HasIndex("ContaFinanceiraId")
+                        .HasDatabaseName("ix_baixaformas_contafinanceiraid");
+
+                    b.HasIndex("FormaPagamentoId")
+                        .HasDatabaseName("ix_baixaformas_formapagamentoid");
+
+                    b.ToTable("baixaformas", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaTitulo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BaixaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("baixaid");
+
+                    b.Property<int?>("ContaPagarId")
+                        .HasColumnType("integer")
+                        .HasColumnName("contapagarid");
+
+                    b.Property<decimal>("Desconto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("desconto");
+
+                    b.Property<decimal>("Juros")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("juros");
+
+                    b.Property<int?>("ParcelaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("parcelaid");
+
+                    b.Property<int?>("SaldoContaPagarId")
+                        .HasColumnType("integer")
+                        .HasColumnName("saldocontapagarid");
+
+                    b.Property<int?>("SaldoParcelaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("saldoparcelaid");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valor");
+
+                    b.HasKey("Id")
+                        .HasName("pk_baixatitulos");
+
+                    b.HasIndex("BaixaId")
+                        .HasDatabaseName("ix_baixatitulos_baixaid");
+
+                    b.HasIndex("ContaPagarId")
+                        .HasDatabaseName("ix_baixatitulos_contapagarid");
+
+                    b.HasIndex("ParcelaId")
+                        .HasDatabaseName("ix_baixatitulos_parcelaid");
+
+                    b.HasIndex("SaldoContaPagarId")
+                        .HasDatabaseName("ix_baixatitulos_saldocontapagarid");
+
+                    b.HasIndex("SaldoParcelaId")
+                        .HasDatabaseName("ix_baixatitulos_saldoparcelaid");
+
+                    b.ToTable("baixatitulos", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.CartaoCredito", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<int>("DiaFechamento")
+                        .HasColumnType("integer")
+                        .HasColumnName("diafechamento");
+
+                    b.Property<int>("DiaVencimento")
+                        .HasColumnType("integer")
+                        .HasColumnName("diavencimento");
+
+                    b.Property<string>("Final")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("final");
+
+                    b.Property<int?>("FornecedorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("fornecedorid");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("nome");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cartoescredito");
+
+                    b.HasIndex("FornecedorId")
+                        .HasDatabaseName("ix_cartoescredito_fornecedorid");
+
+                    b.HasIndex("Nome")
+                        .IsUnique()
+                        .HasDatabaseName("ix_cartoescredito_nome");
+
+                    b.ToTable("cartoescredito", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ContaFinanceira", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Agencia")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("agencia");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<string>("Banco")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("banco");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<DateOnly>("DataSaldoInicial")
+                        .HasColumnType("date")
+                        .HasColumnName("datasaldoinicial");
+
+                    b.Property<DateOnly?>("FechadaAte")
+                        .HasColumnType("date")
+                        .HasColumnName("fechadaate");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("nome");
+
+                    b.Property<string>("Numero")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("numero");
+
+                    b.Property<decimal>("SaldoInicial")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("saldoinicial");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id")
+                        .HasName("pk_contasfinanceiras");
+
+                    b.HasIndex("Nome")
+                        .IsUnique()
+                        .HasDatabaseName("ix_contasfinanceiras_nome");
+
+                    b.ToTable("contasfinanceiras", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ContaPagar", b =>
                 {
                     b.Property<int>("Id")
@@ -2345,6 +2642,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("observacao");
 
+                    b.Property<int?>("OrigemBaixaFormaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("origembaixaformaid");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -2379,6 +2680,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("FornecedorId")
                         .HasDatabaseName("ix_contaspagar_fornecedorid");
+
+                    b.HasIndex("OrigemBaixaFormaId")
+                        .HasDatabaseName("ix_contaspagar_origembaixaformaid");
 
                     b.HasIndex("Status", "Vencimento")
                         .HasDatabaseName("ix_contaspagar_status_vencimento");
@@ -2440,6 +2744,134 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasDatabaseName("ix_fechamentoscomissao_vendedorid_de_ate");
 
                     b.ToTable("fechamentoscomissao", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.FechamentoConta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AjusteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("ajusteid");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<int>("ContaFinanceiraId")
+                        .HasColumnType("integer")
+                        .HasColumnName("contafinanceiraid");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<DateOnly>("Data")
+                        .HasColumnType("date")
+                        .HasColumnName("data");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("observacao");
+
+                    b.Property<decimal>("SaldoInformado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("saldoinformado");
+
+                    b.Property<decimal>("SaldoSistema")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("saldosistema");
+
+                    b.Property<string>("Usuario")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("usuario");
+
+                    b.HasKey("Id")
+                        .HasName("pk_fechamentosconta");
+
+                    b.HasIndex("AjusteId")
+                        .HasDatabaseName("ix_fechamentosconta_ajusteid");
+
+                    b.HasIndex("ContaFinanceiraId", "Data")
+                        .IsUnique()
+                        .HasDatabaseName("ix_fechamentosconta_contafinanceiraid_data");
+
+                    b.ToTable("fechamentosconta", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.MovimentoConta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<int?>("BaixaFormaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("baixaformaid");
+
+                    b.Property<int>("ContaFinanceiraId")
+                        .HasColumnType("integer")
+                        .HasColumnName("contafinanceiraid");
+
+                    b.Property<int?>("ContrapartidaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("contrapartidaid");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<DateOnly>("Data")
+                        .HasColumnType("date")
+                        .HasColumnName("data");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("descricao");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("origem");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valor");
+
+                    b.HasKey("Id")
+                        .HasName("pk_movimentosconta");
+
+                    b.HasIndex("BaixaFormaId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_movimentosconta_baixaformaid");
+
+                    b.HasIndex("ContrapartidaId")
+                        .HasDatabaseName("ix_movimentosconta_contrapartidaid");
+
+                    b.HasIndex("ContaFinanceiraId", "Data")
+                        .HasDatabaseName("ix_movimentosconta_contafinanceiraid_data");
+
+                    b.ToTable("movimentosconta", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Parcela", b =>
@@ -3056,6 +3488,94 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_eventoservicos_servicosadicionais_servicoadicionalid");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaForma", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Financeiro.Baixa", null)
+                        .WithMany("Formas")
+                        .HasForeignKey("BaixaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_baixaformas_baixas_baixaid");
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.CartaoCredito", "Cartao")
+                        .WithMany()
+                        .HasForeignKey("CartaoCreditoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_baixaformas_cartoescredito_cartaocreditoid");
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ContaFinanceira", "Conta")
+                        .WithMany()
+                        .HasForeignKey("ContaFinanceiraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_baixaformas_contasfinanceiras_contafinanceiraid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.FormaPagamento", "FormaPagamento")
+                        .WithMany()
+                        .HasForeignKey("FormaPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_baixaformas_formaspagamento_formapagamentoid");
+
+                    b.Navigation("Cartao");
+
+                    b.Navigation("Conta");
+
+                    b.Navigation("FormaPagamento");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaTitulo", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Financeiro.Baixa", null)
+                        .WithMany("Titulos")
+                        .HasForeignKey("BaixaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_baixatitulos_baixas_baixaid");
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ContaPagar", "ContaPagar")
+                        .WithMany()
+                        .HasForeignKey("ContaPagarId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_baixatitulos_contaspagar_contapagarid");
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.Parcela", "Parcela")
+                        .WithMany()
+                        .HasForeignKey("ParcelaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_baixatitulos_parcelas_parcelaid");
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ContaPagar", "SaldoContaPagar")
+                        .WithMany()
+                        .HasForeignKey("SaldoContaPagarId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_baixatitulos_contaspagar_saldocontapagarid");
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.Parcela", "SaldoParcela")
+                        .WithMany()
+                        .HasForeignKey("SaldoParcelaId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_baixatitulos_parcelas_saldoparcelaid");
+
+                    b.Navigation("ContaPagar");
+
+                    b.Navigation("Parcela");
+
+                    b.Navigation("SaldoContaPagar");
+
+                    b.Navigation("SaldoParcela");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.CartaoCredito", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_cartoescredito_fornecedores_fornecedorid");
+
+                    b.Navigation("Fornecedor");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ContaPagar", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", "Evento")
@@ -3076,11 +3596,19 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_contaspagar_fornecedores_fornecedorid");
 
+                    b.HasOne("BuffetSharp.Domain.Financeiro.BaixaForma", "OrigemBaixaForma")
+                        .WithMany("Faturas")
+                        .HasForeignKey("OrigemBaixaFormaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_contaspagar_baixaformas_origembaixaformaid");
+
                     b.Navigation("Evento");
 
                     b.Navigation("FormaPagamento");
 
                     b.Navigation("Fornecedor");
+
+                    b.Navigation("OrigemBaixaForma");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.FechamentoComissao", b =>
@@ -3102,6 +3630,52 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("ContaPagar");
 
                     b.Navigation("Vendedor");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.FechamentoConta", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Financeiro.MovimentoConta", "Ajuste")
+                        .WithMany()
+                        .HasForeignKey("AjusteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_fechamentosconta_movimentosconta_ajusteid");
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ContaFinanceira", "Conta")
+                        .WithMany()
+                        .HasForeignKey("ContaFinanceiraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_fechamentosconta_contasfinanceiras_contafinanceiraid");
+
+                    b.Navigation("Ajuste");
+
+                    b.Navigation("Conta");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.MovimentoConta", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Financeiro.BaixaForma", null)
+                        .WithOne("Movimento")
+                        .HasForeignKey("BuffetSharp.Domain.Financeiro.MovimentoConta", "BaixaFormaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_movimentosconta_baixaformas_baixaformaid");
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ContaFinanceira", "Conta")
+                        .WithMany()
+                        .HasForeignKey("ContaFinanceiraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_movimentosconta_contasfinanceiras_contafinanceiraid");
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.MovimentoConta", "Contrapartida")
+                        .WithMany()
+                        .HasForeignKey("ContrapartidaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_movimentosconta_movimentosconta_contrapartidaid");
+
+                    b.Navigation("Conta");
+
+                    b.Navigation("Contrapartida");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Parcela", b =>
@@ -3180,6 +3754,20 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Parcelas");
 
                     b.Navigation("Servicos");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Baixa", b =>
+                {
+                    b.Navigation("Formas");
+
+                    b.Navigation("Titulos");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaForma", b =>
+                {
+                    b.Navigation("Faturas");
+
+                    b.Navigation("Movimento");
                 });
 #pragma warning restore 612, 618
         }

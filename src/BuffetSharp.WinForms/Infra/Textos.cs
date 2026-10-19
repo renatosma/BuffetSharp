@@ -41,6 +41,20 @@ internal static class Textos
         CategoriaDespesa.Servicos => "Serviços",
         CategoriaDespesa.Comissoes => "Comissões",
         CategoriaDespesa.LocacaoMateriais => "Locação de materiais",
+        CategoriaDespesa.FaturaCartao => "Fatura de cartão",
+        TipoFormaPagamento.Pix => "PIX",
+        TipoFormaPagamento.Transferencia => "Transferência / TED",
+        TipoFormaPagamento.CartaoDebito => "Cartão de débito",
+        TipoFormaPagamento.CartaoCredito => "Cartão de crédito",
+        TipoFormaPagamento.Outros => "Outros (sem conta)",
+        TipoContaFinanceira.Caixa => "Caixa (dinheiro)",
+        TipoContaFinanceira.ContaCorrente => "Conta corrente",
+        TipoContaFinanceira.Poupanca => "Poupança",
+        TipoContaFinanceira.Aplicacao => "Aplicação",
+        OrigemMovimento.Baixa => "Recebimento/pagamento",
+        OrigemMovimento.Lancamento => "Lançamento avulso",
+        OrigemMovimento.Transferencia => "Transferência",
+        OrigemMovimento.AjusteFechamento => "Ajuste de fechamento",
         StatusContrato.AguardandoAssinatura => "Aguardando assinatura",
         StatusContrato.Assinado => "Assinado",
         StatusContrato.Cancelado => "Cancelado",
@@ -119,7 +133,9 @@ internal static class Textos
         ["Degustacao"] = "Degustação", ["FechamentoComissao"] = "Fechamento de comissão",
         ["ContatoAdicional"] = "Contato adicional", ["EnderecoAdicional"] = "Endereço adicional",
         ["CondicaoPagamento"] = "Condição de pagamento", ["ModeloContrato"] = "Modelo de contrato",
-        ["ProdutoEmbalagem"] = "Embalagem do produto"
+        ["ProdutoEmbalagem"] = "Embalagem do produto", ["ContaFinanceira"] = "Conta (caixa/banco)",
+        ["MovimentoConta"] = "Movimento de conta", ["FechamentoConta"] = "Fechamento de conta", ["CartaoCredito"] = "Cartão de crédito",
+        ["Baixa"] = "Recebimento/pagamento", ["BaixaTitulo"] = "Conta quitada", ["BaixaForma"] = "Forma de pagamento usada"
     };
 
     /// <summary>Nome amigável da entidade gravado na auditoria.</summary>

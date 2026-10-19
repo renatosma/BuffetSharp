@@ -27,7 +27,7 @@ internal sealed class ConsultasLookup(FabricaConexao conexoes) : IConsultasLooku
             WHERE @Todos = 1 OR Ativo = {verdadeiro} ORDER BY Nome
             """,
         [TipoLookup.FormasPagamento] = """
-            SELECT Id, Nome, TaxaPercentual AS Valor, MaximoParcelas AS Numero FROM FormasPagamento
+            SELECT Id, Nome, TaxaPercentual AS Valor, MaximoParcelas AS Numero, Tipo AS Info FROM FormasPagamento
             WHERE @Todos = 1 OR Ativo = {verdadeiro} ORDER BY Nome
             """,
         [TipoLookup.Fornecedores] = """
@@ -73,6 +73,15 @@ internal sealed class ConsultasLookup(FabricaConexao conexoes) : IConsultasLooku
             """,
         [TipoLookup.ModelosContrato] = """
             SELECT Id, Nome, COALESCE(TipoEventoId, 0) AS Numero, Padrao AS Marcador FROM ModelosContrato
+            WHERE @Todos = 1 OR Ativo = {verdadeiro} ORDER BY Nome
+            """,
+        [TipoLookup.ContasFinanceiras] = """
+            SELECT Id, Nome, Tipo AS Info, CASE WHEN Tipo = 'Caixa' THEN {verdadeiro} ELSE {falso} END AS Marcador FROM ContasFinanceiras
+            WHERE @Todos = 1 OR Ativo = {verdadeiro} ORDER BY CASE WHEN Tipo = 'Caixa' THEN 0 ELSE 1 END, Nome
+            """,
+        [TipoLookup.CartoesCredito] = """
+            SELECT Id, CASE WHEN Final IS NULL THEN Nome ELSE CONCAT(CONCAT(Nome, ' - final '), Final) END AS Nome,
+                   DiaVencimento AS Numero FROM CartoesCredito
             WHERE @Todos = 1 OR Ativo = {verdadeiro} ORDER BY Nome
             """
     };

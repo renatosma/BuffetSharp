@@ -22,6 +22,12 @@ namespace BuffetSharp.Infrastructure.Persistencia.Seed;
 internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio, IHasherSenha hasher, BuffetOptions empresa)
 {
     private readonly Random _rnd = new(2026);
+
+    // Sorteios do financeiro (formas de recebimento): separados para não mudar a sequência dos demais dados.
+    private readonly Random _rndFinanceiro = new(77);
+    private ContaFinanceira _caixa = null!;
+    private ContaFinanceira _banco = null!;
+    private CartaoCredito _cartao = null!;
     private DateTime Agora => relogio.GetLocalNow().DateTime;
     private DateOnly Hoje => DateOnly.FromDateTime(Agora);
 
@@ -102,12 +108,12 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
 
         _formas = new[]
         {
-            new FormaPagamento { Nome = "PIX", MaximoParcelas = 1 },
-            new FormaPagamento { Nome = "Dinheiro", MaximoParcelas = 1 },
-            new FormaPagamento { Nome = "Cartão de Crédito", MaximoParcelas = 12, TaxaPercentual = 3.49m },
-            new FormaPagamento { Nome = "Cartão de Débito", MaximoParcelas = 1, TaxaPercentual = 1.29m },
-            new FormaPagamento { Nome = "Boleto Bancário", MaximoParcelas = 12, TaxaPercentual = 1.50m },
-            new FormaPagamento { Nome = "Transferência Bancária", MaximoParcelas = 1 }
+            new FormaPagamento { Nome = "PIX", Tipo = TipoFormaPagamento.Pix, MaximoParcelas = 1 },
+            new FormaPagamento { Nome = "Dinheiro", Tipo = TipoFormaPagamento.Dinheiro, MaximoParcelas = 1 },
+            new FormaPagamento { Nome = "Cartão de Crédito", Tipo = TipoFormaPagamento.CartaoCredito, MaximoParcelas = 12, TaxaPercentual = 3.49m },
+            new FormaPagamento { Nome = "Cartão de Débito", Tipo = TipoFormaPagamento.CartaoDebito, MaximoParcelas = 1, TaxaPercentual = 1.29m },
+            new FormaPagamento { Nome = "Boleto Bancário", Tipo = TipoFormaPagamento.Boleto, MaximoParcelas = 12, TaxaPercentual = 1.50m },
+            new FormaPagamento { Nome = "Transferência Bancária", Tipo = TipoFormaPagamento.Transferencia, MaximoParcelas = 1 }
         }.ToDictionary(f => f.Nome);
         db.FormasPagamento.AddRange(_formas.Values);
 
@@ -166,7 +172,44 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         }).ToDictionary(f => f.NomeFantasia!);
         db.Fornecedores.AddRange(_fornecedores.Values);
 
+        // Caixa (criado na inicialização do banco) e conta bancária, controlados desde antes da base de demonstração.
+        var inicio = Hoje.AddYears(-2);
+        _caixa = await db.ContasFinanceiras.FirstOrDefaultAsync(c => c.Tipo == TipoContaFinanceira.Caixa, ct)
+                 ?? db.ContasFinanceiras.Add(new ContaFinanceira { Nome = "Caixa", Tipo = TipoContaFinanceira.Caixa }).Entity;
+        _caixa.SaldoInicial = 500;
+        _caixa.DataSaldoInicial = inicio;
+        _banco = new ContaFinanceira
+        {
+            Nome = "Banco do Brasil - Conta PJ",
+            Tipo = TipoContaFinanceira.ContaCorrente,
+            Banco = "001 - Banco do Brasil",
+            Agencia = "1234-5",
+            Numero = "98765-4",
+            SaldoInicial = 85_000,
+            DataSaldoInicial = inicio
+        };
+        _cartao = new CartaoCredito { Nome = "Cartão Empresarial", Final = "4321", DiaFechamento = 25, DiaVencimento = 5 };
+        db.ContasFinanceiras.Add(_banco);
+        db.CartoesCredito.Add(_cartao);
+
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Quita o título por uma baixa, como a tela faz: dinheiro entra/sai do caixa, as demais formas da conta bancária e o
+    /// cartão de crédito da empresa (nos pagamentos) gera a fatura.
+    /// </summary>
+    private Baixa Pagar(TituloFinanceiro titulo, DateOnly data, FormaPagamento forma)
+    {
+        var tipo = titulo is Parcela ? TipoBaixa.Recebimento : TipoBaixa.Pagamento;
+        var baixa = new Baixa(tipo, data, Hoje, null, "sistema");
+        baixa.AdicionarTitulo(titulo, titulo.Valor, 0, 0);
+        var cartao = forma.Tipo == TipoFormaPagamento.CartaoCredito && tipo == TipoBaixa.Pagamento ? _cartao : null;
+        var conta = cartao is not null ? null : forma.Tipo == TipoFormaPagamento.Dinheiro ? _caixa : _banco;
+        baixa.AdicionarForma(forma, titulo.Valor, conta, cartao);
+        baixa.Concluir(titulo.Descricao);
+        db.Baixas.Add(baixa);
+        return baixa;
     }
 
     private async Task CriarCatalogoAsync(CancellationToken ct)
@@ -578,7 +621,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             if (atrasado)
                 continue;
             var pagamento = DateOnly.FromDayNumber(Math.Min(parcela.Vencimento.AddDays(_rnd.Next(-3, 4)).DayNumber, Hoje.DayNumber));
-            parcela.RegistrarPagamento(pagamento, parcela.Valor, forma.Id);
+            Pagar(parcela, pagamento, _rndFinanceiro.NextDouble() < 0.1 ? _formas["Dinheiro"] : forma);
         }
 
         // Equipe escalada para eventos passados e próximos (até 45 dias).
@@ -634,7 +677,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             var equipe = new ContaPagar($"Pagamento da equipe - EVT-{evento.Id:D5}", CategoriaDespesa.Pessoal,
                 evento.TotalEquipe, dataPagamentoEquipe, eventoId: evento.Id);
             if (dataPagamentoEquipe <= Hoje)
-                equipe.RegistrarPagamento(dataPagamentoEquipe, equipe.Valor, _formas["PIX"].Id);
+                Pagar(equipe, dataPagamentoEquipe, _formas["PIX"]);
             db.ContasPagar.Add(equipe);
 
             var locacao = evento.Materiais.Sum(m => m.CustoLocacao);
@@ -643,7 +686,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                 var conta = new ContaPagar($"Locação de materiais - EVT-{evento.Id:D5}", CategoriaDespesa.LocacaoMateriais,
                     locacao, DateOnly.FromDateTime(encerramento).AddDays(7), _fornecedores["Loca Festas"].Id, evento.Id);
                 if (conta.Vencimento <= Hoje)
-                    conta.RegistrarPagamento(conta.Vencimento, conta.Valor, _formas["Boleto Bancário"].Id);
+                    Pagar(conta, conta.Vencimento, _formas["Boleto Bancário"]);
                 db.ContasPagar.Add(conta);
             }
 
@@ -747,7 +790,19 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                 var conta = new ContaPagar($"{d.Descricao} - {mes:MM/yyyy}", d.Categoria, d.Valor, vencimento,
                     d.Fornecedor is null ? null : _fornecedores[d.Fornecedor].Id);
                 if (vencimento < Hoje && _rnd.NextDouble() < 0.95)
-                    conta.RegistrarPagamento(vencimento, d.Valor, _formas["Boleto Bancário"].Id);
+                {
+                    // Anúncios são pagos com o cartão da empresa: a fatura vira conta a pagar (paga quando já venceu).
+                    if (d.Categoria != CategoriaDespesa.Marketing)
+                        Pagar(conta, vencimento, _formas["Boleto Bancário"]);
+                    else
+                    {
+                        foreach (var fatura in Pagar(conta, vencimento, _formas["Cartão de Crédito"]).Formas.SelectMany(f => f.Faturas))
+                        {
+                            if (fatura.Vencimento < Hoje)
+                                Pagar(fatura, fatura.Vencimento, _formas["Transferência Bancária"]);
+                        }
+                    }
+                }
                 db.ContasPagar.Add(conta);
             }
 
@@ -959,7 +1014,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             {
                 CriadoEm = ate.AddDays(1).ToDateTime(new TimeOnly(9, 0))
             };
-            fechamento.ContaPagar!.RegistrarPagamento(ate.AddDays(5), comissao, _formas["PIX"].Id);
+            Pagar(fechamento.ContaPagar!, ate.AddDays(5), _formas["PIX"]);
             db.FechamentosComissao.Add(fechamento);
         }
         await db.SaveChangesAsync(ct);

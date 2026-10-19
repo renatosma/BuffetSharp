@@ -153,6 +153,7 @@ public sealed record ParcelaResumo
     public int Id { get; init; }
     public int EventoId { get; init; }
     public string EventoTitulo { get; init; } = string.Empty;
+    public int ClienteId { get; init; }
     public string Cliente { get; init; } = string.Empty;
     public int Numero { get; init; }
     public string Descricao { get; init; } = string.Empty;
@@ -171,6 +172,7 @@ public sealed record ContaPagarResumo
     public int Id { get; init; }
     public string Descricao { get; init; } = string.Empty;
     public CategoriaDespesa Categoria { get; init; }
+    public int? FornecedorId { get; init; }
     public string? Fornecedor { get; init; }
     public int? EventoId { get; init; }
     public string? Evento { get; init; }

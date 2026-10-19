@@ -129,9 +129,22 @@ public class ServicosTests(BancoFixture banco)
         Assert.Equal(3, detalhe.Evento.Parcelas.Count);
         Assert.Equal(3000m, detalhe.Evento.Parcelas.Sum(p => p.Valor));
 
-        var financeiro = banco.Obter<FinanceiroService>();
         var entrada = detalhe.Evento.Parcelas.OrderBy(p => p.Numero).First();
-        await financeiro.PagarParcelaAsync(entrada.Id, new PagamentoInput { Data = hoje, Valor = entrada.Valor }, Ct);
+        await banco.Obter<BaixaService>().RegistrarAsync(new BaixaInput
+        {
+            Tipo = TipoBaixa.Recebimento,
+            Data = hoje,
+            Titulos = [new BaixaTituloInput { TituloId = entrada.Id, Valor = entrada.Valor }],
+            Formas =
+            [
+                new BaixaFormaInput
+                {
+                    FormaPagamentoId = await Lookup(TipoLookup.FormasPagamento, f => f.Info == "Pix"),
+                    Valor = entrada.Valor,
+                    ContaFinanceiraId = await Lookup(TipoLookup.ContasFinanceiras, c => !c.Marcador)
+                }
+            ]
+        }, Ct);
 
         await eventos.AdicionarConvidadoAsync(eventoId, "Convidado Teste", null, null, 1, "Mesa 1", Ct);
         var funcionarioId = await Lookup(TipoLookup.Funcionarios);

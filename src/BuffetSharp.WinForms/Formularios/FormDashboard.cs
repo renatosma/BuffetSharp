@@ -1,4 +1,6 @@
+using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
+using BuffetSharp.Domain.Seguranca;
 using BuffetSharp.WinForms.Controles;
 using BuffetSharp.WinForms.Formularios.Eventos;
 using BuffetSharp.WinForms.Infra;
@@ -19,13 +21,14 @@ internal sealed class FormDashboard : FormBase
     private readonly CartaoIndicador _orcamentos = new("Orçamentos em aberto", "-", Tema.Destaque);
     private readonly CartaoIndicador _conversao = new("Conversão (90 dias)", "-", Tema.Info);
     private readonly CartaoIndicador _estoque = new("Estoque a repor", "-", Tema.Alerta);
+    private readonly CartaoIndicador _saldoContas = new("Caixa e bancos", "-", Tema.Sucesso);
 
     private readonly GraficoBarras _grafico = new() { Dock = DockStyle.Fill, Titulo = "Faturamento: contratado (data do evento) x recebido" };
     private readonly Grade<ProximoEvento> _proximos = new();
     private readonly Grade<TituloVencido> _vencidas = new();
     private readonly Grade<ProdutoAlerta> _alertas = new();
 
-    public FormDashboard(IConsultasDashboard consultas, Navegador navegador)
+    public FormDashboard(IConsultasDashboard consultas, Navegador navegador, ISessaoUsuario sessao)
     {
         _consultas = consultas;
         _navegador = navegador;
@@ -53,6 +56,10 @@ internal sealed class FormDashboard : FormBase
 
         var cartoes = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(14, 4, 14, 4) };
         cartoes.Controls.AddRange([_eventosMes, _faturamentoMes, _recebidoMes, _vencido, _aPagar, _orcamentos, _conversao, _estoque]);
+
+        // Saldo de caixa e bancos: só para quem cuida do financeiro.
+        if (sessao.Usuario?.PossuiPerfil(PerfilUsuario.Financeiro) == true)
+            cartoes.Controls.Add(_saldoContas);
 
         var grade = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Padding = new Padding(14, 0, 14, 14) };
         grade.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
@@ -109,6 +116,8 @@ internal sealed class FormDashboard : FormBase
         _aPagar.Atualizar(GraficoBarras.FormatarCompacto(r.APagarProximos7Dias), "inclui contas vencidas");
         _orcamentos.Atualizar(r.OrcamentosEmAberto.ToString(), $"{Textos.Moeda(r.ValorOrcamentosEmAberto)} em negociação");
         _conversao.Atualizar($"{r.TaxaConversao90Dias:0.#}%", "orçamentos aprovados / decididos");
+        _saldoContas.Atualizar(GraficoBarras.FormatarCompacto(r.SaldoContas), "saldo atual de todas as contas",
+            r.SaldoContas < 0 ? Tema.Perigo : Tema.Sucesso);
         _estoque.Atualizar(r.ProdutosAbaixoMinimo.ToString(), "produtos abaixo do mínimo", r.ProdutosAbaixoMinimo > 0 ? Tema.Alerta : Tema.Sucesso);
 
         _grafico.Definir(r.FaturamentoMensal.Select(m => m.Rotulo).ToList(),

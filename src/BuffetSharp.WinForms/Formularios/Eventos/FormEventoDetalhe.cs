@@ -6,6 +6,7 @@ using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
 using BuffetSharp.WinForms.Controles;
+using BuffetSharp.WinForms.Formularios.Financeiro;
 using BuffetSharp.WinForms.Impressao;
 using BuffetSharp.WinForms.Infra;
 
@@ -20,7 +21,6 @@ internal sealed class FormEventoDetalhe : FormBase
     private sealed record InsumoPrevisto(string Produto, decimal Quantidade, string Unidade, decimal Custo);
 
     private readonly EventoService _eventos;
-    private readonly FinanceiroService _financeiro;
     private readonly IConsultasLookup _lookups;
     private readonly IConsultasEstoqueCardapio _cardapio;
     private readonly BuffetOptions _opcoes;
@@ -58,7 +58,7 @@ internal sealed class FormEventoDetalhe : FormBase
     private readonly List<Control> _controlesEdicao = [];
     private readonly List<Control> _acoesCabecalho = [];
 
-    public FormEventoDetalhe(EventoService eventos, FinanceiroService financeiro, IConsultasLookup lookups,
+    public FormEventoDetalhe(EventoService eventos, IConsultasLookup lookups,
         IConsultasEstoqueCardapio cardapio, BuffetOptions opcoes, ContratoService contratos, IEnvioEmail email,
         ISessaoUsuario sessao, Navegador navegador, int eventoId)
     {
@@ -67,7 +67,6 @@ internal sealed class FormEventoDetalhe : FormBase
         _sessao = sessao;
         _navegador = navegador;
         _eventos = eventos;
-        _financeiro = financeiro;
         _lookups = lookups;
         _cardapio = cardapio;
         _opcoes = opcoes;
@@ -551,8 +550,15 @@ internal sealed class FormEventoDetalhe : FormBase
         BotaoAba(barra, "Registrar pagamento", Icones.Cartao, PagarParcelaAsync, edicao: false);
         BotaoAba(barra, "Estornar pagamento", Icones.Desfazer, async () =>
         {
-            if (_parcelas.Selecionado is { } p && Mensagens.Confirmar(this, $"Estornar o pagamento da parcela {p.Numero}?", perigoso: true))
-                await Recarregar(_financeiro.EstornarParcelaAsync(p.Id));
+            if (_parcelas.Selecionado is not { } p)
+                return;
+            if (p.Status != StatusTitulo.Pago)
+            {
+                Mensagens.Aviso(this, "Selecione uma parcela paga.");
+                return;
+            }
+            if (await DialogoBaixa.EstornarAsync(this, _navegador.Servico<BaixaService>(), TipoBaixa.Recebimento, p.Id, $"parcela {p.Numero} - {p.Descricao}"))
+                await CarregarAsync();
         }, edicao: false);
         barra.Controls.Add(_resumoFinanceiro);
 
@@ -569,11 +575,14 @@ internal sealed class FormEventoDetalhe : FormBase
             Mensagens.Aviso(this, "Selecione uma parcela.");
             return;
         }
-        var formas = await _lookups.ListarAsync(TipoLookup.FormasPagamento);
-        var pagamento = Dialogos.PedirPagamento(this, "Registrar recebimento", $"{parcela.Descricao} - vencimento {parcela.Vencimento:dd/MM/yyyy}",
-            parcela.Valor, formas, parcela.FormaPagamentoId);
-        if (pagamento is not null)
-            await Recarregar(_financeiro.PagarParcelaAsync(parcela.Id, pagamento));
+        if (parcela.Status != StatusTitulo.Aberto)
+        {
+            Mensagens.Aviso(this, "Selecione uma parcela em aberto.");
+            return;
+        }
+        if (await DialogoBaixa.ExibirAsync(this, _navegador.Servico<IConsultasContas>(), _lookups, _navegador.Servico<BaixaService>(),
+                TipoBaixa.Recebimento, Evento.ClienteId, Evento.Cliente?.Nome ?? "Cliente", [parcela.Id]))
+            await CarregarAsync();
     }
 
     // =========================== Ações do evento ===========================

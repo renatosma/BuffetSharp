@@ -66,11 +66,28 @@ public class UnidadeMedida : Entidade, IAtivavel
     public override string ToString() => $"{Sigla} - {Descricao}";
 }
 
+/// <summary>Natureza do meio de pagamento: define para onde vai o dinheiro na baixa (caixa, banco ou fatura do cartão).</summary>
+public enum TipoFormaPagamento
+{
+    Dinheiro,
+    Pix,
+    Transferencia,
+    CartaoDebito,
+    CartaoCredito,
+    Boleto,
+    Cheque,
+
+    /// <summary>Permuta, vale, crédito do cliente...: fica registrado, sem movimentar conta.</summary>
+    Outros
+}
+
 public class FormaPagamento : Entidade, IAtivavel
 {
     [Required(ErrorMessage = "Informe o nome.")]
     [MaxLength(60)]
     public string Nome { get; set; } = string.Empty;
+
+    public TipoFormaPagamento Tipo { get; set; } = TipoFormaPagamento.Outros;
 
     [Range(1, 48, ErrorMessage = "O máximo de parcelas deve estar entre 1 e 48.")]
     public int MaximoParcelas { get; set; } = 1;

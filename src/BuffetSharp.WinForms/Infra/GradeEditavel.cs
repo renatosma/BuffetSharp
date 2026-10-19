@@ -33,10 +33,10 @@ internal sealed class GradeEditavel<T> where T : class
             e.ThrowException = false;
             Mensagens.Aviso(Controle.FindForm(), "Valor inválido nesta coluna.");
         };
-        // Combos da grade aplicam a escolha na hora (sem precisar sair da célula).
+        // Combos e marcadores da grade aplicam a escolha na hora (sem precisar sair da célula).
         Controle.CurrentCellDirtyStateChanged += (_, _) =>
         {
-            if (Controle.CurrentCell is DataGridViewComboBoxCell && Controle.IsCurrentCellDirty)
+            if (Controle.CurrentCell is DataGridViewComboBoxCell or DataGridViewCheckBoxCell && Controle.IsCurrentCellDirty)
                 Controle.CommitEdit(DataGridViewDataErrorContexts.Commit);
         };
         Controle.CellValueChanged += (_, _) => Alterado?.Invoke();
@@ -98,6 +98,12 @@ internal sealed class GradeEditavel<T> where T : class
             ReadOnly = somenteLeitura,
             DefaultCellStyle = { Format = formato, FormatProvider = Textos.PtBr, Alignment = DataGridViewContentAlignment.MiddleRight }
         });
+        return this;
+    }
+
+    public GradeEditavel<T> Marcador(string titulo, string propriedade, float peso = 20)
+    {
+        Controle.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = titulo, DataPropertyName = propriedade, FillWeight = peso });
         return this;
     }
 

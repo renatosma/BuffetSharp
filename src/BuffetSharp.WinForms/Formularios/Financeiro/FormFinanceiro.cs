@@ -42,26 +42,33 @@ internal abstract class FormTitulos<T> : FormListagem<T> where T : class
 internal sealed class FormContasReceber : FormTitulos<ParcelaResumo>
 {
     private readonly IConsultasFinanceiro _consultas;
+    private readonly IConsultasContas _contas;
     private readonly IConsultasLookup _lookups;
-    private readonly FinanceiroService _financeiro;
+    private readonly BaixaService _baixas;
     private readonly Navegador _navegador;
 
-    public FormContasReceber(IConsultasFinanceiro consultas, IConsultasLookup lookups, FinanceiroService financeiro, Navegador navegador)
+    public FormContasReceber(IConsultasFinanceiro consultas, IConsultasContas contas, IConsultasLookup lookups, BaixaService baixas,
+        Navegador navegador)
         : base("Contas a receber", "Parcelas dos eventos. Os planos de pagamento são gerados na tela do evento.")
     {
         _consultas = consultas;
+        _contas = contas;
         _lookups = lookups;
-        _financeiro = financeiro;
+        _baixas = baixas;
         _navegador = navegador;
 
         Botao("Registrar recebimento", Icones.Cartao, ReceberAsync, destaque: true);
         Botao("Estornar", Icones.Desfazer, async () =>
         {
-            if (Selecionado() is { } p && Mensagens.Confirmar(this, $"Estornar o recebimento de \"{p.Descricao}\" ({p.Cliente})?", perigoso: true))
+            if (Selecionado() is not { } p)
+                return;
+            if (p.Status != StatusTitulo.Pago)
             {
-                await _financeiro.EstornarParcelaAsync(p.Id);
-                await CarregarAsync();
+                Mensagens.Aviso(this, "Selecione uma parcela recebida.");
+                return;
             }
+            if (await DialogoBaixa.EstornarAsync(this, _baixas, TipoBaixa.Recebimento, p.Id, $"{p.Descricao} ({p.Cliente})"))
+                await CarregarAsync();
         });
         Botao("Abrir evento", Icones.Bandeira, () => Selecionado() is { } p ? AoAbrirAsync(p) : Task.CompletedTask);
 
@@ -95,12 +102,13 @@ internal sealed class FormContasReceber : FormTitulos<ParcelaResumo>
     {
         if (Selecionado() is not { } parcela)
             return;
-        var formas = await _lookups.ListarAsync(TipoLookup.FormasPagamento);
-        var pagamento = Dialogos.PedirPagamento(this, "Registrar recebimento", $"{parcela.Cliente} - {parcela.Descricao}",
-            parcela.Valor, formas, formas.FirstOrDefault(f => f.Nome == parcela.FormaPagamento)?.Id);
-        if (pagamento is null)
+        if (parcela.Status != StatusTitulo.Aberto)
+        {
+            Mensagens.Aviso(this, "Selecione uma parcela em aberto.");
             return;
-        await _financeiro.PagarParcelaAsync(parcela.Id, pagamento);
+        }
+        if (!await DialogoBaixa.ExibirAsync(this, _contas, _lookups, _baixas, TipoBaixa.Recebimento, parcela.ClienteId, parcela.Cliente, [parcela.Id]))
+            return;
         await CarregarAsync();
         Grade.Selecionar(p => p.Id == parcela.Id);
     }
@@ -109,20 +117,36 @@ internal sealed class FormContasReceber : FormTitulos<ParcelaResumo>
 internal sealed class FormContasPagar : FormTitulos<ContaPagarResumo>
 {
     private readonly IConsultasFinanceiro _consultas;
+    private readonly IConsultasContas _contas;
     private readonly IConsultasLookup _lookups;
     private readonly FinanceiroService _financeiro;
+    private readonly BaixaService _baixas;
 
-    public FormContasPagar(IConsultasFinanceiro consultas, IConsultasLookup lookups, FinanceiroService financeiro)
+    public FormContasPagar(IConsultasFinanceiro consultas, IConsultasContas contas, IConsultasLookup lookups, FinanceiroService financeiro,
+        BaixaService baixas)
         : base("Contas a pagar", "Despesas do buffet. Vincule ao evento os custos extras para apurar o resultado de cada festa.")
     {
         _consultas = consultas;
+        _contas = contas;
         _lookups = lookups;
         _financeiro = financeiro;
+        _baixas = baixas;
 
         Botao("Nova conta", Icones.Adicionar, () => EditarAsync(0), destaque: true);
         Botao("Editar", Icones.Editar, () => Selecionado() is { } c ? EditarAsync(c.Id) : Task.CompletedTask);
         Botao("Pagar", Icones.Banco, PagarAsync);
-        Botao("Estornar", Icones.Desfazer, () => AcaoAsync(c => _financeiro.EstornarContaAsync(c.Id), "Estornar o pagamento de"));
+        Botao("Estornar", Icones.Desfazer, async () =>
+        {
+            if (Selecionado() is not { } c)
+                return;
+            if (c.Status != StatusTitulo.Pago)
+            {
+                Mensagens.Aviso(this, "Selecione uma conta paga.");
+                return;
+            }
+            if (await DialogoBaixa.EstornarAsync(this, _baixas, TipoBaixa.Pagamento, c.Id, c.Descricao))
+                await CarregarAsync();
+        });
         Botao("Cancelar", Icones.Cancelar, () => AcaoAsync(c => _financeiro.CancelarContaAsync(c.Id), "Cancelar a conta"));
         Botao("Excluir", Icones.Excluir, () => AcaoAsync(c => _financeiro.ExcluirContaAsync(c.Id), "Excluir a conta"));
 
@@ -175,12 +199,16 @@ internal sealed class FormContasPagar : FormTitulos<ContaPagarResumo>
     {
         if (Selecionado() is not { } conta)
             return;
-        var formas = await _lookups.ListarAsync(TipoLookup.FormasPagamento);
-        var pagamento = Dialogos.PedirPagamento(this, "Registrar pagamento", conta.Descricao, conta.Valor, formas, null);
-        if (pagamento is null)
+        if (conta.Status != StatusTitulo.Aberto)
+        {
+            Mensagens.Aviso(this, "Selecione uma conta em aberto.");
             return;
-        await _financeiro.PagarContaAsync(conta.Id, pagamento);
+        }
+        if (!await DialogoBaixa.ExibirAsync(this, _contas, _lookups, _baixas, TipoBaixa.Pagamento, conta.FornecedorId,
+                conta.Fornecedor ?? "Contas sem fornecedor", [conta.Id]))
+            return;
         await CarregarAsync();
+        Grade.Selecionar(c => c.Id == conta.Id);
     }
 
     private async Task AcaoAsync(Func<ContaPagarResumo, Task> acao, string verbo)

@@ -26,7 +26,13 @@ public enum CategoriaDespesa
     Comissoes,
 
     /// <summary>Locação de louças, enxoval e mobiliário de terceiros para um evento.</summary>
-    LocacaoMateriais
+    LocacaoMateriais,
+
+    /// <summary>
+    /// Parcela da fatura de um cartão de crédito usado para pagar outras contas. A despesa já foi contada na conta
+    /// original; a fatura só representa a saída de dinheiro (não entra nos relatórios de despesa).
+    /// </summary>
+    FaturaCartao
 }
 
 /// <summary>
@@ -34,6 +40,9 @@ public enum CategoriaDespesa
 /// </summary>
 public abstract class TituloFinanceiro : Entidade
 {
+    /// <summary>Sufixo dos títulos criados com o saldo de um pagamento parcial.</summary>
+    public const string SufixoSaldo = " (saldo)";
+
     public string Descricao { get; protected set; } = string.Empty;
     public decimal Valor { get; protected set; }
     public DateOnly Vencimento { get; protected set; }
@@ -67,11 +76,40 @@ public abstract class TituloFinanceiro : Entidade
         ValorPago = null;
     }
 
-    public void Cancelar()
+    public virtual void Cancelar()
     {
         Validador.Garantir(Status == StatusTitulo.Aberto, "Somente títulos em aberto podem ser cancelados.");
         Status = StatusTitulo.Cancelado;
     }
+
+    /// <summary>
+    /// Pagamento parcial: este título fica com o valor abatido (e será quitado) e o restante passa para um novo
+    /// título em aberto, com o mesmo vencimento. Assim cada título continua sendo pago uma única vez.
+    /// </summary>
+    public TituloFinanceiro Desmembrar(decimal valorAbatido)
+    {
+        Validador.Garantir(Status == StatusTitulo.Aberto, "Somente títulos em aberto podem ser pagos.");
+        Validador.Garantir(valorAbatido > 0 && valorAbatido < Valor,
+            $"O valor parcial deve ser maior que zero e menor que o valor do título ({Valor:C}).");
+        var saldo = CriarSaldo(Valor - valorAbatido);
+        Valor = valorAbatido;
+        return saldo;
+    }
+
+    /// <summary>Desfaz um <see cref="Desmembrar"/>: o saldo ainda em aberto volta a fazer parte deste título.</summary>
+    public void Reincorporar(TituloFinanceiro saldo)
+    {
+        Validador.Garantir(Status == StatusTitulo.Aberto && saldo.Status == StatusTitulo.Aberto && saldo.GetType() == GetType(),
+            "Somente o saldo em aberto pode voltar para o título.");
+        Valor += saldo.Valor;
+    }
+
+    protected abstract TituloFinanceiro CriarSaldo(decimal valor);
+
+    protected static string DescricaoSaldo(string descricao, int maximo) =>
+        descricao.EndsWith(SufixoSaldo, StringComparison.Ordinal)
+            ? descricao
+            : descricao[..Math.Min(descricao.Length, maximo - SufixoSaldo.Length)] + SufixoSaldo;
 
     protected void DefinirValores(string descricao, decimal valor, DateOnly vencimento)
     {
@@ -86,6 +124,8 @@ public abstract class TituloFinanceiro : Entidade
 /// <summary>Conta a receber vinculada a um evento.</summary>
 public class Parcela : TituloFinanceiro
 {
+    public const int TamanhoDescricao = 100;
+
     private Parcela()
     {
     }
@@ -101,11 +141,27 @@ public class Parcela : TituloFinanceiro
     public int EventoId { get; private set; }
     public Evento? Evento { get; private set; }
     public int Numero { get; private set; }
+
+    protected override TituloFinanceiro CriarSaldo(decimal valor)
+    {
+        var saldo = new Parcela
+        {
+            EventoId = EventoId,
+            Evento = Evento,
+            Numero = Numero,
+            FormaPagamentoId = FormaPagamentoId,
+            Observacao = Observacao
+        };
+        saldo.DefinirValores(DescricaoSaldo(Descricao, TamanhoDescricao), valor, Vencimento);
+        return saldo;
+    }
 }
 
 /// <summary>Despesa: compra de insumos, folha de freelancers, aluguel, impostos...</summary>
 public class ContaPagar : TituloFinanceiro
 {
+    public const int TamanhoDescricao = 150;
+
     private ContaPagar()
     {
     }
@@ -116,20 +172,62 @@ public class ContaPagar : TituloFinanceiro
         Alterar(descricao, categoria, valor, vencimento, fornecedorId, eventoId, null);
     }
 
+    /// <summary>Parcela da fatura do cartão usado num pagamento.</summary>
+    internal ContaPagar(BaixaForma origem, string descricao, decimal valor, DateOnly vencimento, int? fornecedorId)
+        : this(descricao, CategoriaDespesa.FaturaCartao, valor, vencimento, fornecedorId)
+    {
+        OrigemBaixaForma = origem;
+    }
+
     public CategoriaDespesa Categoria { get; private set; }
     public int? FornecedorId { get; private set; }
     public Fornecedor? Fornecedor { get; private set; }
     public int? EventoId { get; private set; }
     public Evento? Evento { get; private set; }
 
+    /// <summary>Pagamento com cartão de crédito que gerou esta parcela de fatura (nulo nas demais contas).</summary>
+    public int? OrigemBaixaFormaId { get; private set; }
+    public BaixaForma? OrigemBaixaForma { get; private set; }
+
+    public bool EhFaturaCartao => OrigemBaixaFormaId is not null || OrigemBaixaForma is not null;
+
     public void Alterar(string descricao, CategoriaDespesa categoria, decimal valor, DateOnly vencimento,
         int? fornecedorId, int? eventoId, string? observacao)
     {
         Validador.Garantir(Status == StatusTitulo.Aberto, "Somente contas em aberto podem ser alteradas.");
+        if (EhFaturaCartao)
+        {
+            Validador.Garantir(valor == Valor && categoria == Categoria && fornecedorId == FornecedorId,
+                "Na fatura do cartão só a descrição, o vencimento, o evento e a observação podem mudar. Para corrigir o valor, estorne o pagamento feito com o cartão.");
+        }
         DefinirValores(descricao, valor, vencimento);
         Categoria = categoria;
         FornecedorId = fornecedorId;
         EventoId = eventoId;
         Observacao = observacao;
+    }
+
+    public override void Cancelar()
+    {
+        Validador.Garantir(!EhFaturaCartao, "Esta conta é parcela da fatura de um cartão. Para desfazê-la, estorne o pagamento feito com o cartão.");
+        base.Cancelar();
+    }
+
+    protected override TituloFinanceiro CriarSaldo(decimal valor)
+    {
+        var saldo = new ContaPagar
+        {
+            Categoria = Categoria,
+            FornecedorId = FornecedorId,
+            Fornecedor = Fornecedor,
+            EventoId = EventoId,
+            Evento = Evento,
+            OrigemBaixaFormaId = OrigemBaixaFormaId,
+            OrigemBaixaForma = OrigemBaixaForma,
+            FormaPagamentoId = FormaPagamentoId,
+            Observacao = Observacao
+        };
+        saldo.DefinirValores(DescricaoSaldo(Descricao, TamanhoDescricao), valor, Vencimento);
+        return saldo;
     }
 }

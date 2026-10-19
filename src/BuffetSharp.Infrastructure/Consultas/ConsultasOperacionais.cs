@@ -188,7 +188,7 @@ internal sealed class ConsultasFinanceiro(FabricaConexao conexoes) : IConsultasF
     public async Task<IReadOnlyList<ParcelaResumo>> ListarParcelasAsync(FiltroTitulos filtro, DateOnly hoje, CancellationToken ct = default)
     {
         const string sql = """
-            SELECT p.Id, p.EventoId, e.Titulo AS EventoTitulo, c.Nome AS Cliente, p.Numero, p.Descricao, p.Vencimento,
+            SELECT p.Id, p.EventoId, e.Titulo AS EventoTitulo, e.ClienteId, c.Nome AS Cliente, p.Numero, p.Descricao, p.Vencimento,
                    p.Valor, p.Status, p.DataPagamento, p.ValorPago, f.Nome AS FormaPagamento
               FROM Parcelas p
               JOIN Eventos e ON e.Id = p.EventoId
@@ -211,7 +211,7 @@ internal sealed class ConsultasFinanceiro(FabricaConexao conexoes) : IConsultasF
     public async Task<IReadOnlyList<ContaPagarResumo>> ListarContasPagarAsync(FiltroTitulos filtro, DateOnly hoje, CancellationToken ct = default)
     {
         const string sql = """
-            SELECT cp.Id, cp.Descricao, cp.Categoria, COALESCE(fo.NomeFantasia, fo.RazaoSocial) AS Fornecedor,
+            SELECT cp.Id, cp.Descricao, cp.Categoria, cp.FornecedorId, COALESCE(fo.NomeFantasia, fo.RazaoSocial) AS Fornecedor,
                    cp.EventoId, e.Titulo AS Evento,
                    cp.Vencimento, cp.Valor, cp.Status, cp.DataPagamento, cp.ValorPago, f.Nome AS FormaPagamento
               FROM ContasPagar cp

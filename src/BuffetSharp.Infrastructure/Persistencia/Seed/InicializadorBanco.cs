@@ -2,6 +2,7 @@ using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
+using BuffetSharp.Domain.Financeiro;
 using BuffetSharp.Domain.Seguranca;
 using Microsoft.EntityFrameworkCore;
 
@@ -45,6 +46,13 @@ public sealed class InicializadorBanco(IDbContextFactory<BuffetDbContext> fabric
                 Padrao = true,
                 Conteudo = GeradorContrato.ModeloPadrao.ReplaceLineEndings("\n")
             });
+            await db.SaveChangesAsync(ct);
+        }
+
+        if (!await db.ContasFinanceiras.AnyAsync(ct))
+        {
+            progresso?.Report("Criando o caixa...");
+            db.ContasFinanceiras.Add(new ContaFinanceira { Nome = "Caixa", Tipo = TipoContaFinanceira.Caixa });
             await db.SaveChangesAsync(ct);
         }
 

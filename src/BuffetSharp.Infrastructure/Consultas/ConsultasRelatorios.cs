@@ -52,7 +52,7 @@ internal sealed class ConsultasRelatorios(FabricaConexao conexoes) : IConsultasR
                    COALESCE((SELECT SUM(m.QuantidadeAlugada * m.CustoLocacaoUnitario + m.QuantidadePerdida * m.ValorReposicaoUnitario)
                                FROM EventoMateriais m WHERE m.EventoId = e.Id), 0) AS CustoMateriais,
                    COALESCE((SELECT SUM(d.Valor) FROM ContasPagar d WHERE d.EventoId = e.Id AND d.Status <> 'Cancelado'
-                               AND d.Categoria NOT IN ('Pessoal', 'LocacaoMateriais')), 0) AS Despesas
+                               AND d.Categoria NOT IN ('Pessoal', 'LocacaoMateriais', 'FaturaCartao')), 0) AS Despesas
               FROM Eventos e
               JOIN Clientes c ON c.Id = e.ClienteId
               LEFT JOIN CustoPacote cp ON cp.PacoteId = e.PacoteId
@@ -68,9 +68,17 @@ internal sealed class ConsultasRelatorios(FabricaConexao conexoes) : IConsultasR
         public decimal? ValorPago { get; init; }
     }
 
+    private sealed class PagamentoCartao
+    {
+        public DateTime Data { get; init; }
+        public decimal Valor { get; init; }
+    }
+
     /// <summary>
     /// Previsto (por vencimento) x realizado (por pagamento), mês a mês. Os lançamentos do período são lidos e
     /// agrupados em C#: evita gerar a série de meses e extrair ano/mês com funções diferentes em cada banco.
+    /// A parte de um pagamento feita com o cartão de crédito da empresa não é saída de dinheiro no dia: ela sai do
+    /// mês do pagamento (previsto e realizado) e entra quando vencem/são pagas as parcelas da fatura.
     /// </summary>
     public async Task<IReadOnlyList<FluxoCaixaMes>> FluxoCaixaAsync(DateTime de, DateTime ate, CancellationToken ct = default)
     {
@@ -85,10 +93,15 @@ internal sealed class ConsultasRelatorios(FabricaConexao conexoes) : IConsultasR
         await using var lote = await conexoes.LoteAsync(
         [
             "SELECT Vencimento, Valor, DataPagamento, ValorPago FROM Parcelas" + condicao,
-            "SELECT Vencimento, Valor, DataPagamento, ValorPago FROM ContasPagar" + condicao
+            "SELECT Vencimento, Valor, DataPagamento, ValorPago FROM ContasPagar" + condicao,
+            """
+            SELECT b.Data, f.Valor FROM BaixaFormas f JOIN Baixas b ON b.Id = f.BaixaId
+             WHERE b.Tipo = 'Pagamento' AND f.CartaoCreditoId IS NOT NULL AND b.Data >= @Inicio AND b.Data < @Fim
+            """
         ], parametros, ct);
         var receber = await lote.LerAsync<Lancamento>();
         var pagar = await lote.LerAsync<Lancamento>();
+        var cartao = await lote.LerAsync<PagamentoCartao>();
 
         static bool NoMes(DateTime? data, DateTime mes) => data >= mes && data < mes.AddMonths(1);
 
@@ -101,8 +114,8 @@ internal sealed class ConsultasRelatorios(FabricaConexao conexoes) : IConsultasR
                 Mes = mes.Month,
                 ReceberPrevisto = receber.Where(l => NoMes(l.Vencimento, mes)).Sum(l => l.Valor),
                 Recebido = receber.Where(l => NoMes(l.DataPagamento, mes)).Sum(l => l.ValorPago ?? 0),
-                PagarPrevisto = pagar.Where(l => NoMes(l.Vencimento, mes)).Sum(l => l.Valor),
-                Pago = pagar.Where(l => NoMes(l.DataPagamento, mes)).Sum(l => l.ValorPago ?? 0)
+                PagarPrevisto = pagar.Where(l => NoMes(l.Vencimento, mes)).Sum(l => l.Valor) - cartao.Where(c => NoMes(c.Data, mes)).Sum(c => c.Valor),
+                Pago = pagar.Where(l => NoMes(l.DataPagamento, mes)).Sum(l => l.ValorPago ?? 0) - cartao.Where(c => NoMes(c.Data, mes)).Sum(c => c.Valor)
             });
         }
         return meses;

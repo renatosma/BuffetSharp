@@ -14,6 +14,9 @@ public sealed class ResumoDashboard
     public decimal TaxaConversao90Dias { get; set; }
     public int ProdutosAbaixoMinimo { get; set; }
 
+    /// <summary>Saldo atual do caixa e das contas bancárias ativas.</summary>
+    public decimal SaldoContas { get; set; }
+
     public IReadOnlyList<ProximoEvento> ProximosEventos { get; set; } = [];
     public IReadOnlyList<ValorMensal> FaturamentoMensal { get; set; } = [];
     public IReadOnlyList<TituloVencido> ParcelasVencidas { get; set; } = [];
