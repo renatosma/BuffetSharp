@@ -46,6 +46,26 @@ public sealed class ProvedorPostgreSql : ProvedorBanco
         }
         : null;
 
+    public override string ExtensaoBackup => ".dump";
+
+    /// <summary>pg_dump no formato personalizado (restaurável com pg_restore). A senha vai pela variável PGPASSWORD.</summary>
+    public override Task FazerBackupAsync(string conexao, string arquivo, string? ferramenta, CancellationToken ct = default)
+    {
+        var dados = new NpgsqlConnectionStringBuilder(conexao);
+        var argumentos = new List<string> { "--format=custom", "--no-password", $"--file={arquivo}" };
+        if (!string.IsNullOrWhiteSpace(dados.Host))
+            argumentos.Add($"--host={dados.Host}");
+        argumentos.Add($"--port={dados.Port}");
+        if (!string.IsNullOrWhiteSpace(dados.Username))
+            argumentos.Add($"--username={dados.Username}");
+        argumentos.Add(dados.Database ?? dados.Username ?? "postgres");
+
+        var ambiente = new Dictionary<string, string>();
+        if (!string.IsNullOrEmpty(dados.Password))
+            ambiente["PGPASSWORD"] = dados.Password;
+        return ExecutarFerramentaAsync(LocalizarFerramenta(ferramenta, "pg_dump", "PostgreSQL"), argumentos, ambiente, ct);
+    }
+
     private sealed class DialetoPostgreSql : DialetoSql
     {
         public override bool TipaParametrosNulos => true;

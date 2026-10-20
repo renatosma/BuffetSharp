@@ -17,8 +17,14 @@ public enum PerfilUsuario
     Operacional
 }
 
-public class Usuario : Entidade
+public class Usuario : Entidade, ICamposControlados
 {
+    /// <summary>Senhas erradas seguidas que bloqueiam o login.</summary>
+    public const int MaximoTentativas = 5;
+
+    /// <summary>Tempo de bloqueio depois de <see cref="MaximoTentativas"/> senhas erradas.</summary>
+    public static readonly TimeSpan TempoBloqueio = TimeSpan.FromMinutes(15);
+
     private Usuario()
     {
     }
@@ -35,6 +41,15 @@ public class Usuario : Entidade
     public PerfilUsuario Perfil { get; private set; }
     public bool Ativo { get; private set; } = true;
     public DateTime? UltimoAcessoEm { get; private set; }
+
+    /// <summary>Senhas erradas desde o último acesso (zera ao entrar ou ao bloquear).</summary>
+    public int TentativasFalhas { get; private set; }
+
+    /// <summary>Login bloqueado até este horário por excesso de senhas erradas.</summary>
+    public DateTime? BloqueadoAte { get; private set; }
+
+    IReadOnlyCollection<string> ICamposControlados.CamposControladosPeloSistema =>
+        [nameof(UltimoAcessoEm), nameof(TentativasFalhas), nameof(BloqueadoAte)];
 
     /// <summary>Comissão (%) sobre os valores recebidos dos eventos vendidos por este usuário.</summary>
     public decimal PercentualComissao { get; private set; }
@@ -58,7 +73,35 @@ public class Usuario : Entidade
         SenhaHash = senhaHash;
     }
 
-    public void RegistrarAcesso(DateTime agora) => UltimoAcessoEm = agora;
+    public void RegistrarAcesso(DateTime agora)
+    {
+        UltimoAcessoEm = agora;
+        TentativasFalhas = 0;
+        BloqueadoAte = null;
+    }
+
+    public bool EstaBloqueado(DateTime agora) => BloqueadoAte > agora;
+
+    /// <summary>Conta uma senha errada; na <see cref="MaximoTentativas"/>ª seguida, bloqueia o login por <see cref="TempoBloqueio"/>.</summary>
+    /// <returns>Verdadeiro se esta tentativa bloqueou o usuário.</returns>
+    public bool RegistrarFalha(DateTime agora)
+    {
+        if (EstaBloqueado(agora))
+            return false;
+        TentativasFalhas++;
+        if (TentativasFalhas < MaximoTentativas)
+            return false;
+        TentativasFalhas = 0;
+        BloqueadoAte = agora.Add(TempoBloqueio);
+        return true;
+    }
+
+    /// <summary>Liberação do login pelo administrador, antes de o bloqueio expirar.</summary>
+    public void Desbloquear()
+    {
+        TentativasFalhas = 0;
+        BloqueadoAte = null;
+    }
 
     public void DefinirComissao(decimal percentual)
     {

@@ -60,6 +60,7 @@ public sealed class EventoService(
         return new EventoInput
         {
             Id = e.Id,
+            Versao = e.Versao,
             Titulo = e.Titulo,
             ClienteId = e.ClienteId,
             TipoEventoId = e.TipoEventoId,
@@ -103,6 +104,7 @@ public sealed class EventoService(
         {
             evento = await db.Eventos.Include(e => e.Parcelas).FirstOrDefaultAsync(e => e.Id == input.Id, ct)
                      ?? throw new RegraNegocioException("Evento não encontrado.");
+            Concorrencia.Conferir(evento, input.Versao);
             evento.AlterarDados(input.Titulo, input.EspacoId, input.Data, input.HoraInicio, input.HoraFim,
                 input.QuantidadesPorFaixa, input.Observacoes);
             if (evento.ValorTotal != input.ValorTotal)
@@ -126,6 +128,7 @@ public sealed class EventoService(
         }
 
         await db.SaveChangesAsync(ct);
+        input.Versao = evento.Versao;
         return evento.Id;
     }
 

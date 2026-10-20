@@ -93,6 +93,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Nome")
@@ -124,6 +128,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<int>("Ordem")
                         .HasColumnType("int");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Nome")
@@ -151,6 +159,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("varchar(80)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -211,6 +223,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Cliente.Endereco#Endereco", b1 =>
                         {
@@ -304,6 +320,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<int?>("QuitarDiasAntesEvento")
                         .HasColumnType("int");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("FormaPagamentoId");
@@ -349,6 +369,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClienteId");
@@ -384,6 +408,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<string>("Identificacao")
                         .HasMaxLength(60)
                         .HasColumnType("varchar(60)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.EnderecoAdicional.Endereco#Endereco", b1 =>
                         {
@@ -460,6 +488,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Espaco.Endereco#Endereco", b1 =>
                         {
                             b1.IsRequired();
@@ -533,6 +565,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Nome")
@@ -584,6 +620,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<string>("Telefone")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Fornecedor.Endereco#Endereco", b1 =>
                         {
@@ -672,6 +712,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Funcionario.Endereco#Endereco", b1 =>
                         {
                             b1.IsRequired();
@@ -746,6 +790,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Nome")
@@ -777,6 +825,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("varchar(80)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -810,6 +862,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("varchar(10)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -865,6 +921,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("varchar(120)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CategoriaCardapioId");
@@ -915,6 +975,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<decimal>("PrecoPorPessoa")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -1003,6 +1067,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EventoId");
@@ -1058,6 +1126,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -1135,6 +1207,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasColumnType("tinyint(1)");
 
                     b.Property<int?>("TipoEventoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -1240,6 +1316,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<int?>("VendedorId")
                         .HasColumnType("int");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClienteId");
@@ -1338,6 +1418,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("FornecedorId");
@@ -1409,6 +1493,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("varchar(10)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Data");
@@ -1467,6 +1555,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<int>("UnidadeMedidaId")
                         .HasColumnType("int");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CategoriaProdutoId");
@@ -1514,6 +1606,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("UnidadeMedidaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -1663,6 +1759,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("VendedorId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -1830,6 +1930,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("varchar(60)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Data");
@@ -1956,6 +2060,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("varchar(60)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("FornecedorId");
@@ -2012,6 +2120,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -2091,6 +2203,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<DateTime>("Vencimento")
                         .HasColumnType("date");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AgrupadaEmId");
@@ -2144,6 +2260,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<int>("VendedorId")
                         .HasColumnType("int");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ContaPagarId")
@@ -2190,6 +2310,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<string>("Usuario")
                         .HasMaxLength(60)
                         .HasColumnType("varchar(60)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -2238,6 +2362,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<decimal>("Valor")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -2300,6 +2428,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<DateTime>("Vencimento")
                         .HasColumnType("date");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("DataPagamento");
@@ -2353,6 +2485,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EventoId");
@@ -2372,6 +2508,9 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasColumnType("tinyint(1)");
 
                     b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("BloqueadoAte")
                         .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("CriadoEm")
@@ -2401,8 +2540,15 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<int>("TentativasFalhas")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UltimoAcessoEm")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 

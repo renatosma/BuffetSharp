@@ -1,6 +1,8 @@
 using System.Data.Common;
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 using BuffetSharp.Application.Abstracoes;
+using BuffetSharp.Domain.Comum;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -56,6 +58,16 @@ public interface IProvedorBanco
 
     /// <summary>"BuffetSharp @ servidor (PostgreSQL)", para a barra de status.</summary>
     string DescreverConexao(string conexao);
+
+    /// <summary>Extensão do arquivo de cópia de segurança; nula quando o sistema não faz a cópia deste banco.</summary>
+    string? ExtensaoBackup { get; }
+
+    /// <summary>Quando o sistema não faz a cópia deste banco, explica como fazê-la.</summary>
+    string? BackupIndisponivel { get; }
+
+    /// <summary>Grava uma cópia completa do banco da conexão no arquivo indicado.</summary>
+    /// <param name="ferramenta">Caminho do utilitário de cópia (pg_dump, mysqldump), quando configurado.</param>
+    Task FazerBackupAsync(string conexao, string arquivo, string? ferramenta, CancellationToken ct = default);
 }
 
 /// <summary>Comportamento comum dos provedores; cada banco sobrescreve só o que difere.</summary>
@@ -166,6 +178,75 @@ public abstract partial class ProvedorBanco : IProvedorBanco
         catch (ArgumentException)
         {
             return Nome;
+        }
+    }
+
+    public virtual string? ExtensaoBackup => null;
+
+    public virtual string? BackupIndisponivel => ExtensaoBackup is null
+        ? $"O BuffetSharp não faz a cópia de segurança do {Nome}. Use a ferramenta de backup do próprio banco no servidor."
+        : null;
+
+    public virtual Task FazerBackupAsync(string conexao, string arquivo, string? ferramenta, CancellationToken ct = default) =>
+        throw new RegraNegocioException(BackupIndisponivel ?? $"Cópia de segurança do {Nome} não implementada.");
+
+    /// <summary>
+    /// Utilitário de linha de comando do banco (pg_dump, mysqldump): o configurado, o que estiver no PATH ou o da
+    /// versão mais recente instalada na pasta padrão (ex.: C:\Program Files\PostgreSQL\*\bin).
+    /// </summary>
+    protected string LocalizarFerramenta(string? configurada, string executavel, string pastaInstalacao)
+    {
+        if (!string.IsNullOrWhiteSpace(configurada))
+        {
+            Validador.Garantir(File.Exists(configurada), $"O utilitário de backup configurado não existe: {configurada}");
+            return configurada;
+        }
+
+        var nome = OperatingSystem.IsWindows() ? executavel + ".exe" : executavel;
+        var noPath = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => Path.Combine(p.Trim('"'), nome))
+            .FirstOrDefault(File.Exists);
+        if (noPath is not null)
+            return noPath;
+
+        var instalacao = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), pastaInstalacao);
+        var instalado = Directory.Exists(instalacao)
+            ? Directory.EnumerateDirectories(instalacao)
+                .Select(d => Path.Combine(d, "bin", nome))
+                .Where(File.Exists)
+                .OrderByDescending(f => f, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault()
+            : null;
+        return instalado ?? throw new RegraNegocioException(
+            $"Não encontrei o {executavel}, usado para a cópia de segurança do {Nome}. Instale as ferramentas cliente do banco " +
+            $"ou informe o caminho em \"Backup:Ferramenta\" no appsettings.json.");
+    }
+
+    /// <summary>Executa o utilitário e falha com a mensagem dele se não terminar bem.</summary>
+    protected static async Task ExecutarFerramentaAsync(string executavel, IEnumerable<string> argumentos,
+        IReadOnlyDictionary<string, string>? ambiente, CancellationToken ct)
+    {
+        var inicio = new ProcessStartInfo(executavel)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true
+        };
+        foreach (var argumento in argumentos)
+            inicio.ArgumentList.Add(argumento);
+        foreach (var (chave, valor) in ambiente ?? new Dictionary<string, string>())
+            inicio.Environment[chave] = valor;
+
+        using var processo = Process.Start(inicio) ?? throw new RegraNegocioException($"Não foi possível executar {executavel}.");
+        var erros = processo.StandardError.ReadToEndAsync(ct);
+        var saida = processo.StandardOutput.ReadToEndAsync(ct);
+        await processo.WaitForExitAsync(ct);
+        if (processo.ExitCode != 0)
+        {
+            var mensagem = (await erros).Trim() is { Length: > 0 } e ? e : (await saida).Trim();
+            throw new RegraNegocioException($"A cópia de segurança falhou ({Path.GetFileName(executavel)}): {mensagem}");
         }
     }
 

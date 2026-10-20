@@ -2,6 +2,7 @@ using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Infrastructure.Consultas;
 using BuffetSharp.Infrastructure.Email;
+using BuffetSharp.Infrastructure.Manutencao;
 using BuffetSharp.Infrastructure.Persistencia;
 using BuffetSharp.Infrastructure.Persistencia.Provedores;
 using BuffetSharp.Infrastructure.Persistencia.Seed;
@@ -52,6 +53,10 @@ public static class DependencyInjection
         // E-mail: usa a configuração registrada pela aplicação ou, na falta dela, grava em pasta local.
         services.TryAddSingleton(new EmailOptions());
         services.AddSingleton<IEnvioEmail, EnvioEmailSmtp>();
+
+        // Cópia de segurança: usa a configuração registrada pela aplicação ou, na falta dela, a padrão.
+        services.TryAddSingleton(new BackupOptions());
+        services.AddSingleton<IBackupBanco, BackupBanco>();
 
         services.AddSingleton<IHasherSenha, HasherSenhaPbkdf2>();
         services.AddTransient<InicializadorBanco>();

@@ -23,6 +23,8 @@ public sealed class IngredienteInput
 public sealed class ItemCardapioInput
 {
     public int Id { get; set; }
+    /// <summary>Versão lida do banco (concorrência otimista); nula em registros novos.</summary>
+    public int? Versao { get; set; }
     public string Nome { get; set; } = string.Empty;
     public string? Descricao { get; set; }
     public int CategoriaCardapioId { get; set; }
@@ -33,6 +35,8 @@ public sealed class ItemCardapioInput
 public sealed class PacoteInput
 {
     public int Id { get; set; }
+    /// <summary>Versão lida do banco (concorrência otimista); nula em registros novos.</summary>
+    public int? Versao { get; set; }
     public string Nome { get; set; } = string.Empty;
     public string? Descricao { get; set; }
     public decimal PrecoPorPessoa { get; set; }
@@ -56,6 +60,8 @@ public sealed class ServicoItemInput
 public sealed class OrcamentoInput
 {
     public int Id { get; set; }
+    /// <summary>Versão lida do banco (concorrência otimista); nula em registros novos.</summary>
+    public int? Versao { get; set; }
     public int ClienteId { get; set; }
     public int TipoEventoId { get; set; }
     public int? EspacoId { get; set; }
@@ -106,6 +112,8 @@ public sealed record EnvioPropostaInfo(CanalEnvio Canal, string Destinatario, st
 public sealed class EventoInput
 {
     public int Id { get; set; }
+    /// <summary>Versão lida do banco (concorrência otimista); nula em registros novos.</summary>
+    public int? Versao { get; set; }
     public string Titulo { get; set; } = string.Empty;
     public int ClienteId { get; set; }
     public int TipoEventoId { get; set; }
@@ -237,6 +245,8 @@ public sealed class FechamentoInput
 public sealed class ContaPagarInput
 {
     public int Id { get; set; }
+    /// <summary>Versão lida do banco (concorrência otimista); nula em registros novos.</summary>
+    public int? Versao { get; set; }
     public string Descricao { get; set; } = string.Empty;
     public CategoriaDespesa Categoria { get; set; } = CategoriaDespesa.Insumos;
     public decimal Valor { get; set; }
@@ -286,6 +296,8 @@ public sealed record ParcelamentoInfo(int Id, string Codigo, string Descricao, d
 public sealed class UsuarioInput
 {
     public int Id { get; set; }
+    /// <summary>Versão lida do banco (concorrência otimista); nula em registros novos.</summary>
+    public int? Versao { get; set; }
     public string Nome { get; set; } = string.Empty;
     public string Login { get; set; } = string.Empty;
     public PerfilUsuario Perfil { get; set; } = PerfilUsuario.Comercial;
@@ -293,6 +305,9 @@ public sealed class UsuarioInput
     public string? NovaSenha { get; set; }
     public decimal PercentualComissao { get; set; }
     public DateTime? UltimoAcessoEm { get; set; }
+
+    /// <summary>Somente leitura: login bloqueado por senhas erradas até este horário.</summary>
+    public DateTime? BloqueadoAte { get; set; }
 }
 
 /// <summary>Evento completo para a tela de detalhes, com indicadores de resultado.</summary>
@@ -311,6 +326,8 @@ public sealed record ResultadoRealizacao(IReadOnlyList<string> Avisos);
 public sealed class DegustacaoInput
 {
     public int Id { get; set; }
+    /// <summary>Versão lida do banco (concorrência otimista); nula em registros novos.</summary>
+    public int? Versao { get; set; }
     public int ClienteId { get; set; }
     public int? PacoteId { get; set; }
     public int? OrcamentoId { get; set; }

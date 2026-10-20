@@ -118,6 +118,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DECIMAL(18,2)")
                         .HasColumnName("VALORDIARIAPADRAO");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_CARGOS");
 
@@ -159,6 +164,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("ORDEM");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_CATEGORIASCARDAPIO");
 
@@ -195,6 +205,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("NVARCHAR2(80)")
                         .HasColumnName("NOME");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_CATEGORIASPRODUTO");
@@ -272,6 +287,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("NVARCHAR2(30)")
                         .HasColumnName("TIPOPESSOA");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Cliente.Endereco#Endereco", b1 =>
                         {
@@ -391,6 +411,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("QUITARDIASANTESEVENTO");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_CONDICOESPAGAMENTO");
 
@@ -450,6 +475,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(150)")
                         .HasColumnName("VALOR");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_CONTATOSADICIONAIS");
 
@@ -498,6 +528,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("NVARCHAR2(60)")
                         .HasColumnName("IDENTIFICACAO");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.EnderecoAdicional.Endereco#Endereco", b1 =>
                         {
@@ -595,6 +630,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DECIMAL(18,2)")
                         .HasColumnName("VALORLOCACAO");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Espaco.Endereco#Endereco", b1 =>
                         {
                             b1.IsRequired();
@@ -687,6 +727,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(30)")
                         .HasColumnName("TIPO");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_FORMASPAGAMENTO");
 
@@ -753,6 +798,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("NVARCHAR2(20)")
                         .HasColumnName("TELEFONE");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Fornecedor.Endereco#Endereco", b1 =>
                         {
@@ -864,6 +914,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DECIMAL(18,2)")
                         .HasColumnName("VALORDIARIA");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Funcionario.Endereco#Endereco", b1 =>
                         {
                             b1.IsRequired();
@@ -958,6 +1013,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DECIMAL(18,2)")
                         .HasColumnName("PRECO");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_SERVICOSADICIONAIS");
 
@@ -999,6 +1059,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("NVARCHAR2(80)")
                         .HasColumnName("NOME");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_TIPOSEVENTO");
@@ -1042,6 +1107,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("NVARCHAR2(10)")
                         .HasColumnName("SIGLA");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_UNIDADESMEDIDA");
@@ -1113,6 +1183,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(120)")
                         .HasColumnName("NOME");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_ITENSCARDAPIO");
 
@@ -1179,6 +1254,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("DECIMAL(18,2)")
                         .HasColumnName("PRECOPORPESSOA");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_PACOTES");
@@ -1292,6 +1372,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(30)")
                         .HasColumnName("STATUS");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_CONTRATOS");
 
@@ -1365,6 +1450,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("NVARCHAR2(30)")
                         .HasColumnName("STATUS");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_DEGUSTACOES");
@@ -1469,6 +1559,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<int?>("TipoEventoId")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("TIPOEVENTOID");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_MODELOSCONTRATO");
@@ -1605,6 +1700,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("VENDEDORID");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_ORCAMENTOS");
 
@@ -1736,6 +1836,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DECIMAL(18,2)")
                         .HasColumnName("VALORREPOSICAO");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_MATERIAIS");
 
@@ -1828,6 +1933,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(10)")
                         .HasColumnName("UNIDADECOMPRA");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_MOVIMENTACOESESTOQUE");
 
@@ -1905,6 +2015,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("UNIDADEMEDIDAID");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_PRODUTOS");
 
@@ -1970,6 +2085,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<int>("UnidadeMedidaId")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("UNIDADEMEDIDAID");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_PRODUTOEMBALAGENS");
@@ -2165,6 +2285,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<int?>("VendedorId")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("VENDEDORID");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_EVENTOS");
@@ -2386,6 +2511,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(60)")
                         .HasColumnName("USUARIO");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_BAIXAS");
 
@@ -2556,6 +2686,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(60)")
                         .HasColumnName("NOME");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_CARTOESCREDITO");
 
@@ -2629,6 +2764,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("NVARCHAR2(30)")
                         .HasColumnName("TIPO");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_CONTASFINANCEIRAS");
@@ -2731,6 +2871,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DATE")
                         .HasColumnName("VENCIMENTO");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_CONTASPAGAR");
 
@@ -2804,6 +2949,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("VENDEDORID");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_FECHAMENTOSCOMISSAO");
 
@@ -2865,6 +3015,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("NVARCHAR2(60)")
                         .HasColumnName("USUARIO");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_FECHAMENTOSCONTA");
@@ -2928,6 +3083,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("DECIMAL(18,2)")
                         .HasColumnName("VALOR");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_MOVIMENTOSCONTA");
@@ -3008,6 +3168,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DATE")
                         .HasColumnName("VENCIMENTO");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_PARCELAS");
 
@@ -3078,6 +3243,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DECIMAL(18,2)")
                         .HasColumnName("VALORTOTAL");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
                     b.HasKey("Id")
                         .HasName("PK_PARCELAMENTOSPAGAR");
 
@@ -3106,6 +3276,10 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<DateTime?>("BloqueadoAte")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("BLOQUEADOATE");
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("TIMESTAMP(7)")
@@ -3140,9 +3314,18 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(200)")
                         .HasColumnName("SENHAHASH");
 
+                    b.Property<int>("TentativasFalhas")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("TENTATIVASFALHAS");
+
                     b.Property<DateTime?>("UltimoAcessoEm")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("ULTIMOACESSOEM");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
 
                     b.HasKey("Id")
                         .HasName("PK_USUARIOS");

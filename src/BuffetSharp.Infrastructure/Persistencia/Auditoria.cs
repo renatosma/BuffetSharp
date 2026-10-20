@@ -16,7 +16,8 @@ internal static class Auditoria
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     /// <summary>Campos de controle técnico que não interessam ao histórico.</summary>
-    private static readonly HashSet<string> Ignorados = [nameof(Entidade.CriadoEm), nameof(Entidade.AtualizadoEm), "UltimoAcessoEm"];
+    private static readonly HashSet<string> Ignorados =
+        [nameof(Entidade.CriadoEm), nameof(Entidade.AtualizadoEm), nameof(Entidade.Versao), "UltimoAcessoEm", "TentativasFalhas"];
 
     /// <summary>Campos sensíveis: registra-se apenas que mudaram.</summary>
     private static readonly HashSet<string> Sigilosos = ["SenhaHash"];

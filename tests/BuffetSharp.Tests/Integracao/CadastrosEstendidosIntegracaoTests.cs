@@ -122,6 +122,9 @@ public class CadastrosEstendidosIntegracaoTests(BancoFixture banco)
         // Marcar outro como padrão desmarca o anterior.
         var outro = await modelos.SalvarAsync(new ModeloContrato { Nome = "Padrão de teste", Conteudo = GeradorContrato.ModeloPadrao, Padrao = true }, Ct);
         Assert.Equal(outro.Id, Assert.Single(await modelos.ListarAsync(q => q.Where(m => m.Padrao), Ct)).Id);
+
+        // Desmarcado pelo sistema, o modelo mudou de versão: a tela o lê de novo antes de editar.
+        padrao = (await modelos.ObterAsync(padrao.Id, Ct))!;
         padrao.Padrao = true;
         await modelos.SalvarAsync(padrao, Ct);
         await modelos.ExcluirAsync(outro.Id, Ct);

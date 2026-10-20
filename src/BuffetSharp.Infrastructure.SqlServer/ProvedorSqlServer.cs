@@ -34,6 +34,27 @@ public sealed class ProvedorSqlServer : ProvedorBanco
             _ => null
         }
         : null;
+
+    public override string ExtensaoBackup => ".bak";
+
+    /// <summary>
+    /// BACKUP DATABASE nativo (cópia avulsa, sem afetar a sequência de backups do servidor). O arquivo é gravado pelo
+    /// próprio SQL Server: a pasta é a do servidor e precisa permitir gravação pela conta do serviço (no LocalDB, o usuário).
+    /// </summary>
+    public override async Task FazerBackupAsync(string conexao, string arquivo, string? ferramenta, CancellationToken ct = default)
+    {
+        await using var sql = new SqlConnection(conexao);
+        await sql.OpenAsync(ct);
+        await using var comando = sql.CreateCommand();
+        comando.CommandText = """
+            DECLARE @banco sysname = DB_NAME();
+            BACKUP DATABASE @banco TO DISK = @arquivo WITH COPY_ONLY, INIT, NAME = @nome
+            """;
+        comando.CommandTimeout = 0;
+        comando.Parameters.AddWithValue("@arquivo", arquivo);
+        comando.Parameters.AddWithValue("@nome", $"BuffetSharp {DateTime.Now:dd/MM/yyyy HH:mm}");
+        await comando.ExecuteNonQueryAsync(ct);
+    }
 }
 
 /// <summary>

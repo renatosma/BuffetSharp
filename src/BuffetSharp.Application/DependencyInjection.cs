@@ -8,6 +8,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddAplicacao(this IServiceCollection services)
     {
+        services.AddLogging();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ISessaoUsuario, SessaoUsuario>();
 

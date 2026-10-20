@@ -13,6 +13,12 @@ public abstract class Entidade
     /// <summary>Preenchido automaticamente pelo DbContext ao alterar.</summary>
     public DateTime? AtualizadoEm { get; set; }
 
+    /// <summary>
+    /// Controle de concorrência otimista: incrementada pelo DbContext a cada alteração feita pelo usuário. Quem salva
+    /// um registro lido antes da última alteração recebe um aviso, em vez de sobrescrever o trabalho do outro.
+    /// </summary>
+    public int Versao { get; set; }
+
     public bool EhNovo => Id == 0;
 }
 

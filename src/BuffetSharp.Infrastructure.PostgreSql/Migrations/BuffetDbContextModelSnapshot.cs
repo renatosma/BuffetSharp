@@ -118,6 +118,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("valordiariapadrao");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_cargos");
 
@@ -159,6 +164,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("ordem");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_categoriascardapio");
 
@@ -195,6 +205,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("nome");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_categoriasproduto");
@@ -272,6 +287,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("tipopessoa");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Cliente.Endereco#Endereco", b1 =>
                         {
@@ -392,6 +412,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("quitardiasantesevento");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_condicoespagamento");
 
@@ -451,6 +476,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(150)")
                         .HasColumnName("valor");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_contatosadicionais");
 
@@ -499,6 +529,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)")
                         .HasColumnName("identificacao");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.EnderecoAdicional.Endereco#Endereco", b1 =>
                         {
@@ -596,6 +631,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("valorlocacao");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Espaco.Endereco#Endereco", b1 =>
                         {
                             b1.IsRequired();
@@ -688,6 +728,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("tipo");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_formaspagamento");
 
@@ -754,6 +799,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("telefone");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Fornecedor.Endereco#Endereco", b1 =>
                         {
@@ -866,6 +916,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("valordiaria");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Endereco", "BuffetSharp.Domain.Cadastros.Funcionario.Endereco#Endereco", b1 =>
                         {
                             b1.IsRequired();
@@ -961,6 +1016,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("preco");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_servicosadicionais");
 
@@ -1002,6 +1062,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("nome");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_tiposevento");
@@ -1045,6 +1110,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
                         .HasColumnName("sigla");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_unidadesmedida");
@@ -1116,6 +1186,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("nome");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_itenscardapio");
 
@@ -1182,6 +1257,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("precoporpessoa");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_pacotes");
@@ -1295,6 +1375,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_contratos");
 
@@ -1370,6 +1455,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_degustacoes");
@@ -1474,6 +1564,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<int?>("TipoEventoId")
                         .HasColumnType("integer")
                         .HasColumnName("tipoeventoid");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_modeloscontrato");
@@ -1610,6 +1705,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("vendedorid");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_orcamentos");
 
@@ -1741,6 +1841,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("valorreposicao");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_materiais");
 
@@ -1833,6 +1938,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("unidadecompra");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_movimentacoesestoque");
 
@@ -1910,6 +2020,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("unidademedidaid");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_produtos");
 
@@ -1976,6 +2091,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("UnidadeMedidaId")
                         .HasColumnType("integer")
                         .HasColumnName("unidademedidaid");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_produtoembalagens");
@@ -2171,6 +2291,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<int?>("VendedorId")
                         .HasColumnType("integer")
                         .HasColumnName("vendedorid");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_eventos");
@@ -2393,6 +2518,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(60)")
                         .HasColumnName("usuario");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_baixas");
 
@@ -2563,6 +2693,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(60)")
                         .HasColumnName("nome");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_cartoescredito");
 
@@ -2636,6 +2771,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("tipo");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_contasfinanceiras");
@@ -2738,6 +2878,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("date")
                         .HasColumnName("vencimento");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_contaspagar");
 
@@ -2811,6 +2956,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("vendedorid");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_fechamentoscomissao");
 
@@ -2872,6 +3022,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)")
                         .HasColumnName("usuario");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_fechamentosconta");
@@ -2935,6 +3090,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("valor");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_movimentosconta");
@@ -3016,6 +3176,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("date")
                         .HasColumnName("vencimento");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_parcelas");
 
@@ -3086,6 +3251,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("valortotal");
 
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
                     b.HasKey("Id")
                         .HasName("pk_parcelamentospagar");
 
@@ -3114,6 +3284,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("atualizadoem");
+
+                    b.Property<DateTime?>("BloqueadoAte")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("bloqueadoate");
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone")
@@ -3148,9 +3322,18 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("senhahash");
 
+                    b.Property<int>("TentativasFalhas")
+                        .HasColumnType("integer")
+                        .HasColumnName("tentativasfalhas");
+
                     b.Property<DateTime?>("UltimoAcessoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("ultimoacessoem");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
 
                     b.HasKey("Id")
                         .HasName("pk_usuarios");

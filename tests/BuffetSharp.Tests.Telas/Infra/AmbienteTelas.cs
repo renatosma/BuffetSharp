@@ -54,7 +54,9 @@ public sealed class AmbienteTelas : IAsyncLifetime
                 ["ConnectionStrings:Buffet"] = Conexao,
                 ["BancoDeDados:Provedor"] = Environment.GetEnvironmentVariable("BUFFETSHARP_TEST_PROVIDER"),
                 ["Email:Modo"] = nameof(ModoEnvioEmail.Pasta),
-                ["Email:Pasta"] = PastaEmails
+                ["Email:Pasta"] = PastaEmails,
+                // A janela principal faria a cópia de segurança do banco de teste a cada login.
+                ["Backup:Automatico"] = "false"
             })
             .Build();
         var services = new ServiceCollection();

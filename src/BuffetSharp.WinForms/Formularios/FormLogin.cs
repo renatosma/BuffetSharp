@@ -62,7 +62,13 @@ internal sealed class FormLogin : FormBase
         formulario.Controls.Add(new Label { Text = "Senha", AutoSize = true, ForeColor = Tema.TextoSuave, Margin = new Padding(0, 14, 0, 2) });
         _senha = new TextBox { Dock = DockStyle.Top, UseSystemPasswordChar = true, Font = new Font("Segoe UI", 11f) };
         formulario.Controls.Add(_senha);
-        _erro = new Label { AutoSize = true, ForeColor = Tema.Perigo, Margin = new Padding(0, 10, 0, 0) };
+        _erro = new Label
+        {
+            AutoSize = true,
+            ForeColor = Tema.Perigo,
+            Margin = new Padding(0, 10, 0, 0),
+            MaximumSize = new Size(LogicalToDeviceUnits(380), 0)
+        };
         formulario.Controls.Add(_erro);
         _entrar = Tema.BotaoPrimario("Entrar", Icones.Cadeado);
         _entrar.Dock = DockStyle.Top;
@@ -112,6 +118,12 @@ internal sealed class FormLogin : FormBase
                 return;
             }
             DialogResult = DialogResult.OK;
+        }
+        catch (Domain.Comum.RegraNegocioException ex)
+        {
+            // Usuário bloqueado por senhas erradas: o aviso fica na própria tela.
+            _erro.Text = ex.Message;
+            _senha.Clear();
         }
         catch (Exception ex)
         {

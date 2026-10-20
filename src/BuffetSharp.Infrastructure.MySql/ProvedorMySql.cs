@@ -34,6 +34,31 @@ public sealed class ProvedorMySql : ProvedorBanco
         }
         : null;
 
+    public override string ExtensaoBackup => ".sql";
+
+    /// <summary>
+    /// mysqldump numa transação consistente (InnoDB). Usuário e senha vão num arquivo de opções temporário, para a senha
+    /// não aparecer na linha de comando.
+    /// </summary>
+    public override async Task FazerBackupAsync(string conexao, string arquivo, string? ferramenta, CancellationToken ct = default)
+    {
+        var dados = new MySqlConnectionStringBuilder(conexao);
+        static string Valor(string? texto) => $"\"{(texto ?? string.Empty).Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
+        var opcoes = Path.Combine(Path.GetTempPath(), $"buffetsharp-{Guid.NewGuid():N}.cnf");
+        await File.WriteAllLinesAsync(opcoes,
+            ["[client]", $"host={Valor(dados.Server)}", $"port={dados.Port}", $"user={Valor(dados.UserID)}", $"password={Valor(dados.Password)}"], ct);
+        try
+        {
+            await ExecutarFerramentaAsync(LocalizarFerramenta(ferramenta, "mysqldump", "MySQL"),
+                [$"--defaults-extra-file={opcoes}", "--single-transaction", "--routines", "--triggers", "--no-tablespaces",
+                    $"--result-file={arquivo}", dados.Database], null, ct);
+        }
+        finally
+        {
+            File.Delete(opcoes);
+        }
+    }
+
     private sealed class DialetoMySql : DialetoSql
     {
         public override string Limite(string quantidade) => $"LIMIT {quantidade}";

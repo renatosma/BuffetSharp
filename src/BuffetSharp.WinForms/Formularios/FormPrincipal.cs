@@ -11,6 +11,7 @@ using BuffetSharp.WinForms.Formularios.Relatorios;
 using BuffetSharp.WinForms.Formularios.Seguranca;
 using BuffetSharp.WinForms.Infra;
 using BuffetSharp.Infrastructure.Persistencia;
+using Microsoft.Extensions.Logging;
 
 namespace BuffetSharp.WinForms.Formularios;
 
@@ -28,15 +29,21 @@ internal sealed class FormPrincipal : FormBase
 
     private readonly Navegador _navegador;
     private readonly ISessaoUsuario _sessao;
+    private readonly IBackupBanco _backup;
+    private readonly ILogger<FormPrincipal> _log;
+    private readonly ToolStripStatusLabel _statusBackup = new() { ForeColor = Tema.TextoSuave };
     private readonly TabControl _abas;
     private Button? _itemAtivo;
 
     public bool TrocarUsuario { get; private set; }
 
-    public FormPrincipal(Navegador navegador, ISessaoUsuario sessao, BuffetOptions opcoes, FabricaConexao banco)
+    public FormPrincipal(Navegador navegador, ISessaoUsuario sessao, BuffetOptions opcoes, FabricaConexao banco, IBackupBanco backup,
+        ILogger<FormPrincipal> log)
     {
         _navegador = navegador;
         _sessao = sessao;
+        _backup = backup;
+        _log = log;
         var usuario = sessao.Usuario ?? throw new InvalidOperationException("Usuário não autenticado.");
 
         Text = $"{opcoes.NomeEmpresa} - BuffetSharp";
@@ -63,7 +70,7 @@ internal sealed class FormPrincipal : FormBase
         Controls.Add(conteudo);
         Controls.Add(CriarBarraSuperior(usuario));
         Controls.Add(CriarMenuLateral(usuario));
-        Controls.Add(CriarBarraStatus(usuario, banco));
+        Controls.Add(CriarBarraStatus(usuario, banco, _statusBackup));
     }
 
     protected override void OnLoad(EventArgs e)
@@ -71,6 +78,35 @@ internal sealed class FormPrincipal : FormBase
         base.OnLoad(e);
         _navegador.Configurar(_abas);
         _navegador.Abrir<FormDashboard>();
+        _ = BackupAutomaticoAsync();
+    }
+
+    /// <summary>Cópia de segurança diária em segundo plano; uma falha fica no log e na barra de status, sem interromper o usuário.</summary>
+    private async Task BackupAutomaticoAsync()
+    {
+        if (_backup.Indisponivel is not null)
+            return;
+        MostrarUltimoBackup();
+        try
+        {
+            if (await Task.Run(() => _backup.FazerSeNecessarioAsync()) is not null && !IsDisposed)
+                MostrarUltimoBackup();
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "A cópia de segurança automática falhou");
+            if (IsDisposed)
+                return;
+            _statusBackup.Text = "Cópia de segurança automática falhou (veja Administração › Backup e logs)";
+            _statusBackup.ForeColor = Tema.Perigo;
+        }
+    }
+
+    private void MostrarUltimoBackup()
+    {
+        var ultima = _backup.Listar().FirstOrDefault();
+        _statusBackup.Text = ultima is null ? "Nenhuma cópia de segurança" : $"Último backup: {ultima.CriadoEm:dd/MM HH:mm}";
+        _statusBackup.ForeColor = ultima is null || ultima.CriadoEm < DateTime.Now.AddDays(-7) ? Tema.Alerta : Tema.TextoSuave;
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
@@ -131,7 +167,8 @@ internal sealed class FormPrincipal : FormBase
             new("CADASTROS", "Condições de pagamento", Icones.Calendario, [Adm, Com, Fin], () => Cadastro(DefinicoesCadastros.CondicoesPagamento)),
 
             new("ADMINISTRAÇÃO", "Usuários", Icones.Cadeado, [Adm], () => n.Abrir<FormUsuarios>()),
-            new("ADMINISTRAÇÃO", "Auditoria", Icones.Escudo, [Adm], () => n.Abrir<FormAuditoria>())
+            new("ADMINISTRAÇÃO", "Auditoria", Icones.Escudo, [Adm], () => n.Abrir<FormAuditoria>()),
+            new("ADMINISTRAÇÃO", "Backup e logs", Icones.Salvar, [Adm], () => n.Abrir<FormManutencao>())
         ];
     }
 
@@ -278,12 +315,13 @@ internal sealed class FormPrincipal : FormBase
         return barra;
     }
 
-    private static Control CriarBarraStatus(UsuarioLogado usuario, FabricaConexao conexoes)
+    private static Control CriarBarraStatus(UsuarioLogado usuario, FabricaConexao conexoes, ToolStripStatusLabel backup)
     {
         var banco = conexoes.Provedor.DescreverConexao(conexoes.ConnectionString);
 
         var status = new StatusStrip { BackColor = Tema.Fundo, SizingGrip = false };
         status.Items.Add(new ToolStripStatusLabel($"Banco: {banco}") { ForeColor = Tema.TextoSuave });
+        status.Items.Add(backup);
         status.Items.Add(new ToolStripStatusLabel { Spring = true });
         status.Items.Add(new ToolStripStatusLabel($"Usuário: {usuario.Login} ({Textos.Exibir(usuario.Perfil)})") { ForeColor = Tema.TextoSuave });
         status.Items.Add(new ToolStripStatusLabel($"v{typeof(FormPrincipal).Assembly.GetName().Version?.ToString(3)}  •  .NET {Environment.Version.ToString(2)}")

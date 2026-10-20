@@ -21,6 +21,7 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
         return new ItemCardapioInput
         {
             Id = item.Id,
+            Versao = item.Versao,
             Nome = item.Nome,
             Descricao = item.Descricao,
             CategoriaCardapioId = item.CategoriaCardapioId,
@@ -45,6 +46,7 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
             ? db.ItensCardapio.Add(new ItemCardapio()).Entity
             : await db.ItensCardapio.Include(i => i.Ingredientes).FirstOrDefaultAsync(i => i.Id == input.Id, ct)
               ?? throw new RegraNegocioException("Item do cardápio não encontrado.");
+        Concorrencia.Conferir(item, input.Versao);
 
         item.Nome = input.Nome.Trim();
         item.Descricao = input.Descricao;
@@ -54,6 +56,7 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
         item.DefinirFichaTecnica(input.Ingredientes.Select(i => (i.ProdutoId, i.QuantidadePorPessoa)));
 
         await db.SaveChangesAsync(ct);
+        input.Versao = item.Versao;
         return item.Id;
     }
 
@@ -76,6 +79,7 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
         return new PacoteInput
         {
             Id = pacote.Id,
+            Versao = pacote.Versao,
             Nome = pacote.Nome,
             Descricao = pacote.Descricao,
             PrecoPorPessoa = pacote.PrecoPorPessoa,
@@ -97,6 +101,7 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
             ? db.Pacotes.Add(new Pacote()).Entity
             : await db.Pacotes.Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == input.Id, ct)
               ?? throw new RegraNegocioException("Pacote não encontrado.");
+        Concorrencia.Conferir(pacote, input.Versao);
 
         pacote.Nome = input.Nome.Trim();
         pacote.Descricao = input.Descricao;
@@ -110,6 +115,7 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
         pacote.DefinirItens(input.ItensCardapioIds);
 
         await db.SaveChangesAsync(ct);
+        input.Versao = pacote.Versao;
         return pacote.Id;
     }
 

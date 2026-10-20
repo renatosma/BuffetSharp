@@ -16,6 +16,9 @@ public sealed class ProvedorOracle : ProvedorBanco
 {
     public override TipoBancoDados Tipo => TipoBancoDados.Oracle;
     public override string Nome => "Oracle";
+
+    public override string BackupIndisponivel =>
+        "No Oracle, a cópia de segurança é feita no servidor, com o Data Pump (expdp) ou o RMAN, pelo administrador do banco.";
     public override DialetoSql Dialeto { get; } = new DialetoOracle();
 
     /// <summary>Identificadores sem aspas viram maiúsculas no Oracle: as tabelas são criadas assim.</summary>

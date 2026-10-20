@@ -14,6 +14,7 @@ internal sealed class FormUsuarios : FormListagem<UsuarioInput>
         _servico = servico;
         Botao("Novo", Icones.Adicionar, () => EditarAsync(new UsuarioInput()), destaque: true);
         Botao("Editar", Icones.Editar, () => Selecionado() is { } u ? EditarAsync(u) : Task.CompletedTask);
+        Botao("Desbloquear", Icones.Cadeado, DesbloquearAsync, "Libera o login bloqueado por senhas erradas");
 
         Grade.Texto("Nome", u => u.Nome, 50)
             .Texto("Login", u => u.Login, 30)
@@ -21,6 +22,7 @@ internal sealed class FormUsuarios : FormListagem<UsuarioInput>
             .Numero("Comissão %", u => u.PercentualComissao, "N2", 15)
             .SimNao("Ativo", u => u.Ativo, 15)
             .Data("Último acesso", u => u.UltimoAcessoEm, "dd/MM/yyyy HH:mm", 25)
+            .Texto("Bloqueio", u => Bloqueado(u) ? $"até {u.BloqueadoAte:HH:mm}" : "", 18, u => Bloqueado(u) ? Tema.Perigo : null)
             .CorDaLinha(u => u.Ativo ? null : Tema.Neutro)
             .Busca(u => $"{u.Nome} {u.Login} {u.Perfil}");
     }
@@ -29,11 +31,28 @@ internal sealed class FormUsuarios : FormListagem<UsuarioInput>
 
     protected override Task AoAbrirAsync(UsuarioInput item) => EditarAsync(item);
 
+    private static bool Bloqueado(UsuarioInput usuario) => usuario.BloqueadoAte > DateTime.Now;
+
+    private async Task DesbloquearAsync()
+    {
+        if (Selecionado() is not { } usuario)
+            return;
+        if (!Bloqueado(usuario))
+        {
+            Mensagens.Aviso(this, $"O login de {usuario.Nome} não está bloqueado.");
+            return;
+        }
+        await _servico.DesbloquearAsync(usuario.Id);
+        await CarregarAsync();
+        Mensagens.Info(this, $"{usuario.Nome} já pode entrar no sistema.");
+    }
+
     private async Task EditarAsync(UsuarioInput usuario)
     {
         var input = new UsuarioInput
         {
             Id = usuario.Id,
+            Versao = usuario.Versao,
             Nome = usuario.Nome,
             Login = usuario.Login,
             Perfil = usuario.Perfil,

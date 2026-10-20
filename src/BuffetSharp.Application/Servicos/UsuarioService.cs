@@ -3,12 +3,19 @@ using BuffetSharp.Application.Modelos;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Seguranca;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace BuffetSharp.Application.Servicos;
 
 public sealed class UsuarioService(IBuffetDbContextFactory fabrica, IHasherSenha hasher, ISessaoUsuario sessao,
-    TimeProvider relogio)
+    TimeProvider relogio, ILogger<UsuarioService> log)
 {
+    /// <summary>
+    /// Confere login e senha. Depois de <see cref="Usuario.MaximoTentativas"/> senhas erradas seguidas o login fica
+    /// bloqueado por <see cref="Usuario.TempoBloqueio"/> (ou até o administrador desbloquear).
+    /// </summary>
+    /// <returns>O usuário autenticado, ou nulo se o login ou a senha não conferem.</returns>
+    /// <exception cref="RegraNegocioException">O usuário está bloqueado.</exception>
     public async Task<UsuarioLogado?> AutenticarAsync(string login, string senha, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(login) || string.IsNullOrEmpty(senha))
@@ -16,12 +23,34 @@ public sealed class UsuarioService(IBuffetDbContextFactory fabrica, IHasherSenha
 
         await using var db = fabrica.Criar();
         var normalizado = login.Trim().ToLowerInvariant();
+        var agora = relogio.GetLocalNow().DateTime;
         var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Login == normalizado && u.Ativo, ct);
-        if (usuario is null || !hasher.Verificar(senha, usuario.SenhaHash))
+        if (usuario is null)
+        {
+            log.LogWarning("Tentativa de login com usuário inexistente ou inativo: {Login}", normalizado);
             return null;
+        }
 
-        usuario.RegistrarAcesso(relogio.GetLocalNow().DateTime);
+        if (usuario.EstaBloqueado(agora))
+            throw new RegraNegocioException(MensagemBloqueio(usuario));
+
+        if (!hasher.Verificar(senha, usuario.SenhaHash))
+        {
+            var bloqueou = usuario.RegistrarFalha(agora);
+            await db.SaveChangesAsync(ct);
+            if (!bloqueou)
+            {
+                log.LogWarning("Senha incorreta para {Login} ({Tentativas} de {Maximo} tentativas)", usuario.Login,
+                    usuario.TentativasFalhas, Usuario.MaximoTentativas);
+                return null;
+            }
+            log.LogWarning("Login de {Login} bloqueado até {BloqueadoAte:HH:mm} por excesso de senhas erradas", usuario.Login, usuario.BloqueadoAte);
+            throw new RegraNegocioException(MensagemBloqueio(usuario));
+        }
+
+        usuario.RegistrarAcesso(agora);
         await db.SaveChangesAsync(ct);
+        log.LogInformation("Login de {Login} ({Perfil})", usuario.Login, usuario.Perfil);
 
         var logado = new UsuarioLogado(usuario.Id, usuario.Nome, usuario.Login, usuario.Perfil);
         sessao.Iniciar(logado);
@@ -35,12 +64,14 @@ public sealed class UsuarioService(IBuffetDbContextFactory fabrica, IHasherSenha
             .Select(u => new UsuarioInput
             {
                 Id = u.Id,
+                Versao = u.Versao,
                 Nome = u.Nome,
                 Login = u.Login,
                 Perfil = u.Perfil,
                 Ativo = u.Ativo,
                 PercentualComissao = u.PercentualComissao,
-                UltimoAcessoEm = u.UltimoAcessoEm
+                UltimoAcessoEm = u.UltimoAcessoEm,
+                BloqueadoAte = u.BloqueadoAte
             }).ToListAsync(ct);
     }
 
@@ -63,6 +94,7 @@ public sealed class UsuarioService(IBuffetDbContextFactory fabrica, IHasherSenha
         {
             var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == input.Id, ct)
                           ?? throw new RegraNegocioException("Usuário não encontrado.");
+            Concorrencia.Conferir(usuario, input.Versao);
 
             var removendoUltimoAdmin = usuario.Perfil == PerfilUsuario.Administrador &&
                                        (input.Perfil != PerfilUsuario.Administrador || !input.Ativo) &&
@@ -81,6 +113,22 @@ public sealed class UsuarioService(IBuffetDbContextFactory fabrica, IHasherSenha
 
         await db.SaveChangesAsync(ct);
     }
+
+    /// <summary>Libera o login de um usuário bloqueado por senhas erradas.</summary>
+    public async Task DesbloquearAsync(int usuarioId, CancellationToken ct = default)
+    {
+        GarantirAdministrador();
+        await using var db = fabrica.Criar();
+        var usuario = await db.Usuarios.FirstOrDefaultAsync(u => u.Id == usuarioId, ct)
+                      ?? throw new RegraNegocioException("Usuário não encontrado.");
+        usuario.Desbloquear();
+        await db.SaveChangesAsync(ct);
+        log.LogInformation("Login de {Login} desbloqueado por {Administrador}", usuario.Login, sessao.Usuario?.Login);
+    }
+
+    private static string MensagemBloqueio(Usuario usuario) =>
+        $"Este usuário foi bloqueado por {Usuario.MaximoTentativas} senhas erradas seguidas. " +
+        $"Tente novamente depois das {usuario.BloqueadoAte:HH:mm} ou peça a um administrador para desbloqueá-lo.";
 
     public async Task AlterarMinhaSenhaAsync(string senhaAtual, string novaSenha, CancellationToken ct = default)
     {

@@ -1,0 +1,72 @@
+# Compila a solução e roda os testes a cada push e pull request.
+# - windows: compila tudo (inclusive as telas) e roda os testes de domínio e de bancos, que não precisam de servidor;
+# - integração: a suíte inteira do BuffetSharp.Tests contra PostgreSQL e MySQL reais (contêineres do GitHub Actions).
+# Os testes das telas precisam de uma área de trabalho do Windows e continuam sendo rodados localmente.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  windows:
+    name: Compilação e testes de domínio (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Compilar
+        run: dotnet build BuffetSharp.slnx --configuration Release
+      - name: Testes de domínio e de bancos
+        run: >-
+          dotnet test tests/BuffetSharp.Tests --configuration Release --no-build
+          --filter "FullyQualifiedName~BuffetSharp.Tests.Dominio|FullyQualifiedName~BuffetSharp.Tests.Bancos"
+
+  integracao:
+    name: Integração (${{ matrix.banco }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - banco: PostgreSql
+            conexao: Host=localhost;Port=5432;Username=postgres;Password=postgres;Database={banco}
+          - banco: MySql
+            conexao: Server=localhost;Port=3306;User Id=root;Password=root;Database={banco}
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -proot" --health-interval 5s --health-timeout 5s --health-retries 30
+    env:
+      BUFFETSHARP_TEST_PROVIDER: ${{ matrix.banco }}
+      BUFFETSHARP_TEST_CONNECTION: ${{ matrix.conexao }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Testes (domínio, bancos e integração)
+        run: dotnet test tests/BuffetSharp.Tests --configuration Release

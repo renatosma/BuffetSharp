@@ -28,6 +28,7 @@ public sealed class DegustacaoService(IBuffetDbContextFactory fabrica, BuffetOpt
         return new DegustacaoInput
         {
             Id = d.Id,
+            Versao = d.Versao,
             ClienteId = d.ClienteId,
             PacoteId = d.PacoteId,
             OrcamentoId = d.OrcamentoId,
@@ -68,10 +69,12 @@ public sealed class DegustacaoService(IBuffetDbContextFactory fabrica, BuffetOpt
         {
             degustacao = await db.Degustacoes.FirstOrDefaultAsync(d => d.Id == input.Id, ct)
                          ?? throw new RegraNegocioException("Degustação não encontrada.");
+            Concorrencia.Conferir(degustacao, input.Versao);
             degustacao.Alterar(input.ClienteId, input.DataHora, input.Pessoas, input.PacoteId, input.OrcamentoId, input.Observacoes, Agora);
         }
 
         await db.SaveChangesAsync(ct);
+        input.Versao = degustacao.Versao;
         return degustacao.Id;
     }
 

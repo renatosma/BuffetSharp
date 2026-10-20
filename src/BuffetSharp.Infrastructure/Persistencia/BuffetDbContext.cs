@@ -74,6 +74,12 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BuffetDbContext).Assembly);
+
+        // Concorrência otimista: o UPDATE só grava se a versão no banco ainda for a que foi lida.
+        foreach (var entidade in modelBuilder.Model.GetEntityTypes()
+                     .Where(t => t.BaseType is null && typeof(Entidade).IsAssignableFrom(t.ClrType)))
+            modelBuilder.Entity(entidade.ClrType).Property(nameof(Entidade.Versao)).IsConcurrencyToken();
+
         Provedor.AjustarModelo(modelBuilder);
     }
 
@@ -141,16 +147,32 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
                 case EntityState.Modified:
                     entry.Entity.AtualizadoEm = agora;
                     entry.Property(e => e.CriadoEm).IsModified = false;
+                    if (AlteradoPeloUsuario(entry))
+                        entry.Entity.Versao = entry.Property(e => e.Versao).OriginalValue + 1;
                     break;
             }
         }
+    }
+
+    private static readonly HashSet<string> CamposSemVersao =
+        [nameof(Entidade.CriadoEm), nameof(Entidade.AtualizadoEm), nameof(Entidade.Versao)];
+
+    /// <summary>
+    /// A versão só muda quando muda um dado do cadastro. Campos mantidos pelo sistema (saldo de estoque, último acesso...)
+    /// mudam a toda hora e não devem impedir quem está com a tela aberta de salvar.
+    /// </summary>
+    private static bool AlteradoPeloUsuario(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<Entidade> entry)
+    {
+        var controlados = (entry.Entity as ICamposControlados)?.CamposControladosPeloSistema ?? [];
+        return entry.Properties.Any(p => p.IsModified && !CamposSemVersao.Contains(p.Metadata.Name) && !controlados.Contains(p.Metadata.Name)) ||
+               entry.ComplexProperties.Any(c => c.Properties.Any(p => p.IsModified));
     }
 
     /// <summary>Converte erros de integridade do banco (classificados pelo provedor) em mensagens de negócio.</summary>
     private static RegraNegocioException? Traduzir(DbUpdateException ex, IProvedorBanco provedor)
     {
         if (ex is DbUpdateConcurrencyException)
-            return new RegraNegocioException("O registro foi alterado ou excluído por outro usuário. Recarregue e tente novamente.");
+            return new RegraNegocioException(Application.Servicos.Concorrencia.Mensagem);
 
         return (ex.InnerException is null ? null : provedor.Classificar(ex.InnerException)) switch
         {

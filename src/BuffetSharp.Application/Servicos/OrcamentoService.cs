@@ -41,6 +41,7 @@ public sealed class OrcamentoService(
         return new OrcamentoInput
         {
             Id = o.Id,
+            Versao = o.Versao,
             Codigo = o.Codigo,
             Status = o.Status,
             MotivoRecusa = o.MotivoRecusa,
@@ -92,6 +93,7 @@ public sealed class OrcamentoService(
         {
             orcamento = await db.Orcamentos.Include(o => o.Servicos).FirstOrDefaultAsync(o => o.Id == input.Id, ct)
                         ?? throw new RegraNegocioException("Orçamento não encontrado.");
+            Concorrencia.Conferir(orcamento, input.Versao);
         }
 
         orcamento.AlterarDados(input.ClienteId, input.TipoEventoId, input.Data, input.HoraInicio, input.HoraFim,
@@ -132,6 +134,7 @@ public sealed class OrcamentoService(
         }
 
         await db.SaveChangesAsync(ct);
+        input.Versao = orcamento.Versao;
         return orcamento.Id;
     }
 

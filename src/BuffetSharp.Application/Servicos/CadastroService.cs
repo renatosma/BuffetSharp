@@ -122,10 +122,14 @@ internal sealed class CadastroService<T>(IBuffetDbContextFactory fabrica) : ICad
         }
     }
 
-    private static readonly string[] CamposDoSistema = [nameof(Entidade.CriadoEm), nameof(Entidade.AtualizadoEm)];
+    private static readonly string[] CamposDoSistema = [nameof(Entidade.CriadoEm), nameof(Entidade.AtualizadoEm), nameof(Entidade.Versao)];
 
     private static void CopiarValores(EntityEntry destino, object origem, IReadOnlyCollection<string> ignorar)
     {
+        // Concorrência: o registro só é gravado se ninguém o alterou desde que a tela o leu.
+        if (destino.Entity is Entidade atual && origem is Entidade lida)
+            Concorrencia.Conferir(atual, lida.Versao);
+
         foreach (var propriedade in destino.Properties)
         {
             var nome = propriedade.Metadata.Name;

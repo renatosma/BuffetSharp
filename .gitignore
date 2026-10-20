@@ -486,3 +486,6 @@ BuffetSharp.runsettings
 
 # Configuração local do aplicativo (conexão com senha). Modelo: appsettings.Local.exemplo.json
 appsettings.Local.json
+
+# Saída do atualizar.cmd
+atualizacao-log.txt

@@ -1,4 +1,5 @@
 using BuffetSharp.Domain.Comum;
+using Microsoft.Extensions.Logging;
 
 namespace BuffetSharp.WinForms.Infra;
 
@@ -12,6 +13,9 @@ internal static class Mensagens
     /// Usado pelos testes automatizados das telas, que não podem depender de diálogos nativos modais.
     /// </summary>
     internal static Func<TaskDialogPage, TaskDialogButton>? Interceptador { get; set; }
+
+    /// <summary>Recebe os erros inesperados (log em arquivo).</summary>
+    internal static ILogger? Log { get; set; }
 
     public static void Info(IWin32Window? dono, string texto, string? titulo = null) =>
         Mostrar(dono, titulo ?? "Tudo certo", texto, TaskDialogIcon.Information);
@@ -50,11 +54,13 @@ internal static class Mensagens
             case OperationCanceledException:
                 break;
             default:
+                Log?.LogError(ex, "Erro inesperado exibido ao usuário");
                 var pagina = new TaskDialogPage
                 {
                     Caption = Aplicacao,
                     Heading = "Ocorreu um erro inesperado",
                     Text = ex.GetBaseException().Message,
+                    Footnote = Log is null ? null : new TaskDialogFootnote("Os detalhes foram gravados no log do sistema."),
                     Icon = TaskDialogIcon.Error,
                     Buttons = { TaskDialogButton.OK },
                     Expander = new TaskDialogExpander

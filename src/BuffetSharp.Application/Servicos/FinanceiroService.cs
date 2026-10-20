@@ -20,6 +20,7 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
         return new ContaPagarInput
         {
             Id = c.Id,
+            Versao = c.Versao,
             Descricao = c.Descricao,
             Categoria = c.Categoria,
             Valor = c.Valor,
@@ -56,6 +57,7 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
         {
             var conta = await db.ContasPagar.FirstOrDefaultAsync(c => c.Id == input.Id, ct)
                         ?? throw new RegraNegocioException("Conta não encontrada.");
+            Concorrencia.Conferir(conta, input.Versao);
             conta.Alterar(input.Descricao, input.Categoria, input.Valor, input.Vencimento, input.FornecedorId,
                 input.EventoId, input.Observacao);
             conta.DefinirDocumento(input.Documento);
