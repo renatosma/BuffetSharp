@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddSingleton<IConsultasAuditoria, ConsultasAuditoria>();
         services.AddSingleton<IConsultasLeads, ConsultasLeads>();
         services.AddSingleton<IConsultasLembretes, ConsultasLembretes>();
+        services.AddSingleton<IConsultasEquipe, ConsultasEquipe>();
 
         // E-mail: usa a configuração registrada pela aplicação ou, na falta dela, grava em pasta local.
         services.TryAddSingleton(new EmailOptions());

@@ -26,6 +26,7 @@ public class Evento : Entidade
     private readonly List<Convidado> _convidados = [];
     private readonly List<Parcela> _parcelas = [];
     private readonly List<EventoMaterial> _materiais = [];
+    private readonly List<EventoTarefa> _tarefas = [];
 
     private Evento()
     {
@@ -101,6 +102,7 @@ public class Evento : Entidade
     public IReadOnlyCollection<Convidado> Convidados => _convidados;
     public IReadOnlyCollection<Parcela> Parcelas => _parcelas;
     public IReadOnlyCollection<EventoMaterial> Materiais => _materiais;
+    public IReadOnlyCollection<EventoTarefa> Tarefas => _tarefas;
 
     public QuantidadesConvidados QuantidadesPorFaixa => new(QuantidadeConvidados, ConvidadosMeia, ConvidadosIsentos);
     public RegraFaixasEtarias RegraFaixas => new(IdadeMaximaIsento, IdadeMaximaMeia, PercentualMeia);
@@ -330,6 +332,58 @@ public class Evento : Entidade
         return Math.Min(perdidas, item.QuantidadePropria);
     }
 
+    // ---------------- Checklist ----------------
+
+    public EventoTarefa AdicionarTarefa(string descricao, DateOnly prazo, string? responsavel)
+    {
+        GarantirConfirmado();
+        Validador.Garantir(!string.IsNullOrWhiteSpace(descricao), "Descreva a tarefa.");
+        Validador.Garantir(descricao.Trim().Length <= EventoTarefa.TamanhoDescricao,
+            $"A tarefa pode ter no máximo {EventoTarefa.TamanhoDescricao} caracteres.");
+        Validador.Garantir(responsavel is null || responsavel.Trim().Length <= 60, "O responsável pode ter no máximo 60 caracteres.");
+        var tarefa = new EventoTarefa(descricao.Trim(), prazo, string.IsNullOrWhiteSpace(responsavel) ? null : responsavel.Trim(),
+            _tarefas.Count == 0 ? 1 : _tarefas.Max(t => t.Ordem) + 1);
+        _tarefas.Add(tarefa);
+        return tarefa;
+    }
+
+    /// <summary>
+    /// Inclui as tarefas de um modelo de checklist, com o prazo contado a partir da data do evento. Tarefas com a mesma
+    /// descrição já existentes no evento não são repetidas. Retorna quantas foram incluídas.
+    /// </summary>
+    public int AplicarChecklist(ModeloChecklist modelo)
+    {
+        GarantirConfirmado();
+        var incluidas = 0;
+        foreach (var item in modelo.Itens.OrderBy(i => i.Ordem).ThenByDescending(i => i.DiasAntes))
+        {
+            if (_tarefas.Any(t => t.Descricao.Equals(item.Descricao.Trim(), StringComparison.CurrentCultureIgnoreCase)))
+                continue;
+            AdicionarTarefa(item.Descricao, DataEvento.AddDays(-item.DiasAntes), item.Responsavel);
+            incluidas++;
+        }
+        return incluidas;
+    }
+
+    /// <summary>Tarefas podem ser concluídas também depois do evento (ex.: pesquisa de satisfação).</summary>
+    public void ConcluirTarefa(int tarefaId, string? usuario, DateTime agora)
+    {
+        Validador.Garantir(Status != StatusEvento.Cancelado, "Evento cancelado.");
+        ObterTarefa(tarefaId).Concluir(usuario, agora);
+    }
+
+    public void ReabrirTarefa(int tarefaId)
+    {
+        Validador.Garantir(Status != StatusEvento.Cancelado, "Evento cancelado.");
+        ObterTarefa(tarefaId).Reabrir();
+    }
+
+    public void RemoverTarefa(int tarefaId)
+    {
+        GarantirConfirmado();
+        _tarefas.Remove(ObterTarefa(tarefaId));
+    }
+
     // ---------------- Financeiro ----------------
 
     /// <summary>
@@ -398,6 +452,9 @@ public class Evento : Entidade
     private EventoMaterial ObterMaterial(int materialId) =>
         _materiais.FirstOrDefault(m => m.MaterialId == materialId)
         ?? throw new RegraNegocioException("Material não reservado para este evento.");
+
+    private EventoTarefa ObterTarefa(int id) =>
+        _tarefas.FirstOrDefault(t => t.Id == id) ?? throw new RegraNegocioException("Tarefa não encontrada.");
 
     private EventoFuncionario ObterEscala(int funcionarioId) =>
         _equipe.FirstOrDefault(e => e.FuncionarioId == funcionarioId)

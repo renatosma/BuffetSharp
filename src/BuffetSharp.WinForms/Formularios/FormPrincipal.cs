@@ -168,6 +168,7 @@ internal sealed class FormPrincipal : FormBase
             new("COMERCIAL", "Modelos de contrato", Icones.Documento, [Adm, Com], () => Cadastro(DefinicoesCadastros.ModelosContrato)),
 
             new("EVENTOS", "Eventos", Icones.Bandeira, todos, () => n.Abrir<FormEventos>()),
+            new("EVENTOS", "Produção da cozinha", Icones.Lista, [Adm, Ope], () => n.Abrir<FormProducao>()),
 
             new("CARDÁPIO", "Itens do cardápio", Icones.Lista, [Adm, Com, Ope], () => n.Abrir<FormItensCardapio>()),
             new("CARDÁPIO", "Pacotes", Icones.Biblioteca, [Adm, Com, Ope], () => n.Abrir<FormPacotes>()),
@@ -175,12 +176,14 @@ internal sealed class FormPrincipal : FormBase
 
             new("ESTOQUE", "Produtos", Icones.Carrinho, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Produtos)),
             new("ESTOQUE", "Movimentações", Icones.Historico, [Adm, Ope], () => n.Abrir<FormMovimentacoes>()),
+            new("ESTOQUE", "Lista de compras", Icones.Carrinho, [Adm, Ope], () => n.Abrir<FormListaCompras>()),
             new("ESTOQUE", "Materiais e enxoval", Icones.Pacote, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Materiais)),
 
             new("FINANCEIRO", "Contas a receber", Icones.Cartao, [Adm, Fin], () => n.Abrir<FormContasReceber>()),
             new("FINANCEIRO", "Contas a pagar", Icones.Banco, [Adm, Fin], () => n.Abrir<FormContasPagar>()),
             new("FINANCEIRO", "Caixa e bancos", Icones.Dinheiro, [Adm, Fin], () => n.Abrir<FormContasFinanceiras>()),
             new("FINANCEIRO", "Comissões", Icones.Dinheiro, [Adm, Fin], () => n.Abrir<FormComissoes>()),
+            new("FINANCEIRO", "Pagamento da equipe", Icones.Pessoas, [Adm, Fin], () => n.Abrir<FormPagamentoEquipe>()),
             new("FINANCEIRO", "Relatórios", Icones.Calculadora, [Adm, Fin], () => n.Abrir<FormRelatorios>()),
 
             new("CADASTROS", "Tipos de evento", Icones.Etiqueta, [Adm, Com], () => Cadastro(DefinicoesCadastros.TiposEvento)),
@@ -188,6 +191,7 @@ internal sealed class FormPrincipal : FormBase
             new("CADASTROS", "Serviços adicionais", Icones.Etiqueta, [Adm, Com], () => Cadastro(DefinicoesCadastros.ServicosAdicionais)),
             new("CADASTROS", "Funcionários", Icones.Pessoas, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Funcionarios)),
             new("CADASTROS", "Cargos", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Cargos)),
+            new("CADASTROS", "Modelos de checklist", Icones.Confirmar, [Adm, Com, Ope], () => Cadastro(DefinicoesCadastros.ModelosChecklist)),
             new("CADASTROS", "Fornecedores", Icones.Contato, [Adm, Fin, Ope], () => Cadastro(DefinicoesCadastros.Fornecedores)),
             new("CADASTROS", "Categorias de produto", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.CategoriasProduto)),
             new("CADASTROS", "Seções do cardápio", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.CategoriasCardapio)),

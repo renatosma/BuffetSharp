@@ -65,10 +65,19 @@ public sealed class LembreteService(
         return lembretes.Where(l => !tratadas.Contains(l.Chave)).ToList();
     }
 
-    /// <summary>Tira o lembrete da lista (já resolvido).</summary>
+    /// <summary>Tira o lembrete da lista (já resolvido). Numa tarefa de evento, conclui a tarefa.</summary>
     public async Task MarcarTratadoAsync(Lembrete lembrete, CanalLembrete canal, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
+        if (lembrete.Tipo == TipoLembrete.TarefaEvento && lembrete.EventoId is { } eventoId)
+        {
+            var evento = await db.Eventos.Include(e => e.Tarefas).FirstOrDefaultAsync(e => e.Id == eventoId, ct)
+                         ?? throw new RegraNegocioException("Evento não encontrado.");
+            evento.ConcluirTarefa(lembrete.ReferenciaId, sessao.Usuario?.Login, Agora);
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
         if (await db.LembretesTratados.AnyAsync(t => t.Chave == lembrete.Chave, ct))
             return;
         db.LembretesTratados.Add(new LembreteTratado(lembrete.Chave, lembrete.Tipo, canal, sessao.Usuario?.Login, Agora));

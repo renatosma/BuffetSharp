@@ -85,6 +85,9 @@ internal sealed class FormEventoDetalhe : FormBase
         AdicionarBotao("Realizar evento", Icones.Confirmar, RealizarAsync, edicao: true);
         AdicionarBotao("Cancelar evento", Icones.Cancelar, CancelarAsync, edicao: true, perigo: true);
         AdicionarBotao("Ficha do evento", Icones.Imprimir, ImprimirFichaAsync);
+        AdicionarBotao("Ordem de produção", Icones.Lista, async () =>
+            ImpressaoOperacao.OrdensProducao(this, [await _navegador.Servico<PlanejamentoService>().OrdemDoEventoAsync(_eventoId)],
+                _opcoes.NomeEmpresa));
         AdicionarBotao("Atualizar", Icones.Atualizar, CarregarAsync);
         if (sessao.Usuario?.EhAdministrador == true)
             AdicionarBotao("Alterações", Icones.Escudo, () =>
@@ -102,6 +105,7 @@ internal sealed class FormEventoDetalhe : FormBase
         abas.TabPages.Add(CriarAbaEquipe());
         abas.TabPages.Add(CriarAbaConvidados());
         abas.TabPages.Add(CriarAbaMateriais());
+        abas.TabPages.Add(CriarAbaChecklist());
         abas.TabPages.Add(CriarAbaContrato());
         abas.TabPages.Add(CriarAbaFinanceiro());
         var corpo = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 4, 20, 14) };
@@ -531,6 +535,83 @@ internal sealed class FormEventoDetalhe : FormBase
             botao.Enabled = habilitar(atual);
     }
 
+    // =========================== Aba Checklist ===========================
+
+    private readonly Grade<EventoTarefa> _tarefas = new();
+    private readonly Label _resumoTarefas = new() { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(0, 8, 16, 0) };
+
+    private TabPage CriarAbaChecklist()
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        _tarefas.Data("Prazo", t => t.Prazo.ToDateTime(TimeOnly.MinValue), peso: 16,
+                cor: t => t.Atrasada(hoje) ? Tema.Perigo : t.Prazo == hoje && !t.Concluida ? Tema.Alerta : null)
+            .Texto("Tarefa", t => t.Descricao, 60)
+            .Texto("Responsável", t => t.Responsavel, 22)
+            .Texto("Situação", t => t.Concluida ? $"Concluída em {t.ConcluidaEm:dd/MM HH:mm}" + (t.ConcluidaPor is { } por ? $" ({por})" : "")
+                    : t.Atrasada(hoje) ? "Atrasada" : "Pendente", 32,
+                t => t.Concluida ? Tema.Sucesso : t.Atrasada(hoje) ? Tema.Perigo : Tema.Info);
+
+        var barra = BarraAba();
+        BotaoAba(barra, "Nova tarefa", Icones.Adicionar, NovaTarefaAsync, primario: true);
+        BotaoAba(barra, "Concluir / reabrir", Icones.Confirmar, async () =>
+        {
+            if (_tarefas.Selecionado is not { } t)
+                return;
+            await Recarregar(t.Concluida ? _eventos.ReabrirTarefaAsync(_eventoId, t.Id) : _eventos.ConcluirTarefaAsync(_eventoId, t.Id));
+        }, edicao: false);
+        BotaoAba(barra, "Remover", Icones.Excluir, async () =>
+        {
+            if (_tarefas.Selecionado is { } t && Mensagens.Confirmar(this, $"Remover a tarefa \"{t.Descricao}\"?"))
+                await Recarregar(_eventos.RemoverTarefaAsync(_eventoId, t.Id));
+        });
+        BotaoAba(barra, "Aplicar modelo", Icones.Lista, AplicarModeloAsync);
+        barra.Controls.Add(_resumoTarefas);
+        _tarefas.DuploClique += async t =>
+            await ExecutarAsync(() => Recarregar(t.Concluida ? _eventos.ReabrirTarefaAsync(_eventoId, t.Id) : _eventos.ConcluirTarefaAsync(_eventoId, t.Id)));
+
+        var painel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8) };
+        painel.Controls.Add(_tarefas.Controle);
+        painel.Controls.Add(barra);
+        return new TabPage("Checklist") { Controls = { painel } };
+    }
+
+    private async Task NovaTarefaAsync()
+    {
+        var input = new TarefaInput { Prazo = Evento.DataEvento.AddDays(-1) };
+        var e = new EditorCampos(1);
+        e.Texto("Tarefa", () => input.Descricao, v => input.Descricao = v ?? "", nameof(input.Descricao), EventoTarefa.TamanhoDescricao,
+            dica: "Ex.: confirmar o DJ; buscar o bolo; montar a mesa de doces...");
+        e.Data("Prazo", () => input.Prazo, v => input.Prazo = v ?? input.Prazo, nameof(input.Prazo));
+        e.Texto("Responsável", () => input.Responsavel, v => input.Responsavel = v, nameof(input.Responsavel), 60,
+            dica: "Comercial, Cozinha, Decoração...");
+        using var dialogo = new FormEdicao("Nova tarefa", $"{Evento.Codigo} - {Evento.Titulo} ({Evento.DataEvento:dd/MM/yyyy})", e,
+            () => _eventos.AdicionarTarefaAsync(_eventoId, input), 520);
+        if (dialogo.ShowDialog(this) == DialogResult.OK)
+            await CarregarAsync();
+    }
+
+    private async Task AplicarModeloAsync()
+    {
+        var modelos = (await _navegador.Servico<ICadastroService<ModeloChecklist>>().ListarAsync(q => q.Where(m => m.Ativo).OrderBy(m => m.Nome)))
+            .Select(m => new ItemLookup { Id = m.Id, Nome = m.Nome, Numero = m.TipoEventoId ?? 0 }).ToList();
+        if (modelos.Count == 0)
+        {
+            Mensagens.Aviso(this, "Não há modelo de checklist ativo. Cadastre um em Cadastros › Modelos de checklist.");
+            return;
+        }
+        int? modeloId = (modelos.FirstOrDefault(m => m.Numero == Evento.TipoEventoId) ?? modelos.FirstOrDefault(m => m.Numero == 0) ?? modelos[0]).Id;
+        var e = new EditorCampos(1);
+        e.Lista("Modelo", modelos, () => modeloId, v => modeloId = v);
+        var incluidas = 0;
+        using var dialogo = new FormEdicao("Aplicar modelo de checklist",
+            "As tarefas do modelo entram com o prazo contado a partir da data do evento. Tarefas já existentes não se repetem.", e,
+            async () => incluidas = await _eventos.AplicarChecklistAsync(_eventoId, modeloId), 520);
+        if (dialogo.ShowDialog(this) != DialogResult.OK)
+            return;
+        await CarregarAsync();
+        Mensagens.Info(this, incluidas == 0 ? "Todas as tarefas do modelo já estavam no evento." : $"{incluidas} tarefa(s) incluída(s).");
+    }
+
     // =========================== Aba Financeiro ===========================
 
     private TabPage CriarAbaFinanceiro()
@@ -779,6 +860,17 @@ internal sealed class FormEventoDetalhe : FormBase
                                 $"perdas: {Textos.Moeda(e.Materiais.Sum(m => m.CustoPerdas))}  •  " +
                                 $"pendentes de devolução: {e.MateriaisPendentesDeDevolucao}";
         await CarregarContratosAsync();
+
+        var selecionadaTarefa = _tarefas.Selecionado?.Id;
+        _tarefas.Carregar(e.Tarefas.OrderBy(t => t.Prazo).ThenBy(t => t.Ordem));
+        if (selecionadaTarefa is { } idTarefa)
+            _tarefas.Selecionar(t => t.Id == idTarefa);
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        _resumoTarefas.Text = e.Tarefas.Count == 0
+            ? "Sem tarefas. Use \"Aplicar modelo\" para incluir o checklist padrão."
+            : $"{e.Tarefas.Count(t => t.Concluida)} de {e.Tarefas.Count} concluída(s)" +
+              (e.Tarefas.Count(t => t.Atrasada(hoje)) is > 0 and var atrasadas ? $"  •  {atrasadas} atrasada(s)" : "");
+        _resumoTarefas.ForeColor = e.Tarefas.Any(t => t.Atrasada(hoje)) ? Tema.Perigo : Tema.Texto;
 
         _parcelas.Carregar(e.Parcelas.OrderBy(p => p.Numero));
         if (selecionadaParcela is { } idParcela)

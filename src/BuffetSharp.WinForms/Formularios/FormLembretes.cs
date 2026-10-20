@@ -36,7 +36,7 @@ internal sealed class FormLembretes : FormListagem<Lembrete>
 
         Botao("WhatsApp", Icones.Mensagem, WhatsAppAsync, "Abre o WhatsApp com a mensagem pronta para o cliente", destaque: true);
         Botao("E-mail", Icones.Email, EmailAsync, "Envia a mensagem por e-mail");
-        Botao("Resolvido", Icones.Confirmar, ResolverAsync, "Tira o lembrete da lista (já tratado de outra forma)");
+        Botao("Resolvido", Icones.Confirmar, ResolverAsync, "Tira o lembrete da lista (já tratado de outra forma); numa tarefa de evento, conclui a tarefa");
         Separador();
         Botao("Abrir", Icones.Editar, AbrirAsync, "Abre o evento, orçamento, lead ou conta do lembrete");
 

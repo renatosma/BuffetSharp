@@ -30,6 +30,8 @@ public static class DependencyInjection
         services.AddTransient<LeadService>();
         services.AddTransient<LembreteService>();
         services.AddTransient<ReajusteService>();
+        services.AddTransient<PlanejamentoService>();
+        services.AddTransient<EquipeService>();
 
         // Configurações com valor padrão quando a aplicação não as registra (ex.: testes).
         services.TryAddSingleton(new LembretesOptions());

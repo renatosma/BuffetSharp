@@ -4,6 +4,7 @@ using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
+using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
 using BuffetSharp.WinForms.Formularios.Comercial;
 using BuffetSharp.WinForms.Formularios.Estoque;
@@ -672,6 +673,44 @@ internal static class DefinicoesCadastros
             {
                 embalagens.ConcluirEdicao();
                 x.Embalagens = embalagens.Itens.Select(l => l.ParaEmbalagem()).ToList();
+            });
+        }
+    };
+
+    public static readonly DefinicaoCadastro<ModeloChecklist> ModelosChecklist = new()
+    {
+        Titulo = "Modelos de checklist",
+        Singular = "modelo de checklist",
+        Descricao = "Tarefas de preparação aplicadas aos eventos novos, com prazo em dias antes do evento. O modelo do tipo de evento " +
+                    "tem prioridade; na falta dele, vale o modelo sem tipo.",
+        Consulta = q => q.Include(x => x.TipoEvento).Include(x => x.Itens).OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome, 50)
+            .Texto("Tipo de evento", x => x.TipoEvento?.Nome ?? "(todos)", 30)
+            .Numero("Tarefas", x => x.Itens.Count, peso: 15)
+            .SimNao("Ativo", x => x.Ativo, 15),
+        TextoBusca = x => $"{x.Nome} {x.TipoEvento?.Nome}",
+        Nome = x => x.Nome,
+        ColunasEditor = 2,
+        LarguraEditor = 820,
+        Campos = async (e, x, contexto) =>
+        {
+            var tipos = await contexto.Lookups.ListarAsync(TipoLookup.TiposEvento, somenteAtivos: false);
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 100);
+            e.Lista("Tipo de evento", tipos, () => x.TipoEventoId, v => x.TipoEventoId = v, nameof(x.TipoEventoId), permitirVazio: true);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+
+            e.Secao("Tarefas (prazo em dias antes do evento: 0 = no dia, negativo = depois)");
+            var tarefas = new GradeEditavel<LinhaChecklist>(() => new LinhaChecklist(), "Nova tarefa", "Remover tarefa", 260)
+                .Texto("Tarefa", nameof(LinhaChecklist.Descricao), 60, ModeloChecklistItem.TamanhoDescricao)
+                .Numero("Dias antes", nameof(LinhaChecklist.DiasAntes), "0", 14)
+                .Texto("Responsável", nameof(LinhaChecklist.Responsavel), 24, 60);
+            e.Livre(tarefas.Painel);
+            e.Associar(nameof(x.Itens), tarefas.Controle);
+            e.AoCarregar(() => tarefas.Carregar(x.Itens.OrderBy(i => i.Ordem).Select(LinhaChecklist.De)));
+            e.AoAplicar(() =>
+            {
+                tarefas.ConcluirEdicao();
+                x.Itens = tarefas.Itens.Where(l => !string.IsNullOrWhiteSpace(l.Descricao)).Select((l, i) => l.ParaItem(i + 1)).ToList();
             });
         }
     };

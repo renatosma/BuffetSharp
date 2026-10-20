@@ -67,6 +67,8 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await FecharComissoesAsync(ct);
         await CriarCompraParceladaAsync(ct);
         await CriarLeadsAsync(ct);
+        await CriarChecklistsAsync(ct);
+        await PagarEquipeAsync(ct);
     }
 
     // =====================================================================
@@ -1134,6 +1136,52 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                     retorno < DateOnly.FromDateTime(contato.AddHours(1)) ? null : retorno);
             }
             db.Leads.Add(lead);
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Checklist padrão nos eventos confirmados: as tarefas com prazo vencido ficam quase todas concluídas, algumas
+    /// atrasadas para aparecerem nos lembretes.
+    /// </summary>
+    private async Task CriarChecklistsAsync(CancellationToken ct)
+    {
+        var rnd = new Random(91);
+        var modelo = await db.ModelosChecklist.Include(m => m.Itens).FirstAsync(ct);
+        foreach (var evento in _eventos.Where(e => e.Status == StatusEvento.Confirmado))
+        {
+            evento.AplicarChecklist(modelo);
+            await db.SaveChangesAsync(ct);
+            foreach (var tarefa in evento.Tarefas.Where(t => t.Prazo < Hoje && rnd.NextDouble() < 0.85))
+                evento.ConcluirTarefa(tarefa.Id, _vendedores[rnd.Next(_vendedores.Count)].Login, tarefa.Prazo.ToDateTime(new TimeOnly(17, 0)));
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Diárias da equipe pagas até dois meses atrás (uma conta por funcionário e mês); as recentes ficam em aberto.</summary>
+    private async Task PagarEquipeAsync(CancellationToken ct)
+    {
+        var inicioMesAtual = new DateOnly(Hoje.Year, Hoje.Month, 1);
+        for (var m = -10; m <= -2; m++)
+        {
+            var de = inicioMesAtual.AddMonths(m);
+            var ate = de.AddMonths(1).AddDays(-1);
+            var escalas = _eventos
+                .Where(e => e.Status == StatusEvento.Realizado && DateOnly.FromDateTime(e.Inicio) >= de && DateOnly.FromDateTime(e.Inicio) <= ate)
+                .SelectMany(e => e.Equipe)
+                .Where(q => q.Presente && q.FechamentoEquipeId is null)
+                .GroupBy(q => q.FuncionarioId);
+            foreach (var grupo in escalas)
+            {
+                var funcionario = _funcionarios.First(f => f.Id == grupo.Key);
+                var vencimento = ate.AddDays(5);
+                var fechamento = new FechamentoEquipe(funcionario, de, ate, grupo.ToList(), vencimento)
+                {
+                    CriadoEm = ate.AddDays(1).ToDateTime(new TimeOnly(10, 0))
+                };
+                Pagar(fechamento.ContaPagar!, vencimento, _formas["Transferência Bancária"]);
+                db.FechamentosEquipe.Add(fechamento);
+            }
         }
         await db.SaveChangesAsync(ct);
     }

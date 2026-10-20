@@ -170,7 +170,9 @@ internal static class Textos
         ["MovimentoConta"] = "Movimento de conta", ["FechamentoConta"] = "Fechamento de conta", ["CartaoCredito"] = "Cartão de crédito",
         ["Baixa"] = "Recebimento/pagamento", ["BaixaTitulo"] = "Conta quitada", ["BaixaForma"] = "Forma de pagamento usada",
         ["Lead"] = "Lead (interessado)", ["LeadInteracao"] = "Contato com lead", ["LembreteTratado"] = "Lembrete tratado",
-        ["ReajustePreco"] = "Reajuste de preços", ["ReajusteItem"] = "Item do reajuste"
+        ["ReajustePreco"] = "Reajuste de preços", ["ReajusteItem"] = "Item do reajuste",
+        ["ModeloChecklist"] = "Modelo de checklist", ["ModeloChecklistItem"] = "Tarefa do modelo de checklist",
+        ["EventoTarefa"] = "Tarefa do evento", ["FechamentoEquipe"] = "Pagamento da equipe"
     };
 
     /// <summary>Nome amigável da entidade gravado na auditoria.</summary>

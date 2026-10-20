@@ -157,11 +157,18 @@ internal sealed class ConsultasLembretes(FabricaConexao conexoes) : IConsultasLe
               JOIN Eventos e ON e.Id = m.EventoId
               JOIN Materiais mt ON mt.Id = m.MaterialId
              WHERE m.DevolvidoEm IS NULL AND e.Status <> 'Cancelado' AND e.Fim < @Agora
+            """,
+            """
+            SELECT t.Id, t.Prazo AS Data, t.Descricao, t.Responsavel AS Nome, e.Id AS EventoId, e.Titulo AS Evento, e.Inicio
+              FROM EventoTarefas t
+              JOIN Eventos e ON e.Id = t.EventoId
+             WHERE t.ConcluidaEm IS NULL AND e.Status <> 'Cancelado' AND t.Prazo <= @Hoje AND t.Prazo >= @TarefasDesde
             """
         ], new
         {
             Hoje = hoje,
             Agora = agora,
+            TarefasDesde = hoje.AddDays(-30),
             DepoisDeAmanha = hoje.AddDays(2),
             LimiteOrcamento = hoje.AddDays(Math.Max(0, opcoes.DiasOrcamento)),
             LimiteParcela = hoje.AddDays(Math.Max(0, opcoes.DiasParcela)),
@@ -175,6 +182,7 @@ internal sealed class ConsultasLembretes(FabricaConexao conexoes) : IConsultasLe
         var leads = await lote.LerAsync<Linha>();
         var contas = await lote.LerAsync<Linha>();
         var materiais = await lote.LerAsync<Linha>();
+        var tarefas = await lote.LerAsync<Linha>();
 
         var lembretes = new List<Lembrete>();
         static string Dia(DateTime data) => data.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
@@ -271,6 +279,18 @@ internal sealed class ConsultasLembretes(FabricaConexao conexoes) : IConsultasLe
             Detalhe = $"EVT-{g.Key:D5} {g.First().Evento}: " + string.Join(", ", g.Select(m => $"{m.Quantidade} {m.Descricao}")),
             EventoId = g.Key,
             Chave = $"MAT:{g.Key}:{Dia(hoje)}"
+        }));
+
+        lembretes.AddRange(tarefas.Select(t => new Lembrete
+        {
+            Tipo = TipoLembrete.TarefaEvento,
+            ReferenciaId = t.Id,
+            Data = t.Data,
+            Titulo = t.Data.Date < hoje ? $"Tarefa atrasada há {(hoje - t.Data.Date).Days} dia(s)" : "Tarefa para hoje",
+            Detalhe = $"{t.Descricao} • EVT-{t.EventoId:D5} {t.Evento} ({t.Inicio:dd/MM})",
+            Pessoa = t.Nome,
+            EventoId = t.EventoId,
+            Chave = $"TAREFA:{t.Id}:{Dia(hoje)}"
         }));
 
         return lembretes.OrderBy(l => l.Data).ToList();

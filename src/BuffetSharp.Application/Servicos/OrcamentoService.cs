@@ -161,6 +161,7 @@ public sealed class OrcamentoService(
             ? (await db.Usuarios.FindAsync([vendedorId], ct))?.PercentualComissao ?? 0
             : 0;
         var evento = orcamento.Aprovar(tituloEvento, Agora, comissao);
+        await Checklists.AplicarSugeridoAsync(db, evento, ct);
         db.Eventos.Add(evento);
         await db.SaveChangesAsync(ct);
         return evento.Id;

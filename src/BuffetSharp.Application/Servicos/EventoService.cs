@@ -12,6 +12,7 @@ public sealed class EventoService(
     IBuffetDbContextFactory fabrica,
     DisponibilidadeService disponibilidade,
     IConsultasEstoqueCardapio estoque,
+    ISessaoUsuario sessao,
     TimeProvider relogio)
 {
     private DateTime Agora => relogio.GetLocalNow().DateTime;
@@ -35,6 +36,7 @@ public sealed class EventoService(
                          .Include(e => e.Equipe).ThenInclude(f => f.Funcionario!).ThenInclude(f => f.Cargo)
                          .Include(e => e.Convidados)
                          .Include(e => e.Parcelas).ThenInclude(p => p.FormaPagamento)
+                         .Include(e => e.Tarefas)
                          .FirstOrDefaultAsync(e => e.Id == id, ct)
                      ?? throw new RegraNegocioException("Evento não encontrado.");
 
@@ -98,6 +100,7 @@ public sealed class EventoService(
         {
             evento = new Evento(input.Titulo, input.ClienteId, input.TipoEventoId, input.EspacoId, input.Data,
                 input.HoraInicio, input.HoraFim, input.QuantidadesPorFaixa, input.ValorTotal);
+            await Checklists.AplicarSugeridoAsync(db, evento, ct);
             db.Eventos.Add(evento);
         }
         else
@@ -194,6 +197,35 @@ public sealed class EventoService(
 
     public Task DesfazerCheckInAsync(int eventoId, int convidadoId, CancellationToken ct = default) =>
         AlterarAsync(eventoId, q => q.Include(e => e.Convidados), (_, e) => e.DesfazerCheckIn(convidadoId), ct);
+
+    // ------------------------- Checklist -------------------------
+
+    public Task AdicionarTarefaAsync(int eventoId, TarefaInput input, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Tarefas), (_, e) => e.AdicionarTarefa(input.Descricao, input.Prazo, input.Responsavel), ct);
+
+    public Task ConcluirTarefaAsync(int eventoId, int tarefaId, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Tarefas), (_, e) => e.ConcluirTarefa(tarefaId, sessao.Usuario?.Login, Agora), ct);
+
+    public Task ReabrirTarefaAsync(int eventoId, int tarefaId, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Tarefas), (_, e) => e.ReabrirTarefa(tarefaId), ct);
+
+    public Task RemoverTarefaAsync(int eventoId, int tarefaId, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Tarefas), (_, e) => e.RemoverTarefa(tarefaId), ct);
+
+    /// <summary>Inclui as tarefas do modelo (o sugerido para o tipo do evento, se não for informado). Retorna quantas entraram.</summary>
+    public async Task<int> AplicarChecklistAsync(int eventoId, int? modeloId = null, CancellationToken ct = default)
+    {
+        var incluidas = 0;
+        await AlterarAsync(eventoId, q => q.Include(e => e.Tarefas), async (db, evento) =>
+        {
+            var modelo = modeloId is { } id
+                ? await db.ModelosChecklist.Include(m => m.Itens).FirstOrDefaultAsync(m => m.Id == id, ct)
+                : await Checklists.ModeloSugeridoAsync(db, evento.TipoEventoId, ct);
+            Validador.Garantir(modelo is not null, "Não há modelo de checklist ativo. Cadastre um em Cadastros › Modelos de checklist.");
+            incluidas = evento.AplicarChecklist(modelo!);
+        }, ct);
+        return incluidas;
+    }
 
     // ------------------------- Financeiro -------------------------
 

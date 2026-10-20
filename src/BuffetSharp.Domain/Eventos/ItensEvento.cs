@@ -52,6 +52,9 @@ public class EventoFuncionario
     public string Funcao { get; private set; } = string.Empty;
     public decimal ValorDiaria { get; private set; }
     public bool Presente { get; internal set; }
+
+    /// <summary>Fechamento de diárias em que esta escala foi paga (nulo enquanto não foi lançada em contas a pagar).</summary>
+    public int? FechamentoEquipeId { get; internal set; }
 }
 
 public class Convidado

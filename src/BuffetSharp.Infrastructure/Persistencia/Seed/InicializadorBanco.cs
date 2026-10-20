@@ -2,6 +2,7 @@ using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
+using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
 using BuffetSharp.Domain.Seguranca;
 using Microsoft.EntityFrameworkCore;
@@ -63,11 +64,49 @@ public sealed class InicializadorBanco(IDbContextFactory<BuffetDbContext> fabric
             await db.SaveChangesAsync(ct);
         }
 
+        if (!await db.ModelosChecklist.AnyAsync(ct))
+        {
+            progresso?.Report("Criando o checklist padrão dos eventos...");
+            db.ModelosChecklist.Add(ChecklistInicial());
+            await db.SaveChangesAsync(ct);
+        }
+
         if (dadosDemonstracao && !await db.Clientes.AnyAsync(ct))
         {
             progresso?.Report("Gerando dados de demonstração (cadastros, eventos, financeiro)...");
             await new DadosDemonstracao(db, relogio, hasher, opcoes).PopularAsync(ct);
         }
+    }
+
+    /// <summary>Preparação típica de um evento, do contrato à pesquisa de satisfação; pode ser alterada no cadastro.</summary>
+    public static ModeloChecklist ChecklistInicial()
+    {
+        (int DiasAntes, string Descricao, string Responsavel)[] tarefas =
+        [
+            (60, "Assinar o contrato e receber a entrada", "Comercial"),
+            (30, "Confirmar cardápio e serviços adicionais com o cliente", "Comercial"),
+            (30, "Reservar louças, enxoval e materiais (alugar o que faltar)", "Operacional"),
+            (15, "Definir o layout das mesas e a decoração", "Decoração"),
+            (10, "Receber a lista final de convidados", "Comercial"),
+            (7, "Escalar a equipe (garçons, cozinha, recepção)", "Operacional"),
+            (5, "Comprar os insumos (lista de compras)", "Cozinha"),
+            (3, "Confirmar som, iluminação e fornecedores terceirizados", "Operacional"),
+            (1, "Montar o salão e conferir os materiais", "Operacional"),
+            (0, "Recepção dos convidados e check-in", "Recepção"),
+            (-2, "Conferir a devolução dos materiais", "Operacional"),
+            (-3, "Enviar a pesquisa de satisfação ao cliente", "Comercial")
+        ];
+        return new ModeloChecklist
+        {
+            Nome = "Checklist padrão",
+            Itens = tarefas.Select((t, i) => new ModeloChecklistItem
+            {
+                DiasAntes = t.DiasAntes,
+                Descricao = t.Descricao,
+                Responsavel = t.Responsavel,
+                Ordem = i + 1
+            }).ToList()
+        };
     }
 
     /// <summary>Condições mais comuns em buffets; podem ser alteradas ou inativadas no cadastro.</summary>
