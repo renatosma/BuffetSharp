@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.TryAddSingleton(new BackupOptions());
         services.AddSingleton<IBackupBanco, BackupBanco>();
 
+        services.AddSingleton<IGeradorQrCode, GeradorQrCode>();
         services.AddSingleton<IHasherSenha, HasherSenhaPbkdf2>();
         services.AddTransient<InicializadorBanco>();
         return services;

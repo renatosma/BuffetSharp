@@ -2764,6 +2764,9 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<int?>("BaixaFormaId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("ConciliadoEm")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<int>("ContaFinanceiraId")
                         .HasColumnType("int");
 
@@ -2780,6 +2783,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
+
+                    b.Property<string>("IdExtrato")
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)");
 
                     b.Property<string>("Origem")
                         .IsRequired()
@@ -2802,6 +2809,8 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.HasIndex("ContrapartidaId");
 
                     b.HasIndex("ContaFinanceiraId", "Data");
+
+                    b.HasIndex("ContaFinanceiraId", "IdExtrato");
 
                     b.ToTable("MovimentosConta", (string)null);
                 });

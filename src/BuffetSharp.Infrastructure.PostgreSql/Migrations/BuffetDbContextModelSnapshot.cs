@@ -3617,6 +3617,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("baixaformaid");
 
+                    b.Property<DateTime?>("ConciliadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("conciliadoem");
+
                     b.Property<int>("ContaFinanceiraId")
                         .HasColumnType("integer")
                         .HasColumnName("contafinanceiraid");
@@ -3638,6 +3642,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("descricao");
+
+                    b.Property<string>("IdExtrato")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("idextrato");
 
                     b.Property<string>("Origem")
                         .IsRequired()
@@ -3667,6 +3676,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("ContaFinanceiraId", "Data")
                         .HasDatabaseName("ix_movimentosconta_contafinanceiraid_data");
+
+                    b.HasIndex("ContaFinanceiraId", "IdExtrato")
+                        .HasDatabaseName("ix_movimentosconta_contafinanceiraid_idextrato");
 
                     b.ToTable("movimentosconta", (string)null);
                 });

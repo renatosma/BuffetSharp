@@ -58,6 +58,17 @@ internal sealed class FormContasReceber : FormTitulos<ParcelaResumo>
         _navegador = navegador;
 
         Botao("Registrar recebimento", Icones.Cartao, ReceberAsync, destaque: true);
+        Botao("Cobrar com PIX", Icones.Dinheiro, async () =>
+        {
+            if (Selecionado() is not { } p)
+                return;
+            if (p.Status != StatusTitulo.Aberto)
+            {
+                Mensagens.Aviso(this, "Selecione uma parcela em aberto.");
+                return;
+            }
+            await DialogoPix.ExibirAsync(this, _navegador, p.Id, p.Valor, $"{p.Descricao} - {p.EventoCodigo}", p.ClienteId, p.Cliente);
+        }, "QR Code e código copia e cola da parcela");
         Botao("Estornar", Icones.Desfazer, async () =>
         {
             if (Selecionado() is not { } p)

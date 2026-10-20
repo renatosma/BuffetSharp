@@ -61,6 +61,33 @@ public sealed record ConversaoOrcamentos
     public decimal Valor { get; init; }
 }
 
+public enum RegimeDre
+{
+    /// <summary>Pelo dinheiro que entrou e saiu (data do pagamento).</summary>
+    Caixa,
+
+    /// <summary>Pelo fato gerador: receita na data do evento, despesa no vencimento.</summary>
+    Competencia
+}
+
+/// <summary>Linha do demonstrativo de resultado, mês a mês (valores de custos e despesas negativos).</summary>
+public sealed record LinhaDre
+{
+    public string Descricao { get; init; } = string.Empty;
+
+    /// <summary>0 = resultado, 1 = grupo, 2 = detalhe (tipo de evento ou centro de custo).</summary>
+    public int Nivel { get; init; }
+
+    public IReadOnlyList<decimal> Meses { get; init; } = new decimal[12];
+    public decimal Total => Meses.Sum();
+
+    /// <summary>Participação do total da linha na receita bruta do ano.</summary>
+    public decimal? PercentualReceita { get; init; }
+}
+
+/// <summary>DRE gerencial de um ano: receita por tipo de evento, custos e despesas por centro de custo (categoria).</summary>
+public sealed record Dre(int Ano, RegimeDre Regime, IReadOnlyList<LinhaDre> Linhas);
+
 /// <summary>Relatórios gerenciais (Dapper, SQL otimizado com agregações).</summary>
 public interface IConsultasRelatorios
 {
@@ -69,4 +96,5 @@ public interface IConsultasRelatorios
     Task<IReadOnlyList<LucratividadeEvento>> LucratividadeAsync(DateTime de, DateTime ate, CancellationToken ct = default);
     Task<IReadOnlyList<FluxoCaixaMes>> FluxoCaixaAsync(DateTime de, DateTime ate, CancellationToken ct = default);
     Task<IReadOnlyList<ConversaoOrcamentos>> ConversaoOrcamentosAsync(DateTime de, DateTime ate, CancellationToken ct = default);
+    Task<Dre> DreAsync(int ano, RegimeDre regime, CancellationToken ct = default);
 }

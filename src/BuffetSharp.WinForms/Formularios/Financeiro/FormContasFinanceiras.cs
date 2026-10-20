@@ -46,6 +46,15 @@ internal sealed class FormContasFinanceiras : FormListagem<ContaFinanceiraResumo
             if (Selecionado() is { } c && await DialogosContas.FecharAsync(this, _servico, c))
                 await CarregarAsync();
         }, "Fechamento do caixa ou conciliação com o extrato do banco");
+        Botao("Conciliar extrato (OFX)", Icones.Banco, async () =>
+        {
+            if (Selecionado() is not { } c)
+                return;
+            using var conciliacao = _navegador.Criar<FormConciliacao>(c.Id, c.Nome);
+            conciliacao.ShowDialog(this);
+            if (conciliacao.Alterou)
+                await CarregarAsync();
+        }, "Confere os movimentos da conta com o extrato do banco");
 
         Filtros.Controls.Add(_inativas);
         _inativas.CheckedChanged += async (_, _) => await RecarregarAsync();
@@ -100,15 +109,18 @@ internal sealed class FormExtratoConta : FormListagem<MovimentoExtrato>
     private readonly IConsultasContas _consultas;
     private readonly IConsultasLookup _lookups;
     private readonly ContaFinanceiraService _servico;
+    private readonly Navegador _navegador;
     private readonly ComboBox _conta = new() { Width = 260, DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = nameof(ItemLookup.Nome) };
     private readonly DateTimePicker _de;
     private readonly DateTimePicker _ate;
     private readonly int _contaInicial;
     private ExtratoConta? _extrato;
 
-    public FormExtratoConta(IConsultasContas consultas, IConsultasLookup lookups, ContaFinanceiraService servico, int contaId)
+    public FormExtratoConta(IConsultasContas consultas, IConsultasLookup lookups, ContaFinanceiraService servico, Navegador navegador,
+        int contaId)
         : base("Extrato da conta", "Entradas e saídas com o saldo após cada movimento. Linhas em cinza estão em período já conferido.")
     {
+        _navegador = navegador;
         _consultas = consultas;
         _lookups = lookups;
         _servico = servico;
@@ -140,6 +152,27 @@ internal sealed class FormExtratoConta : FormListagem<MovimentoExtrato>
                 await CarregarAsync();
         }, "Fechamento do caixa ou conciliação com o extrato do banco");
         Botao("Desfazer último fechamento", Icones.Desfazer, DesfazerFechamentoAsync);
+        Botao("Conciliar extrato (OFX)", Icones.Banco, async () =>
+        {
+            if (_extrato?.Conta is not { } conta)
+                return;
+            using var conciliacao = _navegador.Criar<FormConciliacao>(conta.Id, conta.Nome);
+            conciliacao.ShowDialog(this);
+            if (conciliacao.Alterou)
+                await CarregarAsync();
+        }, "Confere os movimentos com o extrato do banco (arquivo OFX)");
+        Botao("Desfazer conciliação", Icones.Desfazer, async () =>
+        {
+            if (Selecionado() is not { } m)
+                return;
+            if (!m.Conciliado)
+            {
+                Mensagens.Aviso(this, "Selecione um movimento conciliado.");
+                return;
+            }
+            await _navegador.Servico<ConciliacaoService>().DesfazerAsync(m.Id);
+            await CarregarAsync();
+        });
         Botao("Fechamentos", Icones.Historico, FechamentosAsync, "Histórico de conferências da conta");
 
         Grade.Data("Data", m => m.Data, peso: 18)
@@ -148,6 +181,7 @@ internal sealed class FormExtratoConta : FormListagem<MovimentoExtrato>
             .Moeda("Entrada", m => m.Entrada, 22, _ => Tema.Sucesso)
             .Moeda("Saída", m => m.Saida, 22, _ => Tema.Perigo)
             .Moeda("Saldo", m => m.Saldo, 24, m => m.Saldo < 0 ? Tema.Perigo : null)
+            .Texto("Banco", m => m.Conciliado ? "✓ conciliado" : "", 16, _ => Tema.Sucesso)
             .CorDaLinha(m => m.Conferido ? Tema.TextoSuave : null)
             .Busca(m => m.Descricao);
     }

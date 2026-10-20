@@ -3610,6 +3610,10 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("BAIXAFORMAID");
 
+                    b.Property<DateTime?>("ConciliadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CONCILIADOEM");
+
                     b.Property<int>("ContaFinanceiraId")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("CONTAFINANCEIRAID");
@@ -3631,6 +3635,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("NVARCHAR2(200)")
                         .HasColumnName("DESCRICAO");
+
+                    b.Property<string>("IdExtrato")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("IDEXTRATO");
 
                     b.Property<string>("Origem")
                         .IsRequired()
@@ -3659,6 +3668,9 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
 
                     b.HasIndex("ContaFinanceiraId", "Data")
                         .HasDatabaseName("IX_MOVIMENTOSCONTA_CONTAFINANCEIRAID_DATA");
+
+                    b.HasIndex("ContaFinanceiraId", "IdExtrato")
+                        .HasDatabaseName("IX_MOVIMENTOSCONTA_CONTAFINANCEIRAID_IDEXTRATO");
 
                     b.ToTable("MOVIMENTOSCONTA", (string)null);
                 });

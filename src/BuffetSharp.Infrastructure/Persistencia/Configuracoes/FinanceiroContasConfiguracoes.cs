@@ -24,6 +24,10 @@ internal sealed class MovimentoContaConfig : IEntityTypeConfiguration<MovimentoC
         b.HasOne(x => x.Conta).WithMany().HasForeignKey(x => x.ContaFinanceiraId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Contrapartida).WithMany().HasForeignKey(x => x.ContrapartidaId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.ContaFinanceiraId, x.Data });
+
+        // Conciliação: localizar o movimento pelo lançamento do extrato (FITID do OFX).
+        b.Property(x => x.IdExtrato).HasMaxLength(MovimentoConta.TamanhoIdExtrato);
+        b.HasIndex(x => new { x.ContaFinanceiraId, x.IdExtrato });
     }
 }
 

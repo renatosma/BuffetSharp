@@ -23,6 +23,9 @@ internal sealed class FormRelatorios : FormBase
     private readonly GraficoBarras _graficoFluxo = new() { Dock = DockStyle.Fill, Titulo = "Fluxo de caixa realizado: recebido x pago" };
     private readonly Grade<ConversaoOrcamentos> _conversao = new();
     private readonly Grade<FunilOrigem> _funil = new();
+    private readonly Grade<LinhaDre> _dre = new();
+    private readonly NumericUpDown _anoDre = new() { Width = 80, Minimum = 2000, Maximum = 2100, Value = DateTime.Today.Year };
+    private readonly ComboBox _regimeDre = new() { Width = 170, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly GraficoBarras _graficoFunil = new() { Dock = DockStyle.Fill, Titulo = "Leads x convertidos x eventos fechados, por canal de origem",
         FormatoValor = v => v.ToString("N0") };
 
@@ -65,6 +68,7 @@ internal sealed class FormRelatorios : FormBase
         _abas.TabPages.Add(Aba("Fluxo de caixa", Dividir(_fluxo.Controle, _graficoFluxo)));
         _abas.TabPages.Add(Aba("Conversão de orçamentos", _conversao.Controle));
         _abas.TabPages.Add(Aba("Funil de leads", Dividir(_funil.Controle, _graficoFunil)));
+        _abas.TabPages.Add(Aba("DRE", CriarDre()));
 
         var filtros = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(20, 4, 20, 8) };
         var gerar = Tema.BotaoPrimario("Gerar", Icones.Atualizar);
@@ -85,6 +89,49 @@ internal sealed class FormRelatorios : FormBase
         Controls.Add(corpo);
         Controls.Add(filtros);
         Controls.Add(cabecalho);
+    }
+
+    /// <summary>DRE gerencial do ano, mês a mês, em regime de caixa ou de competência (filtros próprios, independentes do período).</summary>
+    private Control CriarDre()
+    {
+        _dre.Texto("Demonstrativo", l => l.Descricao, 70);
+        var meses = Textos.PtBr.DateTimeFormat.AbbreviatedMonthNames;
+        for (var i = 0; i < 12; i++)
+        {
+            var mes = i;
+            _dre.Moeda(meses[i].TrimEnd('.'), l => l.Meses[mes], 22, l => l.Meses[mes] < 0 ? Tema.Perigo : null);
+        }
+        _dre.Moeda("Total", l => l.Total, 26, l => l.Total < 0 ? Tema.Perigo : Tema.Sucesso)
+            .Numero("% receita", l => l.PercentualReceita, "N1", 14)
+            .CorDaLinha(l => l.Nivel switch { 0 => Tema.Primaria, 2 => Tema.TextoSuave, _ => null });
+
+        _regimeDre.DataSource = new[] { ("Caixa (pagamentos)", RegimeDre.Caixa), ("Competência (eventos e vencimentos)", RegimeDre.Competencia) }
+            .Select(r => new OpcaoGrade<RegimeDre>(r.Item2, r.Item1)).ToList();
+        var gerar = Tema.BotaoSecundario("Gerar DRE", Icones.Atualizar);
+        gerar.Click += async (_, _) => await ExecutarAsync(CarregarDreAsync);
+        _regimeDre.SelectionChangeCommitted += async (_, _) => await ExecutarAsync(CarregarDreAsync);
+
+        var filtros = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 6) };
+        filtros.Controls.AddRange([
+            new Label { Text = "Ano", AutoSize = true, Margin = new Padding(0, 8, 4, 0) }, _anoDre,
+            new Label { Text = "Regime", AutoSize = true, Margin = new Padding(12, 8, 4, 0) }, _regimeDre, gerar,
+            new Label
+            {
+                Text = "Custos e despesas por centro de custo (categoria). A fatura do cartão não entra: a despesa já está na conta original.",
+                AutoSize = true, ForeColor = Tema.TextoSuave, Margin = new Padding(12, 8, 0, 0)
+            }
+        ]);
+        var painel = new Panel { Dock = DockStyle.Fill };
+        _dre.Controle.Dock = DockStyle.Fill;
+        painel.Controls.Add(_dre.Controle);
+        painel.Controls.Add(filtros);
+        return painel;
+    }
+
+    private async Task CarregarDreAsync()
+    {
+        var regime = (_regimeDre.SelectedItem as OpcaoGrade<RegimeDre>)?.Valor ?? RegimeDre.Caixa;
+        _dre.Carregar((await _relatorios.DreAsync((int)_anoDre.Value, regime)).Linhas);
     }
 
     private static TabPage Aba(string titulo, Control conteudo)
@@ -145,6 +192,8 @@ internal sealed class FormRelatorios : FormBase
             new GraficoBarras.Serie("Leads", Tema.Info, funil.Select(f => (decimal)f.Leads).ToList()),
             new GraficoBarras.Serie("Convertidos", Tema.SerieA, funil.Select(f => (decimal)f.Convertidos).ToList()),
             new GraficoBarras.Serie("Eventos fechados", Tema.Sucesso, funil.Select(f => (decimal)f.EventosFechados).ToList()));
+
+        await CarregarDreAsync();
     });
 
     private (string Titulo, string[] Cabecalho, List<string[]> Linhas, string Csv) AbaAtual() => _abas.SelectedIndex switch
@@ -154,7 +203,8 @@ internal sealed class FormRelatorios : FormBase
         2 => Dados(_lucro),
         3 => Dados(_fluxo),
         4 => Dados(_conversao),
-        _ => Dados(_funil)
+        5 => Dados(_funil),
+        _ => Dados(_dre)
     };
 
     private (string, string[], List<string[]>, string) Dados<T>(Grade<T> grade) where T : class
@@ -167,7 +217,9 @@ internal sealed class FormRelatorios : FormBase
     {
         var (titulo, cabecalho, linhas, _) = AbaAtual();
         var doc = new DocumentoImpresso(titulo);
-        doc.Subtitulo($"Período: {_de.Value:dd/MM/yyyy} a {_ate.Value:dd/MM/yyyy}");
+        doc.Subtitulo(_abas.SelectedIndex == 6
+            ? $"Ano {_anoDre.Value} - regime de {(_regimeDre.SelectedItem as OpcaoGrade<RegimeDre>)?.Texto.ToLowerInvariant()}"
+            : $"Período: {_de.Value:dd/MM/yyyy} a {_ate.Value:dd/MM/yyyy}");
         doc.Tabela(cabecalho, linhas);
         if (_abas.SelectedIndex == 2)
             doc.Paragrafo(_totalLucro.Text.Trim(), negrito: true);

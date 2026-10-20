@@ -2874,6 +2874,9 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<int?>("BaixaFormaId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("ConciliadoEm")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("ContaFinanceiraId")
                         .HasColumnType("int");
 
@@ -2890,6 +2893,10 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("IdExtrato")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
 
                     b.Property<string>("Origem")
                         .IsRequired()
@@ -2913,6 +2920,8 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.HasIndex("ContrapartidaId");
 
                     b.HasIndex("ContaFinanceiraId", "Data");
+
+                    b.HasIndex("ContaFinanceiraId", "IdExtrato");
 
                     b.ToTable("MovimentosConta", (string)null);
                 });

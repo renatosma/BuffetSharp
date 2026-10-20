@@ -144,6 +144,34 @@ public class MovimentoConta : Entidade
     public int? ContrapartidaId { get; private set; }
     public MovimentoConta? Contrapartida { get; private set; }
 
+    public const int TamanhoIdExtrato = 60;
+
+    /// <summary>Identificador do lançamento no extrato do banco (FITID do OFX) com que o movimento foi conciliado.</summary>
+    public string? IdExtrato { get; private set; }
+
+    /// <summary>Quando o movimento foi conferido com o extrato do banco.</summary>
+    public DateTime? ConciliadoEm { get; private set; }
+
+    public bool Conciliado => ConciliadoEm is not null;
+
+    /// <summary>Confere o movimento com um lançamento do extrato bancário (mesmo valor).</summary>
+    public void Conciliar(string? idExtrato, decimal valorExtrato, DateTime agora)
+    {
+        Validador.Garantir(!Conciliado, $"O movimento \"{Descricao}\" já foi conciliado.");
+        Validador.Garantir(valorExtrato == Valor,
+            $"O valor do extrato ({valorExtrato:C}) é diferente do movimento \"{Descricao}\" ({Valor:C}).");
+        Validador.Garantir(idExtrato is null || idExtrato.Length <= TamanhoIdExtrato, "Identificador do extrato inválido.");
+        IdExtrato = string.IsNullOrWhiteSpace(idExtrato) ? null : idExtrato.Trim();
+        ConciliadoEm = agora;
+    }
+
+    public void DesfazerConciliacao()
+    {
+        Validador.Garantir(Conciliado, "Este movimento não está conciliado.");
+        IdExtrato = null;
+        ConciliadoEm = null;
+    }
+
     /// <summary>Saída de uma conta e entrada na outra, na mesma data.</summary>
     public static (MovimentoConta Saida, MovimentoConta Entrada) Transferir(ContaFinanceira origem, ContaFinanceira destino,
         DateOnly data, decimal valor, string? descricao)

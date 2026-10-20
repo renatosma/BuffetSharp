@@ -23,6 +23,10 @@
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
 
+  <ItemGroup Label="Cobrança (QR Code do PIX)">
+    <PackageVersion Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Hospedagem">
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="$(ExtensionsVersion)" />
   </ItemGroup>

@@ -37,6 +37,9 @@ public sealed record MovimentoExtrato
     /// <summary>Dentro de um período já fechado (conferido).</summary>
     public bool Conferido { get; init; }
 
+    /// <summary>Conferido com o extrato do banco (conciliação OFX).</summary>
+    public bool Conciliado { get; init; }
+
     public decimal? Entrada => Valor > 0 ? Valor : null;
     public decimal? Saida => Valor < 0 ? -Valor : null;
 }

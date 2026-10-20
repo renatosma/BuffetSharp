@@ -40,6 +40,14 @@ As configurações ficam em `src/BuffetSharp.WinForms/appsettings.json`:
   em `EmailsEnviados`, sem sair da máquina. Para enviar de verdade, use `"Modo": "Smtp"` e preencha
   `Servidor`, `Porta`, `UsarSsl`, `Usuario`, `Senha` e `Remetente`.
 - `Inicializacao:CriarDadosDemonstracao`: use `false` em produção. Assim, só os usuários iniciais são criados.
+- `Pix`: chave PIX do buffet (CPF/CNPJ, e-mail, celular ou chave aleatória), nome do recebedor e cidade. Sem chave, a
+  cobrança por PIX fica desligada.
+- `Lembretes`: antecedência (em dias) para avisar das propostas, parcelas e contas a pagar que vencem, e
+  `EmailAutomatico` para enviar sozinho, depois do login, os e-mails de parcela a vencer, degustação e aniversário.
+- `Backup`: pasta das cópias de segurança, cópia automática (a cada `IntervaloHoras`, depois do login), quantas cópias
+  manter e o caminho do `pg_dump`/`mysqldump` (`Ferramenta`) quando não estiverem no PATH. No SQL Server, o próprio
+  servidor grava o arquivo: num servidor em outra máquina, use uma pasta do servidor.
+- `Log` e `Logging`: pasta e retenção do log em arquivo (um por dia) e os níveis gravados.
 
 ## Bancos de dados
 
@@ -162,7 +170,36 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   parcela for paga, o parcelamento pode ser desfeito e as contas juntadas voltam a ficar em aberto. Pagar várias contas
   do mesmo fornecedor de uma vez continua no "Pagar", como no recebimento.
 - **Relatórios**: faturamento por tipo de evento, ranking de pacotes, lucratividade por evento
-  (com o custo real do estoque após a realização), fluxo de caixa e conversão de orçamentos.
+  (com o custo real do estoque após a realização), fluxo de caixa, conversão de orçamentos, funil de leads por canal de
+  origem e **DRE** gerencial mês a mês (regime de caixa ou de competência), com a receita por tipo de evento e os custos
+  e despesas por centro de custo.
+- **Leads (funil de vendas)**: o interessado entra antes de virar cliente, com a origem (Instagram, indicação, feira...),
+  o tipo de evento, a data e os convidados pretendidos e o responsável. Cada contato fica no histórico e combina o
+  próximo retorno. Convertido, vira cliente (cadastrado com os dados do lead ou ligado a um existente) e já abre o
+  orçamento preenchido; perdido, guarda o motivo e pode ser reaberto.
+- **Lembretes do dia**: propostas perto de vencer, degustações de hoje e amanhã, aniversários de clientes, retornos de
+  leads, parcelas a vencer e vencidas, contas a pagar, materiais não devolvidos e tarefas atrasadas dos eventos, conforme
+  o perfil. As mensagens ao cliente saem prontas para o WhatsApp ou o e-mail (a cobrança leva o PIX "copia e cola");
+  depois de tratado, o lembrete some. O painel mostra quantos há. Opcionalmente, os e-mails saem sozinhos.
+- **Reajuste de preços**: percentual sobre os pacotes, serviços e espaços, com arredondamento (centavos, real inteiro ou
+  múltiplo de R$ 5), simulação antes de aplicar e vigência futura (aplicado sozinho na data). Pode ser desfeito.
+- **Lista de compras**: o que comprar para os eventos confirmados de um período (ficha técnica × pessoas, menos o
+  estoque, opcionalmente repondo o mínimo), na embalagem do fornecedor, impressa por fornecedor ou enviada como pedido
+  pelo WhatsApp.
+- **Produção da cozinha**: ordem de produção de cada evento do dia, com os pratos por seção, as porções e os insumos já
+  multiplicados. Também sai pela tela do evento.
+- **Checklist do evento**: modelos de tarefas com prazo em dias antes do evento (um por tipo de evento e um geral). O
+  evento novo já nasce com o checklist; as tarefas são concluídas na aba Checklist e as atrasadas viram lembretes.
+- **Pagamento da equipe**: as diárias dos eventos realizados (escalas com presença) viram uma conta a pagar por
+  funcionário, na categoria Pessoal. O fechamento pode ser desfeito enquanto a conta não foi paga.
+- **Cobrança por PIX**: QR Code e código "copia e cola" de cada parcela (BR Code do Banco Central), para copiar, salvar
+  ou enviar pelo WhatsApp ou por e-mail (com o QR Code anexo).
+- **Conciliação bancária**: o extrato do banco em OFX é comparado com os movimentos da conta. O sistema sugere os pares
+  (mesmo valor, até 5 dias de diferença), concilia os confirmados, lança o que só o banco tem (tarifas, rendimentos) e
+  fecha a conta com o saldo do extrato.
+- **Backup e logs**: cópia de segurança do banco (SQL Server nativo, `pg_dump` ou `mysqldump`) feita sozinha uma vez por
+  dia e sob demanda, com as últimas cópias guardadas e instruções de restauração. Erros e acessos vão para um log em
+  arquivo por dia. A barra de status mostra o último backup.
 - **Envio da proposta**: por e-mail (corpo em HTML e proposta em PDF anexa) ou por WhatsApp (abre o
   WhatsApp com o resumo pronto). Cada envio fica no histórico e o rascunho passa a "Enviado".
 - **Degustações**: agenda com limite de degustações por horário, avaliação de 1 a 5, faltas,
@@ -185,7 +222,10 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 - **Auditoria**: todo registro incluído, alterado ou excluído fica no histórico, com o usuário, a data
   e o valor anterior e o novo de cada campo. Senhas aparecem como "(oculto)". O administrador consulta
   tudo na tela de Auditoria ou o histórico de um registro pelo botão "Alterações".
-- **Usuários e perfis**: o menu é filtrado pelo perfil e as senhas usam hash PBKDF2-SHA256.
+- **Usuários e perfis**: o menu é filtrado pelo perfil e as senhas usam hash PBKDF2-SHA256. Cinco senhas erradas
+  seguidas bloqueiam o login por 15 minutos (o administrador pode desbloquear antes).
+- **Edição simultânea**: se dois usuários abrem o mesmo registro e um salva, o outro é avisado ao salvar, em vez de
+  apagar sem saber o que o primeiro gravou.
 - Em todas as listagens: pesquisa instantânea, ordenação, **impressão** e **exportação CSV** (Excel).
 
 ## Principais regras de negócio
@@ -213,6 +253,16 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   mesmo vendedor não podem se sobrepor, e só se desfaz um fechamento cuja conta ainda não foi paga.
 - Não há convidado duplicado nem funcionário escalado duas vezes. O check-in só vale no horário do
   evento.
+- **Concorrência otimista**: cada registro tem uma versão, que muda quando um dado do cadastro muda. Campos mantidos pelo
+  sistema (saldo de estoque, último acesso) não mudam a versão, então uma movimentação de estoque não impede quem está
+  com o produto aberto de salvar.
+- Um lead precisa de telefone ou e-mail. Só leads em negociação recebem contatos, são convertidos ou perdidos; o
+  convertido não pode ser excluído.
+- O reajuste muda só os itens ativos e guarda o valor anterior de cada um. Desfazer devolve o preço anterior apenas aos
+  itens que não foram alterados depois.
+- Só entram no pagamento da equipe as escalas com presença registrada de eventos realizados, e cada diária é paga uma
+  única vez.
+- Um movimento só é conciliado com um lançamento do extrato de mesmo valor, uma única vez.
 
 ## Testes
 
@@ -220,15 +270,17 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **202 testes** (xUnit v3): 186 de domínio, integração e bancos, e 16 das telas.
+São **251 testes** (xUnit v3): 232 de domínio, integração e bancos, e 19 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
-  pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias e
-  parcelamento de contas a pagar.
+  pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
+  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, diárias da equipe, BR Code do
+  PIX, leitura de OFX e conciliação.
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
-  conflito de agenda, pagamento, cancelamento, autenticação, tradução de erros de banco). O banco é
-  excluído no final.
+  conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
+  backup, funil, lembretes, reajuste, lista de compras, ordem de produção, checklist, pagamento da equipe, PIX,
+  conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 
 Para rodar as suítes de integração e de telas em outro banco, copie `BuffetSharp.runsettings.exemplo`
@@ -251,7 +303,8 @@ login, navega pelo menu, preenche campos pelo rótulo, clica nos botões e trata
 - orçamento com cálculo em tempo real e checagem do espaço;
 - reserva de material, emissão de contrato e assinatura desenhada;
 - degustação, comissão, envio de proposta por e-mail e WhatsApp;
-- auditoria.
+- auditoria;
+- lead cadastrado e convertido, lembrete resolvido e tarefa do checklist concluída.
 
 Como funcionam:
 
@@ -264,6 +317,12 @@ Como funcionam:
 ```bash
 dotnet test tests/BuffetSharp.Tests.Telas
 ```
+
+### Integração contínua
+
+O GitHub Actions (`.github/workflows/ci.yml`) compila a solução a cada push e pull request e roda os testes de domínio e
+de bancos no Windows e a suíte inteira do `BuffetSharp.Tests` contra PostgreSQL e MySQL em contêineres. Os testes das
+telas precisam de uma área de trabalho do Windows e são rodados localmente.
 
 ## Migrations
 
@@ -278,7 +337,8 @@ dotnet ef migrations add NomeDaMigration --project src/BuffetSharp.Infrastructur
 dotnet ef migrations add NomeDaMigration --project src/BuffetSharp.Infrastructure.Oracle --startup-project src/BuffetSharp.Infrastructure.Oracle -o Migrations
 ```
 
-Gerar migrations não exige servidor. O app aplica as pendentes automaticamente ao iniciar. Para
+O `atualizar.cmd NomeDaMigration` faz isso nos quatro bancos de uma vez, compila e roda os testes (a saída vai para
+`atualizacao-log.txt`). Gerar migrations não exige servidor. O app aplica as pendentes automaticamente ao iniciar. Para
 `dotnet ef database update`, informe a conexão na variável `BUFFETSHARP_CONNECTION`.
 
 ## Estrutura
@@ -287,7 +347,8 @@ Gerar migrations não exige servidor. O app aplica as pendentes automaticamente 
 src/
   BuffetSharp.Domain/          Comum, Cadastros, Estoque, Cardapio, Comercial, Eventos, Financeiro, Seguranca
   BuffetSharp.Application/     Abstracoes, Servicos, Consultas (contratos + DTOs), Modelos
-  BuffetSharp.Infrastructure/  Persistencia (DbContext, Configuracoes, Provedores, Seed), Consultas (Dapper), Email, Seguranca
+  BuffetSharp.Infrastructure/  Persistencia (DbContext, Configuracoes, Provedores, Seed), Consultas (Dapper), Email, Seguranca,
+                               Manutencao (backup, log em arquivo, QR Code)
   BuffetSharp.Infrastructure.SqlServer|PostgreSql|MySql|Oracle/   Provedor e Migrations de cada banco
   BuffetSharp.WinForms/        Infra (tema, grade, editor de campos, navegação), Controles (gráfico, calendário,
                                indicadores), Formularios (telas por módulo), Impressao

@@ -27,6 +27,7 @@ internal sealed class ConsultasContas(FabricaConexao conexoes) : IConsultasConta
         public string Descricao { get; init; } = string.Empty;
         public OrigemMovimento Origem { get; init; }
         public decimal Valor { get; init; }
+        public DateTime? ConciliadoEm { get; init; }
     }
 
     public async Task<ExtratoConta> ExtratoAsync(int contaId, DateOnly de, DateOnly ate, CancellationToken ct = default)
@@ -37,7 +38,7 @@ internal sealed class ConsultasContas(FabricaConexao conexoes) : IConsultasConta
             SelectConta + " WHERE c.Id = @ContaId",
             "SELECT COALESCE(SUM(Valor), 0) FROM MovimentosConta WHERE ContaFinanceiraId = @ContaId AND Data < @De",
             """
-            SELECT Id, Data, Descricao, Origem, Valor FROM MovimentosConta
+            SELECT Id, Data, Descricao, Origem, Valor, ConciliadoEm FROM MovimentosConta
              WHERE ContaFinanceiraId = @ContaId AND Data >= @De AND Data <= @Ate
              ORDER BY Data, Id
             """
@@ -61,7 +62,8 @@ internal sealed class ConsultasContas(FabricaConexao conexoes) : IConsultasConta
                 Origem = m.Origem,
                 Valor = m.Valor,
                 Saldo = saldo,
-                Conferido = conta.FechadaAte is { } fechada && m.Data <= fechada
+                Conferido = conta.FechadaAte is { } fechada && m.Data <= fechada,
+                Conciliado = m.ConciliadoEm is not null
             });
         }
         return new ExtratoConta(conta, conta.SaldoInicial + anteriores, linhas);

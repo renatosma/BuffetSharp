@@ -22,6 +22,7 @@ public sealed class LembreteService(
     IEnvioEmail email,
     BuffetOptions empresa,
     LembretesOptions opcoes,
+    PixService pix,
     ISessaoUsuario sessao,
     TimeProvider relogio,
     ILogger<LembreteService> log)
@@ -181,6 +182,8 @@ public sealed class LembreteService(
                 ". Podemos conversar sobre datas, cardápios e valores?",
             _ => l.Titulo
         });
+        if (l.Tipo is TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida && pix.TextoCobranca(l.ReferenciaId, l.Valor ?? 0) is { } cobranca)
+            texto.Append("\n\n").Append(cobranca);
         if (!string.IsNullOrWhiteSpace(empresa.Telefone) && l.Tipo != TipoLembrete.Aniversario)
             texto.Append($"\n\nQualquer dúvida, estamos à disposição: {empresa.Telefone}.");
         return texto.ToString();

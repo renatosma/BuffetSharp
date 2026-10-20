@@ -629,6 +629,16 @@ internal sealed class FormEventoDetalhe : FormBase
         var barra = BarraAba();
         BotaoAba(barra, "Gerar / refazer plano", Icones.Calculadora, PlanoPagamentoAsync, primario: true);
         BotaoAba(barra, "Registrar pagamento", Icones.Cartao, PagarParcelaAsync, edicao: false);
+        BotaoAba(barra, "Cobrar com PIX", Icones.Dinheiro, async () =>
+        {
+            if (_parcelas.Selecionado is not { Status: StatusTitulo.Aberto } p)
+            {
+                Mensagens.Aviso(this, "Selecione uma parcela em aberto.");
+                return;
+            }
+            await DialogoPix.ExibirAsync(this, _navegador, p.Id, p.Valor, $"{p.Descricao} - {Evento.Codigo}", Evento.ClienteId,
+                Evento.Cliente?.Nome ?? "Cliente");
+        }, edicao: false);
         BotaoAba(barra, "Estornar pagamento", Icones.Desfazer, async () =>
         {
             if (_parcelas.Selecionado is not { } p)

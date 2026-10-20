@@ -11,6 +11,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Dapper" />
+    <PackageReference Include="QRCoder" />
   </ItemGroup>
 
 </Project>
