@@ -8,21 +8,23 @@ namespace BuffetSharp.WinForms.Formularios.Comercial;
 /// <summary>Revisão e envio de documentos ao cliente por e-mail (com PDF anexo) ou WhatsApp.</summary>
 internal static class DialogosEnvio
 {
+    /// <param name="nomeAnexo">O que vai anexado (ex.: "a proposta"); nulo para e-mail sem anexo.</param>
     /// <param name="gerarAnexo">Gera o PDF anexado quando a opção estiver marcada.</param>
     /// <param name="destino">Para onde o e-mail vai (servidor SMTP ou pasta), exibido ao usuário.</param>
-    public static bool Email(IWin32Window dono, string titulo, EmailInput email, string nomeAnexo, Func<AnexoEmail> gerarAnexo,
+    public static bool Email(IWin32Window dono, string titulo, EmailInput email, string? nomeAnexo, Func<AnexoEmail>? gerarAnexo,
         Func<EmailInput, Task> enviar, string destino)
     {
-        var anexar = true;
+        var anexar = gerarAnexo is not null;
         var e = new EditorCampos(1);
         e.Texto("Para", () => email.Para, v => email.Para = v ?? "", nameof(email.Para), 150, dica: "email@cliente.com.br");
         e.Texto("Assunto", () => email.Assunto, v => email.Assunto = v ?? "", nameof(email.Assunto), 200);
         e.Texto("Mensagem", () => email.Mensagem, v => email.Mensagem = v, nameof(email.Mensagem), 4000, linhas: 9);
-        e.Marcador($"Anexar {nomeAnexo} (PDF)", () => anexar, v => anexar = v);
+        if (gerarAnexo is not null)
+            e.Marcador($"Anexar {nomeAnexo} (PDF)", () => anexar, v => anexar = v);
 
         using var dialogo = new FormEdicao(titulo, $"Envio: {destino}", e, async () =>
         {
-            email.Anexo = anexar ? gerarAnexo() : null;
+            email.Anexo = anexar && gerarAnexo is not null ? gerarAnexo() : null;
             await enviar(email);
         }, 640);
         return dialogo.ShowDialog(dono) == DialogResult.OK;

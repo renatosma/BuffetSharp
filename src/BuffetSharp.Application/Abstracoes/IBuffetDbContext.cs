@@ -50,6 +50,9 @@ public interface IBuffetDbContext : IDisposable, IAsyncDisposable
     DbSet<FechamentoConta> FechamentosConta { get; }
     DbSet<CartaoCredito> CartoesCredito { get; }
     DbSet<Baixa> Baixas { get; }
+    DbSet<Lead> Leads { get; }
+    DbSet<LembreteTratado> LembretesTratados { get; }
+    DbSet<ReajustePreco> ReajustesPreco { get; }
     DbSet<RegistroAuditoria> RegistrosAuditoria { get; }
 
     ChangeTracker ChangeTracker { get; }

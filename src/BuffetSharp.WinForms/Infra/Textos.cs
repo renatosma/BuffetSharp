@@ -82,6 +82,32 @@ internal static class Textos
         TipoContato.Telefone => "Telefone",
         TipoContato.WhatsApp => "WhatsApp",
         TipoContato.Email => "E-mail",
+        OrigemLead.Indicacao => "Indicação",
+        OrigemLead.Site => "Site",
+        OrigemLead.Feira => "Feira / evento",
+        OrigemLead.Visita => "Visita ao buffet",
+        StatusLead.Novo => "Novo",
+        StatusLead.EmContato => "Em contato",
+        StatusLead.Convertido => "Convertido",
+        StatusLead.Perdido => "Perdido",
+        TipoLembrete.OrcamentoVencendo => "Proposta vencendo",
+        TipoLembrete.Degustacao => "Degustação",
+        TipoLembrete.Aniversario => "Aniversário",
+        TipoLembrete.ParcelaAVencer => "Parcela a vencer",
+        TipoLembrete.ParcelaVencida => "Parcela vencida",
+        TipoLembrete.RetornoLead => "Retorno de lead",
+        TipoLembrete.ContaPagarAVencer => "Conta a pagar",
+        TipoLembrete.MaterialNaoDevolvido => "Material não devolvido",
+        TipoLembrete.TarefaEvento => "Tarefa de evento",
+        ArredondamentoPreco.Centavos => "Manter centavos",
+        ArredondamentoPreco.Reais => "Real inteiro",
+        ArredondamentoPreco.CincoReais => "Múltiplo de R$ 5",
+        StatusReajuste.Agendado => "Agendado",
+        StatusReajuste.Aplicado => "Aplicado",
+        StatusReajuste.Desfeito => "Desfeito / cancelado",
+        TipoItemReajuste.Pacote => "Pacote",
+        TipoItemReajuste.ServicoAdicional => "Serviço",
+        TipoItemReajuste.Espaco => "Espaço",
         _ => valor.ToString()
     };
 
@@ -112,6 +138,13 @@ internal static class Textos
         AcaoAuditoria.Inclusao => Tema.Sucesso,
         AcaoAuditoria.Alteracao => Tema.Info,
         AcaoAuditoria.Exclusao => Tema.Perigo,
+        StatusLead.Novo => Tema.Info,
+        StatusLead.EmContato => Tema.Alerta,
+        StatusLead.Convertido => Tema.Sucesso,
+        StatusLead.Perdido => Tema.Neutro,
+        StatusReajuste.Agendado => Tema.Info,
+        StatusReajuste.Aplicado => Tema.Sucesso,
+        StatusReajuste.Desfeito => Tema.Neutro,
         _ => Tema.Texto
     };
 
@@ -135,7 +168,9 @@ internal static class Textos
         ["CondicaoPagamento"] = "Condição de pagamento", ["ModeloContrato"] = "Modelo de contrato",
         ["ProdutoEmbalagem"] = "Embalagem do produto", ["ContaFinanceira"] = "Conta (caixa/banco)",
         ["MovimentoConta"] = "Movimento de conta", ["FechamentoConta"] = "Fechamento de conta", ["CartaoCredito"] = "Cartão de crédito",
-        ["Baixa"] = "Recebimento/pagamento", ["BaixaTitulo"] = "Conta quitada", ["BaixaForma"] = "Forma de pagamento usada"
+        ["Baixa"] = "Recebimento/pagamento", ["BaixaTitulo"] = "Conta quitada", ["BaixaForma"] = "Forma de pagamento usada",
+        ["Lead"] = "Lead (interessado)", ["LeadInteracao"] = "Contato com lead", ["LembreteTratado"] = "Lembrete tratado",
+        ["ReajustePreco"] = "Reajuste de preços", ["ReajusteItem"] = "Item do reajuste"
     };
 
     /// <summary>Nome amigável da entidade gravado na auditoria.</summary>

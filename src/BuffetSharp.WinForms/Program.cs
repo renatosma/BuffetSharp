@@ -93,6 +93,7 @@ internal static class Program
         services.AddSingleton(configuracao.GetSection(EmailOptions.Secao).Get<EmailOptions>() ?? new EmailOptions());
         services.AddSingleton(configuracao.GetSection(BackupOptions.Secao).Get<BackupOptions>() ?? new BackupOptions());
         services.AddSingleton(configuracao.GetSection(LogOptions.Secao).Get<LogOptions>() ?? new LogOptions());
+        services.AddSingleton(configuracao.GetSection(LembretesOptions.Secao).Get<LembretesOptions>() ?? new LembretesOptions());
         services.AddAplicacao();
         services.AddInfraestrutura(configuracao.GetConnectionString("Buffet"),
             CatalogoProvedores.Interpretar(configuracao["BancoDeDados:Provedor"]));

@@ -12,7 +12,9 @@ using BuffetSharp.WinForms.Infra;
 namespace BuffetSharp.WinForms.Formularios.Comercial;
 
 /// <summary>Parâmetros de abertura do editor (evita ambiguidade entre dois inteiros na injeção).</summary>
-internal sealed record AberturaOrcamento(int OrcamentoId = 0, int ClienteId = 0);
+/// <param name="TipoEventoId">Sugestões para um orçamento novo (ex.: o que o lead convertido informou).</param>
+internal sealed record AberturaOrcamento(int OrcamentoId = 0, int ClienteId = 0, int? TipoEventoId = null, DateOnly? Data = null,
+    int? Convidados = null);
 
 /// <summary>
 /// Editor de orçamento: dados do evento, pacote e espaço com valores negociáveis, serviços adicionais,
@@ -166,8 +168,17 @@ internal sealed class FormOrcamentoEdicao : FormBase
             _condicoes = await _condicoesPagamento.ListarAsync(q => q.OrderBy(c => c.Nome));
 
             _input = _abertura.OrcamentoId > 0 ? await _servico.ObterAsync(_abertura.OrcamentoId) : _servico.Novo();
-            if (_abertura.OrcamentoId == 0 && _abertura.ClienteId > 0)
-                _input.ClienteId = _abertura.ClienteId;
+            if (_abertura.OrcamentoId == 0)
+            {
+                if (_abertura.ClienteId > 0)
+                    _input.ClienteId = _abertura.ClienteId;
+                if (_abertura.TipoEventoId is { } tipoEventoId)
+                    _input.TipoEventoId = tipoEventoId;
+                if (_abertura.Data is { } data && data > DateOnly.FromDateTime(DateTime.Today))
+                    _input.Data = data;
+                if (_abertura.Convidados is > 0 and var convidados)
+                    _input.Convidados = convidados;
+            }
 
             MontarCampos(clientes, tipos, vendedores);
             _editor.Carregar();

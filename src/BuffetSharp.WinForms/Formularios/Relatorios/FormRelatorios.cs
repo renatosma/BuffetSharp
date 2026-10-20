@@ -9,6 +9,7 @@ namespace BuffetSharp.WinForms.Formularios.Relatorios;
 internal sealed class FormRelatorios : FormBase
 {
     private readonly IConsultasRelatorios _relatorios;
+    private readonly IConsultasLeads _leads;
     private readonly DateTimePicker _de = new() { Format = DateTimePickerFormat.Short, Width = 130, Value = new DateTime(DateTime.Today.Year, 1, 1) };
     private readonly DateTimePicker _ate = new() { Format = DateTimePickerFormat.Short, Width = 130, Value = new DateTime(DateTime.Today.Year, 12, 31) };
     private readonly TabControl _abas = new() { Dock = DockStyle.Fill, Padding = new Point(14, 6) };
@@ -21,10 +22,14 @@ internal sealed class FormRelatorios : FormBase
     private readonly Grade<FluxoCaixaMes> _fluxo = new();
     private readonly GraficoBarras _graficoFluxo = new() { Dock = DockStyle.Fill, Titulo = "Fluxo de caixa realizado: recebido x pago" };
     private readonly Grade<ConversaoOrcamentos> _conversao = new();
+    private readonly Grade<FunilOrigem> _funil = new();
+    private readonly GraficoBarras _graficoFunil = new() { Dock = DockStyle.Fill, Titulo = "Leads x convertidos x eventos fechados, por canal de origem",
+        FormatoValor = v => v.ToString("N0") };
 
-    public FormRelatorios(IConsultasRelatorios relatorios)
+    public FormRelatorios(IConsultasRelatorios relatorios, IConsultasLeads leads)
     {
         _relatorios = relatorios;
+        _leads = leads;
         Text = "Relatórios";
 
         _porTipo.Texto("Tipo de evento", t => t.TipoEvento, 40).Numero("Eventos", t => t.QuantidadeEventos, peso: 15)
@@ -45,6 +50,11 @@ internal sealed class FormRelatorios : FormBase
             .Moeda("Saldo realizado", f => f.SaldoRealizado, 25, f => f.SaldoRealizado < 0 ? Tema.Perigo : Tema.Sucesso);
         _conversao.Texto("Situação do orçamento", c => c.Status, 40).Numero("Quantidade", c => c.Quantidade, peso: 20)
             .Moeda("Valor", c => c.Valor, 25);
+        _funil.Texto("Origem", f => Textos.Exibir(f.Origem), 30).Numero("Leads", f => f.Leads, peso: 14)
+            .Numero("Em negociação", f => f.EmAberto, peso: 18).Numero("Convertidos", f => f.Convertidos, peso: 16)
+            .Numero("Perdidos", f => f.Perdidos, peso: 14).Numero("Conversão %", f => f.TaxaConversao, "N1", 16)
+            .Numero("Eventos fechados", f => f.EventosFechados, peso: 18).Moeda("Valor fechado", f => f.ValorFechado, 25)
+            .Numero("Fechamento %", f => f.TaxaFechamento, "N1", 16);
 
         _abas.TabPages.Add(Aba("Faturamento por tipo", Dividir(_porTipo.Controle, _graficoTipo)));
         _abas.TabPages.Add(Aba("Ranking de pacotes", _pacotes.Controle));
@@ -54,6 +64,7 @@ internal sealed class FormRelatorios : FormBase
         _abas.TabPages.Add(Aba("Lucratividade por evento", lucro));
         _abas.TabPages.Add(Aba("Fluxo de caixa", Dividir(_fluxo.Controle, _graficoFluxo)));
         _abas.TabPages.Add(Aba("Conversão de orçamentos", _conversao.Controle));
+        _abas.TabPages.Add(Aba("Funil de leads", Dividir(_funil.Controle, _graficoFunil)));
 
         var filtros = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(20, 4, 20, 8) };
         var gerar = Tema.BotaoPrimario("Gerar", Icones.Atualizar);
@@ -127,6 +138,13 @@ internal sealed class FormRelatorios : FormBase
             new GraficoBarras.Serie("Pago", Tema.Perigo, fluxo.Select(f => f.Pago).ToList()));
 
         _conversao.Carregar(await _relatorios.ConversaoOrcamentosAsync(de, ate));
+
+        var funil = await _leads.FunilPorOrigemAsync(de, ate);
+        _funil.Carregar(funil);
+        _graficoFunil.Definir(funil.Select(f => Textos.Exibir(f.Origem)).ToList(),
+            new GraficoBarras.Serie("Leads", Tema.Info, funil.Select(f => (decimal)f.Leads).ToList()),
+            new GraficoBarras.Serie("Convertidos", Tema.SerieA, funil.Select(f => (decimal)f.Convertidos).ToList()),
+            new GraficoBarras.Serie("Eventos fechados", Tema.Sucesso, funil.Select(f => (decimal)f.EventosFechados).ToList()));
     });
 
     private (string Titulo, string[] Cabecalho, List<string[]> Linhas, string Csv) AbaAtual() => _abas.SelectedIndex switch
@@ -135,7 +153,8 @@ internal sealed class FormRelatorios : FormBase
         1 => Dados(_pacotes),
         2 => Dados(_lucro),
         3 => Dados(_fluxo),
-        _ => Dados(_conversao)
+        4 => Dados(_conversao),
+        _ => Dados(_funil)
     };
 
     private (string, string[], List<string[]>, string) Dados<T>(Grade<T> grade) where T : class

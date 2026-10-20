@@ -1,6 +1,7 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Servicos;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace BuffetSharp.Application;
 
@@ -26,6 +27,12 @@ public static class DependencyInjection
         services.AddTransient<PropostaService>();
         services.AddTransient<DegustacaoService>();
         services.AddTransient<ComissaoService>();
+        services.AddTransient<LeadService>();
+        services.AddTransient<LembreteService>();
+        services.AddTransient<ReajusteService>();
+
+        // Configurações com valor padrão quando a aplicação não as registra (ex.: testes).
+        services.TryAddSingleton(new LembretesOptions());
         return services;
     }
 }

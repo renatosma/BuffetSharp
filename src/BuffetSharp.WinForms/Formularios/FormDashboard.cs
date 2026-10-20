@@ -1,5 +1,6 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
+using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Seguranca;
 using BuffetSharp.WinForms.Controles;
 using BuffetSharp.WinForms.Formularios.Eventos;
@@ -11,6 +12,7 @@ namespace BuffetSharp.WinForms.Formularios;
 internal sealed class FormDashboard : FormBase
 {
     private readonly IConsultasDashboard _consultas;
+    private readonly LembreteService _lembretes;
     private readonly Navegador _navegador;
 
     private readonly CartaoIndicador _eventosMes = new("Eventos no mês", "-", Tema.Primaria);
@@ -22,15 +24,17 @@ internal sealed class FormDashboard : FormBase
     private readonly CartaoIndicador _conversao = new("Conversão (90 dias)", "-", Tema.Info);
     private readonly CartaoIndicador _estoque = new("Estoque a repor", "-", Tema.Alerta);
     private readonly CartaoIndicador _saldoContas = new("Caixa e bancos", "-", Tema.Sucesso);
+    private readonly CartaoIndicador _pendencias = new("Lembretes de hoje", "-", Tema.Info) { Cursor = Cursors.Hand };
 
     private readonly GraficoBarras _grafico = new() { Dock = DockStyle.Fill, Titulo = "Faturamento: contratado (data do evento) x recebido" };
     private readonly Grade<ProximoEvento> _proximos = new();
     private readonly Grade<TituloVencido> _vencidas = new();
     private readonly Grade<ProdutoAlerta> _alertas = new();
 
-    public FormDashboard(IConsultasDashboard consultas, Navegador navegador, ISessaoUsuario sessao)
+    public FormDashboard(IConsultasDashboard consultas, LembreteService lembretes, Navegador navegador, ISessaoUsuario sessao)
     {
         _consultas = consultas;
+        _lembretes = lembretes;
         _navegador = navegador;
         Text = "Painel";
 
@@ -55,6 +59,8 @@ internal sealed class FormDashboard : FormBase
             .Texto("Un.", p => p.Unidade, 10);
 
         var cartoes = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(14, 4, 14, 4) };
+        cartoes.Controls.Add(_pendencias);
+        _pendencias.Click += (_, _) => _navegador.Abrir<FormLembretes>();
         cartoes.Controls.AddRange([_eventosMes, _faturamentoMes, _recebidoMes, _vencido, _aPagar, _orcamentos, _conversao, _estoque]);
 
         // Saldo de caixa e bancos: só para quem cuida do financeiro.
@@ -123,6 +129,10 @@ internal sealed class FormDashboard : FormBase
         _grafico.Definir(r.FaturamentoMensal.Select(m => m.Rotulo).ToList(),
             new GraficoBarras.Serie("Contratado", Tema.SerieA, r.FaturamentoMensal.Select(m => m.Valor).ToList()),
             new GraficoBarras.Serie("Recebido", Tema.SerieB, r.FaturamentoMensal.Select(m => m.Valor2).ToList()));
+
+        var lembretes = await _lembretes.ListarAsync();
+        _pendencias.Atualizar(lembretes.Count.ToString(), lembretes.Count == 0 ? "nada pendente" : "clique para ver",
+            lembretes.Count == 0 ? Tema.Sucesso : Tema.Alerta);
 
         _proximos.Carregar(r.ProximosEventos);
         _vencidas.Carregar(r.ParcelasVencidas);

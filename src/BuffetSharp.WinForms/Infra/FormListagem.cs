@@ -15,6 +15,7 @@ internal abstract class FormListagem : FormBase
     protected readonly Label Rodape;
     private readonly string _titulo;
     private readonly System.Windows.Forms.Timer _atrasoBusca = new() { Interval = 250 };
+    private readonly SemaphoreSlim _carga = new(1, 1);
 
     protected FormListagem(string titulo, string? subtitulo = null)
     {
@@ -95,7 +96,22 @@ internal abstract class FormListagem : FormBase
     {
     }
 
-    protected Task RecarregarAsync() => ExecutarAsync(CarregarAsync);
+    /// <summary>
+    /// Recarrega em fila: mudar dois filtros seguidos dispara duas cargas, e a de filtros antigos não pode terminar depois
+    /// da nova e deixar a grade desatualizada. Cada carga lê os filtros quando começa, então a última mostra o estado atual.
+    /// </summary>
+    protected Task RecarregarAsync() => ExecutarAsync(async () =>
+    {
+        await _carga.WaitAsync();
+        try
+        {
+            await CarregarAsync();
+        }
+        finally
+        {
+            _carga.Release();
+        }
+    });
 
     protected override async void OnLoad(EventArgs e)
     {

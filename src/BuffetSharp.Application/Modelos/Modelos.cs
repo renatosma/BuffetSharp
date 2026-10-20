@@ -374,3 +374,61 @@ public sealed record MensagemWhatsApp(string Telefone, string Texto)
 
     public string Link => $"https://wa.me/{TelefoneInternacional}?text={Uri.EscapeDataString(Texto)}";
 }
+
+public sealed class LeadInput
+{
+    public int Id { get; set; }
+
+    /// <summary>Versão lida do banco (concorrência otimista); nula em registros novos.</summary>
+    public int? Versao { get; set; }
+    public string Nome { get; set; } = string.Empty;
+    public string? Telefone { get; set; }
+    public string? Email { get; set; }
+    public OrigemLead Origem { get; set; } = OrigemLead.Instagram;
+    public string? DetalheOrigem { get; set; }
+    public int? TipoEventoId { get; set; }
+    public DateOnly? DataPrevista { get; set; }
+    public int? Convidados { get; set; }
+    public int? ResponsavelId { get; set; }
+    public DateOnly? ProximoContato { get; set; }
+    public string? Observacoes { get; set; }
+
+    /// <summary>Somente leitura.</summary>
+    public StatusLead Status { get; set; } = StatusLead.Novo;
+}
+
+/// <summary>Como o lead vira cliente: cadastrando um cliente novo com os dados dele ou ligando a um cliente existente.</summary>
+public sealed class ConversaoLeadInput
+{
+    public int LeadId { get; set; }
+
+    /// <summary>Cliente já cadastrado; nulo para cadastrar um novo com os dados do lead.</summary>
+    public int? ClienteExistenteId { get; set; }
+}
+
+/// <summary>Reajuste das tabelas de preço (novo ou simulação).</summary>
+public sealed class ReajusteInput
+{
+    public string Descricao { get; set; } = string.Empty;
+    public decimal Percentual { get; set; }
+    public DateOnly VigenciaEm { get; set; }
+    public bool Pacotes { get; set; } = true;
+    public bool Servicos { get; set; } = true;
+    public bool Espacos { get; set; }
+    public ArredondamentoPreco Arredondamento { get; set; } = ArredondamentoPreco.Centavos;
+
+    public AlcanceReajuste Alcance =>
+        (Pacotes ? AlcanceReajuste.Pacotes : 0) | (Servicos ? AlcanceReajuste.Servicos : 0) | (Espacos ? AlcanceReajuste.Espacos : 0);
+}
+
+/// <summary>Preço de um item antes e depois do reajuste (simulação ou histórico).</summary>
+public sealed record ItemReajusteInfo(TipoItemReajuste Tipo, int ItemId, string Nome, decimal ValorAnterior, decimal ValorNovo)
+{
+    public decimal Diferenca => ValorNovo - ValorAnterior;
+}
+
+public sealed record ReajusteResumo(int Id, string Descricao, decimal Percentual, DateOnly VigenciaEm, AlcanceReajuste Alcance,
+    ArredondamentoPreco Arredondamento, StatusReajuste Status, int Itens, DateTime? AplicadoEm, DateTime? DesfeitoEm, string? Usuario);
+
+/// <summary>Resultado do desfazer: os itens alterados à mão depois do reajuste não voltam ao preço anterior.</summary>
+public sealed record ResultadoDesfazerReajuste(int Restaurados, IReadOnlyList<string> Mantidos);

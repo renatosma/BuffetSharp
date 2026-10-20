@@ -79,6 +79,33 @@ internal sealed class FormPrincipal : FormBase
         _navegador.Configurar(_abas);
         _navegador.Abrir<FormDashboard>();
         _ = BackupAutomaticoAsync();
+        _ = RotinasDiariasAsync();
+    }
+
+    /// <summary>
+    /// Depois do login, em segundo plano: aplica os reajustes de preço cuja vigência chegou e, se configurado, envia os
+    /// lembretes automáticos por e-mail. Falhas ficam no log, sem interromper o usuário.
+    /// </summary>
+    private async Task RotinasDiariasAsync()
+    {
+        try
+        {
+            await _navegador.Servico<ReajusteService>().AplicarPendentesAsync();
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Os reajustes de preço agendados não foram aplicados");
+        }
+
+        try
+        {
+            if (_sessao.Usuario?.PossuiPerfil(PerfilUsuario.Comercial, PerfilUsuario.Financeiro) == true)
+                await Task.Run(() => _navegador.Servico<LembreteService>().EnviarEmailsAutomaticosAsync());
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Os lembretes automáticos por e-mail não foram enviados");
+        }
     }
 
     /// <summary>Cópia de segurança diária em segundo plano; uma falha fica no log e na barra de status, sem interromper o usuário.</summary>
@@ -131,7 +158,9 @@ internal sealed class FormPrincipal : FormBase
         [
             new("", "Painel", Icones.Inicio, todos, () => n.Abrir<FormDashboard>()),
             new("", "Agenda", Icones.Calendario, todos, () => n.Abrir<FormAgenda>()),
+            new("", "Lembretes", Icones.Relogio, todos, () => n.Abrir<FormLembretes>()),
 
+            new("COMERCIAL", "Leads (funil)", Icones.Filtro, [Adm, Com], () => n.Abrir<FormLeads>()),
             new("COMERCIAL", "Orçamentos", Icones.Documento, [Adm, Com], () => n.Abrir<FormOrcamentos>()),
             new("COMERCIAL", "Clientes", Icones.Contato, [Adm, Com, Fin], () => Cadastro(DefinicoesCadastros.Clientes)),
             new("COMERCIAL", "Degustações", Icones.Estrela, [Adm, Com], () => n.Abrir<FormDegustacoes>()),
@@ -142,6 +171,7 @@ internal sealed class FormPrincipal : FormBase
 
             new("CARDÁPIO", "Itens do cardápio", Icones.Lista, [Adm, Com, Ope], () => n.Abrir<FormItensCardapio>()),
             new("CARDÁPIO", "Pacotes", Icones.Biblioteca, [Adm, Com, Ope], () => n.Abrir<FormPacotes>()),
+            new("CARDÁPIO", "Reajuste de preços", Icones.Calculadora, [Adm, Com], () => n.Abrir<FormReajustes>()),
 
             new("ESTOQUE", "Produtos", Icones.Carrinho, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Produtos)),
             new("ESTOQUE", "Movimentações", Icones.Historico, [Adm, Ope], () => n.Abrir<FormMovimentacoes>()),

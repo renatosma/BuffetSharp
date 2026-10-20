@@ -66,6 +66,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await CriarDegustacoesAsync(ct);
         await FecharComissoesAsync(ct);
         await CriarCompraParceladaAsync(ct);
+        await CriarLeadsAsync(ct);
     }
 
     // =====================================================================
@@ -1057,6 +1058,82 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             };
             Pagar(fechamento.ContaPagar!, ate.AddDays(5), _formas["PIX"]);
             db.FechamentosComissao.Add(fechamento);
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    // =====================================================================
+    // Funil comercial (sorteios próprios: não mudam a sequência dos demais dados)
+    // =====================================================================
+
+    private async Task CriarLeadsAsync(CancellationToken ct)
+    {
+        var rnd = new Random(55);
+        T Sortear<T>(T[] opcoes) => opcoes[rnd.Next(opcoes.Length)];
+        OrigemLead[] origens =
+        [
+            OrigemLead.Instagram, OrigemLead.Instagram, OrigemLead.Instagram, OrigemLead.Indicacao, OrigemLead.Indicacao,
+            OrigemLead.Google, OrigemLead.Site, OrigemLead.WhatsApp, OrigemLead.Feira, OrigemLead.Facebook, OrigemLead.Visita
+        ];
+        string[] conversas =
+        [
+            "Pediu fotos dos salões e o cardápio.", "Quer conhecer o espaço no sábado.", "Comparando com outros dois buffets.",
+            "Enviei as opções de pacote por WhatsApp.", "Perguntou sobre opções vegetarianas.", "Vai confirmar a data com a família."
+        ];
+        string[] motivos =
+        [
+            "Preço acima do orçamento do cliente.", "Data indisponível.", "Fechou com outro buffet.", "Desistiu do evento.",
+            "Não respondeu mais."
+        ];
+        var usuario = _vendedores[0];
+
+        // Clientes que fecharam negócio: boa parte chegou como lead alguns dias antes do primeiro orçamento.
+        foreach (var (orcamento, _, criacao) in _negociacoes.Where(n => n.Criacao >= Hoje.AddMonths(-10))
+                     .GroupBy(n => n.Orcamento.ClienteId).Select(g => g.OrderBy(n => n.Criacao).First()))
+        {
+            if (rnd.NextDouble() > 0.55)
+                continue;
+            var cliente = _clientesPf.Concat(_clientesPj).First(c => c.Id == orcamento.ClienteId);
+            var contato = criacao.ToDateTime(new TimeOnly(10, 0)).AddDays(-rnd.Next(3, 15));
+            var lead = new Lead(cliente.Nome, cliente.Celular ?? cliente.Telefone, cliente.Email, Sortear(origens)) { CriadoEm = contato };
+            lead.Alterar(lead.Nome, lead.Telefone, lead.Email, lead.Origem, lead.Origem == OrigemLead.Indicacao ? "Indicação de cliente antigo" : null,
+                orcamento.TipoEventoId, orcamento.DataEvento, orcamento.QuantidadeConvidados, usuario.Id, null);
+            lead.RegistrarContato(Sortear(conversas), usuario.Login, contato.AddHours(2), null);
+            lead.Converter(cliente, usuario.Login, criacao.ToDateTime(new TimeOnly(9, 30)));
+            db.Leads.Add(lead);
+        }
+
+        string NovoNome() => $"{Sortear(PrimeirosNomes)} {Sortear(Sobrenomes)}";
+        string Celular() => $"(11) 9{rnd.Next(1000, 9999)}-{rnd.Next(1000, 9999)}";
+        var tipos = _tipos.Values.ToArray();
+
+        // Perdidos ao longo do ano.
+        for (var i = 0; i < 14; i++)
+        {
+            var contato = Agora.AddDays(-rnd.Next(20, 330));
+            var lead = new Lead(NovoNome(), Celular(), null, Sortear(origens)) { CriadoEm = contato };
+            lead.Alterar(lead.Nome, lead.Telefone, null, lead.Origem, null, Sortear(tipos).Id,
+                DateOnly.FromDateTime(contato.AddDays(rnd.Next(60, 240))), rnd.Next(5, 25) * 10, usuario.Id, null);
+            lead.RegistrarContato(Sortear(conversas), usuario.Login, contato.AddHours(3), null);
+            lead.MarcarPerdido(Sortear(motivos), usuario.Login, contato.AddDays(rnd.Next(3, 15)));
+            db.Leads.Add(lead);
+        }
+
+        // Em negociação: novos (sem contato ainda) e em contato com retorno atrasado, hoje ou nos próximos dias.
+        for (var i = 0; i < 10; i++)
+        {
+            var contato = Agora.AddDays(-rnd.Next(0, 20)).AddHours(-rnd.Next(1, 6));
+            var lead = new Lead(NovoNome(), Celular(), null, Sortear(origens)) { CriadoEm = contato };
+            lead.Alterar(lead.Nome, lead.Telefone, null, lead.Origem, null, Sortear(tipos).Id,
+                DateOnly.FromDateTime(Agora.AddDays(rnd.Next(45, 300))), rnd.Next(5, 25) * 10, usuario.Id,
+                "Chegou pelo formulário do site.");
+            if (i >= 3)
+            {
+                var retorno = DateOnly.FromDateTime(Agora).AddDays(rnd.Next(-3, 6));
+                lead.RegistrarContato(Sortear(conversas), usuario.Login, contato.AddHours(1),
+                    retorno < DateOnly.FromDateTime(contato.AddHours(1)) ? null : retorno);
+            }
+            db.Leads.Add(lead);
         }
         await db.SaveChangesAsync(ct);
     }
