@@ -164,6 +164,25 @@ public sealed class EntradaEstoqueInput
     public decimal CustoUnitario { get; set; }
 
     public string? Observacao { get; set; }
+
+    /// <summary>Lança o valor da compra (quantidade × custo) em contas a pagar, na mesma gravação da entrada.</summary>
+    public bool GerarContaPagar { get; set; }
+
+    public CategoriaDespesa Categoria { get; set; } = CategoriaDespesa.Insumos;
+
+    /// <summary>Nota fiscal ou boleto do fornecedor.</summary>
+    public string? Documento { get; set; }
+
+    /// <summary>Vencimento da conta (ou da primeira parcela).</summary>
+    public DateOnly? Vencimento { get; set; }
+
+    /// <summary>1 = conta única; mais de 1 = compra parcelada (parcelamento PAR-xxxxx).</summary>
+    public int Parcelas { get; set; } = 1;
+
+    /// <summary>Dias entre as parcelas; nulo ou zero = mensais (mesmo dia de cada mês).</summary>
+    public int? IntervaloDias { get; set; }
+
+    public decimal ValorCompra => Math.Round(Quantidade * CustoUnitario, 2);
 }
 
 /// <summary>Recebimento ou pagamento de uma ou mais contas da mesma pessoa, com uma ou mais formas.</summary>

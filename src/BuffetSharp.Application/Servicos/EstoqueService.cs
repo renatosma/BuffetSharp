@@ -2,6 +2,7 @@ using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
+using BuffetSharp.Domain.Financeiro;
 using Microsoft.EntityFrameworkCore;
 
 namespace BuffetSharp.Application.Servicos;
@@ -12,11 +13,14 @@ public sealed class EstoqueService(IBuffetDbContextFactory fabrica, TimeProvider
         string? observacao, CancellationToken ct = default) =>
         MovimentarAsync(produtoId, (p, agora) => p.RegistrarEntrada(quantidade, custoUnitario, agora, observacao), ct);
 
-    /// <summary>Entrada de uma compra: converte a embalagem do fornecedor para a unidade do estoque.</summary>
+    /// <summary>
+    /// Entrada de uma compra: converte a embalagem do fornecedor para a unidade do estoque e, se pedido, lança o valor em
+    /// contas a pagar (conta única ou compra parcelada) na mesma gravação.
+    /// </summary>
     public async Task<MovimentacaoEstoque> RegistrarCompraAsync(EntradaEstoqueInput input, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var produto = await db.Produtos.FirstOrDefaultAsync(p => p.Id == input.ProdutoId, ct)
+        var produto = await db.Produtos.Include(p => p.UnidadeMedida).FirstOrDefaultAsync(p => p.Id == input.ProdutoId, ct)
                       ?? throw new RegraNegocioException("Produto não encontrado.");
         var embalagem = input.ProdutoEmbalagemId is { } embalagemId
             ? await db.ProdutoEmbalagens.AsNoTracking().Include(e => e.UnidadeMedida).FirstOrDefaultAsync(e => e.Id == embalagemId, ct)
@@ -26,8 +30,39 @@ public sealed class EstoqueService(IBuffetDbContextFactory fabrica, TimeProvider
         var movimentacao = produto.RegistrarCompra(input.Quantidade, input.CustoUnitario, relogio.GetLocalNow().DateTime,
             input.Observacao, input.FornecedorId, embalagem);
         db.MovimentacoesEstoque.Add(movimentacao);
+        if (input.GerarContaPagar)
+            LancarContaPagar(db, input, produto, embalagem);
         await db.SaveChangesAsync(ct);
         return movimentacao;
+    }
+
+    private static void LancarContaPagar(IBuffetDbContext db, EntradaEstoqueInput input, Produto produto, ProdutoEmbalagem? embalagem)
+    {
+        Validador.Garantir(input.ValorCompra > 0, "Informe o custo da compra para lançar a conta a pagar.");
+        Validador.Garantir(input.Vencimento is not null, "Informe o vencimento da conta a pagar.");
+        Validador.Garantir(input.Parcelas is >= 1 and <= 24, "As parcelas devem estar entre 1 e 24.");
+
+        var descricao = $"Compra de {produto.Nome}";
+        var unidade = embalagem?.UnidadeMedida?.Sigla ?? produto.UnidadeMedida?.Sigla ?? "";
+        var observacao = $"Entrada de estoque: {input.Quantidade:0.###} {unidade} a {input.CustoUnitario:C2}".Trim() +
+                         (string.IsNullOrWhiteSpace(input.Observacao) ? "" : $" - {input.Observacao.Trim()}");
+        observacao = observacao[..Math.Min(observacao.Length, ParcelamentoPagar.TamanhoObservacao)];
+
+        if (input.Parcelas == 1)
+        {
+            var conta = new ContaPagar(descricao, input.Categoria, input.ValorCompra, input.Vencimento!.Value, input.FornecedorId)
+            {
+                Observacao = observacao
+            };
+            conta.DefinirDocumento(input.Documento);
+            db.ContasPagar.Add(conta);
+            return;
+        }
+
+        var parcelamento = new ParcelamentoPagar(descricao, input.Categoria, input.ValorCompra, input.FornecedorId, null, input.Documento,
+            observacao);
+        parcelamento.GerarParcelas(input.Parcelas, input.Vencimento!.Value, intervaloDias: input.IntervaloDias is > 0 ? input.IntervaloDias : null);
+        db.ParcelamentosPagar.Add(parcelamento);
     }
 
     /// <summary>Embalagens de compra do produto (com fornecedor e unidade), para a tela de entrada.</summary>

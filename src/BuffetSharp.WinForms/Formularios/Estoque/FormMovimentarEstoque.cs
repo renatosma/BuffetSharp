@@ -25,7 +25,13 @@ internal static class FormMovimentarEstoque
         editor.Informacao("Custo médio atual", () => produto.CustoMedio.ToString("C4"));
 
         // Entrada: compra na unidade do fornecedor (caixa, fardo...) convertida para a unidade do estoque.
-        var compra = new EntradaEstoqueInput { ProdutoId = produto.Id, FornecedorId = produto.FornecedorId };
+        var compra = new EntradaEstoqueInput
+        {
+            ProdutoId = produto.Id,
+            FornecedorId = produto.FornecedorId,
+            GerarContaPagar = true,
+            Vencimento = DateOnly.FromDateTime(DateTime.Today)
+        };
         List<ProdutoEmbalagem> embalagens = [];
         switch (tipo)
         {
@@ -39,10 +45,38 @@ internal static class FormMovimentarEstoque
                 var campoQuantidade = editor.Decimal("Quantidade (na unidade de compra)", () => quantidade, v => quantidade = v, casas: 3);
                 var campoCusto = editor.Decimal("Custo por unidade de compra (R$)", () => custo, v => custo = v, casas: 4);
                 var conversao = editor.Informacao("Entra no estoque", () => Conversao(null, quantidade, custo), span: 2);
+                editor.Texto("Observação", () => observacao, v => observacao = v, maximo: 300, span: 2,
+                    dica: "Ex.: reposição para os eventos da semana");
+
+                // Conta a pagar da compra: gravada junto com a entrada (conta única ou compra parcelada).
+                editor.Secao("Conta a pagar");
+                var gerar = editor.Marcador("Lançar a compra em contas a pagar", () => compra.GerarContaPagar, v => compra.GerarContaPagar = v, span: 2);
+                var valorCompra = editor.Informacao("Valor da compra", () => Textos.Moeda(Math.Round(quantidade * custo, 2)));
+                var categoria = editor.Opcoes("Categoria", () => compra.Categoria, v => compra.Categoria = v);
+                var documento = editor.Texto("Documento (NF / boleto)", () => compra.Documento, v => compra.Documento = v,
+                    maximo: Domain.Financeiro.ContaPagar.TamanhoDocumento, dica: "Ex.: NF 1234");
+                var vencimento = editor.Data("Vencimento (1ª parcela)", () => compra.Vencimento, v => compra.Vencimento = v);
+                var parcelas = editor.Inteiro("Parcelas", () => compra.Parcelas, v => compra.Parcelas = v, minimo: 1, maximo: 24);
+                var intervalo = editor.Inteiro("Dias entre parcelas (0 = mensal)", () => compra.IntervaloDias ?? 0,
+                    v => compra.IntervaloDias = v > 0 ? v : null, maximo: 365);
+                Control[] camposConta = [categoria, documento, vencimento, parcelas];
+                void HabilitarConta()
+                {
+                    foreach (var campo in camposConta)
+                        campo.Enabled = gerar.Checked;
+                    intervalo.Enabled = gerar.Checked && parcelas.Value > 1;
+                }
+                gerar.CheckedChanged += (_, _) => HabilitarConta();
+                parcelas.ValueChanged += (_, _) => HabilitarConta();
+                editor.AoCarregar(HabilitarConta);
 
                 ProdutoEmbalagem? Selecionada() =>
                     embalagem.SelectedItem is ItemLookup { Id: > 0 } item ? embalagens.FirstOrDefault(x => x.Id == item.Id) : null;
-                void Atualizar() => conversao.Text = Conversao(Selecionada(), campoQuantidade.Value, campoCusto.Value);
+                void Atualizar()
+                {
+                    conversao.Text = Conversao(Selecionada(), campoQuantidade.Value, campoCusto.Value);
+                    valorCompra.Text = Textos.Moeda(Math.Round(campoQuantidade.Value * campoCusto.Value, 2));
+                }
 
                 fornecedor.SelectionChangeCommitted += (_, _) =>
                 {
@@ -69,8 +103,8 @@ internal static class FormMovimentarEstoque
                 editor.Decimal($"Saldo contado no inventário ({unidade})", () => saldoContado, v => saldoContado = v, casas: 3, span: 2);
                 break;
         }
-        editor.Texto("Observação", () => observacao, v => observacao = v, maximo: 300, span: 2,
-            dica: tipo == TipoMovimentacao.Entrada ? "Ex.: NF 1234 - Atacadão" : "Motivo da movimentação");
+        if (tipo != TipoMovimentacao.Entrada)
+            editor.Texto("Observação", () => observacao, v => observacao = v, maximo: 300, span: 2, dica: "Motivo da movimentação");
 
         var titulo = tipo switch
         {
@@ -83,15 +117,7 @@ internal static class FormMovimentarEstoque
         {
             _ = tipo switch
             {
-                TipoMovimentacao.Entrada => await servico.RegistrarCompraAsync(new EntradaEstoqueInput
-                {
-                    ProdutoId = produto.Id,
-                    FornecedorId = compra.FornecedorId,
-                    ProdutoEmbalagemId = compra.ProdutoEmbalagemId,
-                    Quantidade = quantidade,
-                    CustoUnitario = custo,
-                    Observacao = observacao
-                }),
+                TipoMovimentacao.Entrada => await servico.RegistrarCompraAsync(Compra()),
                 TipoMovimentacao.Saida => await servico.RegistrarSaidaAsync(produto.Id, quantidade, observacao),
                 _ => await servico.AjustarSaldoAsync(produto.Id, saldoContado, observacao)
             };
@@ -99,6 +125,14 @@ internal static class FormMovimentarEstoque
 
         if (dialogo.ShowDialog(contexto.Dono) == DialogResult.OK)
             await contexto.Recarregar();
+
+        EntradaEstoqueInput Compra()
+        {
+            compra.Quantidade = quantidade;
+            compra.CustoUnitario = custo;
+            compra.Observacao = observacao;
+            return compra;
+        }
 
         // Unidade do estoque + embalagens do fornecedor escolhido (e as que valem para qualquer fornecedor).
         List<ItemLookup> Unidades(int? fornecedorId) =>

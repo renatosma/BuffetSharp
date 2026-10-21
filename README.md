@@ -155,7 +155,8 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   custo e margem.
 - **Estoque**: entrada (com **custo médio ponderado**), saída, inventário e kardex completo. A entrada aceita a
   **embalagem do fornecedor** (ex.: 2 caixas com 12 = 24 UN): quantidade e custo são convertidos para a unidade do
-  estoque e o kardex mostra o que foi comprado.
+  estoque e o kardex mostra o que foi comprado. Na mesma tela, a compra já é lançada em **contas a pagar** (marcado por
+  padrão): conta única ou parcelada, com categoria, nota fiscal e vencimento, gravada junto com a entrada.
 - **Contatos e endereços**: clientes, fornecedores e funcionários têm, além do telefone, e-mail e endereço principais,
   quantos telefones, WhatsApps, e-mails e endereços adicionais forem precisos (com observação: "mãe da noiva",
   "financeiro", "cobrança"...). A pesquisa de clientes e fornecedores encontra também os contatos adicionais.
@@ -270,7 +271,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **251 testes** (xUnit v3): 232 de domínio, integração e bancos, e 19 das telas.
+São **252 testes** (xUnit v3): 233 de domínio, integração e bancos, e 19 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

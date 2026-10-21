@@ -5,6 +5,7 @@ using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
+using Microsoft.EntityFrameworkCore;
 
 namespace BuffetSharp.Tests.Integracao;
 
@@ -208,5 +209,51 @@ public class CadastrosEstendidosIntegracaoTests(BancoFixture banco)
         });
         await cadastro.SalvarAsync(produto, Ct);
         Assert.Equal(2, (await estoque.ListarEmbalagensAsync(produtoId, Ct)).Count);
+    }
+
+    [Fact]
+    public async Task Entrada_de_compra_lanca_a_conta_a_pagar_unica_ou_parcelada()
+    {
+        var produtoId = (await Lookup(TipoLookup.Produtos, p => p.Nome == "Refrigerante 2L")).Id;
+        var fornecedorId = (await Lookup(TipoLookup.Fornecedores)).Id;
+        var estoque = banco.Obter<EstoqueService>();
+        var nota = $"NF {Guid.NewGuid():N}"[..20];
+
+        await estoque.RegistrarCompraAsync(new EntradaEstoqueInput
+        {
+            ProdutoId = produtoId, FornecedorId = fornecedorId, Quantidade = 10, CustoUnitario = 8.75m,
+            GerarContaPagar = true, Documento = nota, Vencimento = Hoje.AddDays(28)
+        }, Ct);
+
+        var parcelada = nota + "P";
+        await estoque.RegistrarCompraAsync(new EntradaEstoqueInput
+        {
+            ProdutoId = produtoId, FornecedorId = fornecedorId, Quantidade = 30, CustoUnitario = 10m,
+            GerarContaPagar = true, Documento = parcelada, Vencimento = Hoje.AddDays(30), Parcelas = 3,
+            Categoria = Domain.Financeiro.CategoriaDespesa.Outros
+        }, Ct);
+
+        await using var db = banco.Obter<Application.Abstracoes.IBuffetDbContextFactory>().Criar();
+        var unica = await db.ContasPagar.SingleAsync(c => c.Documento == nota, Ct);
+        Assert.Equal(87.50m, unica.Valor);
+        Assert.Equal(Hoje.AddDays(28), unica.Vencimento);
+        Assert.Equal(fornecedorId, unica.FornecedorId);
+        Assert.Equal(Domain.Financeiro.CategoriaDespesa.Insumos, unica.Categoria);
+        Assert.StartsWith("Compra de Refrigerante 2L", unica.Descricao);
+
+        var parcelas = await db.ContasPagar.Where(c => c.Documento == parcelada).OrderBy(c => c.Vencimento).ToListAsync(Ct);
+        Assert.Equal(3, parcelas.Count);
+        Assert.Equal(300m, parcelas.Sum(c => c.Valor));
+        Assert.All(parcelas, c => Assert.NotNull(c.ParcelamentoId));
+        Assert.All(parcelas, c => Assert.Equal(Domain.Financeiro.CategoriaDespesa.Outros, c.Categoria));
+        Assert.Equal(Hoje.AddDays(30), parcelas[0].Vencimento);
+
+        // Sem vencimento não há conta: nada é gravado, nem a entrada no estoque.
+        var saldo = (await banco.Obter<ICadastroService<Produto>>().ObterAsync(produtoId, Ct))!.EstoqueAtual;
+        await Assert.ThrowsAsync<RegraNegocioException>(() => estoque.RegistrarCompraAsync(new EntradaEstoqueInput
+        {
+            ProdutoId = produtoId, Quantidade = 5, CustoUnitario = 9m, GerarContaPagar = true
+        }, Ct));
+        Assert.Equal(saldo, (await banco.Obter<ICadastroService<Produto>>().ObterAsync(produtoId, Ct))!.EstoqueAtual);
     }
 }
