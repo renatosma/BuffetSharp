@@ -273,4 +273,46 @@ public class CadastrosEstendidosIntegracaoTests(BancoFixture banco)
         }, Ct));
         Assert.Equal(saldo, (await banco.Obter<ICadastroService<Produto>>().ObterAsync(produtoId, Ct))!.EstoqueAtual);
     }
+
+    [Fact]
+    public async Task Estorno_da_entrada_cancela_a_conta_e_e_recusado_se_ela_ja_foi_paga()
+    {
+        var produtoId = (await Lookup(TipoLookup.Produtos, p => p.Nome == "Refrigerante 2L")).Id;
+        var estoque = banco.Obter<EstoqueService>();
+        var cadastro = banco.Obter<ICadastroService<Produto>>();
+        var antes = (await cadastro.ObterAsync(produtoId, Ct))!;
+
+        var entrada = await estoque.RegistrarCompraAsync(new EntradaEstoqueInput
+        {
+            ProdutoId = produtoId, Quantidade = 12, CustoUnitario = 9.90m, GerarContaPagar = true, Vencimento = Hoje.AddDays(10)
+        }, Ct);
+        var estorno = await estoque.EstornarEntradaAsync(entrada.Id, "Nota lançada no produto errado", Ct);
+
+        var depois = (await cadastro.ObterAsync(produtoId, Ct))!;
+        Assert.Equal(antes.EstoqueAtual, depois.EstoqueAtual);
+        Assert.Equal(antes.CustoMedio, depois.CustoMedio, 2);
+        await using (var db = banco.Obter<Application.Abstracoes.IBuffetDbContextFactory>().Criar())
+            Assert.Equal(Domain.Financeiro.StatusTitulo.Cancelado, (await db.ContasPagar.SingleAsync(c => c.Id == entrada.ContaPagarId, Ct)).Status);
+
+        var kardex = await banco.Obter<IConsultasEstoqueCardapio>().ListarMovimentacoesAsync(DateTime.Today, DateTime.Today, produtoId, ct: Ct);
+        Assert.NotNull(kardex.Single(m => m.Id == entrada.Id).EstornadaEm);
+        Assert.Equal(TipoMovimentacao.Estorno, kardex.Single(m => m.Id == estorno.Id).Tipo);
+        await Assert.ThrowsAsync<RegraNegocioException>(() => estoque.EstornarEntradaAsync(entrada.Id, "De novo", Ct));
+
+        // Com a conta paga, o estorno é recusado e nada muda.
+        var paga = await estoque.RegistrarCompraAsync(new EntradaEstoqueInput
+        {
+            ProdutoId = produtoId, Quantidade = 6, CustoUnitario = 9.90m, GerarContaPagar = true, Vencimento = Hoje
+        }, Ct);
+        await using (var db = banco.Obter<Application.Abstracoes.IBuffetDbContextFactory>().Criar())
+        {
+            var conta = await db.ContasPagar.SingleAsync(c => c.Id == paga.ContaPagarId, Ct);
+            conta.RegistrarPagamento(Hoje, conta.Valor, null);
+            await db.SaveChangesAsync(Ct);
+        }
+        var saldo = (await cadastro.ObterAsync(produtoId, Ct))!.EstoqueAtual;
+        var erro = await Assert.ThrowsAsync<RegraNegocioException>(() => estoque.EstornarEntradaAsync(paga.Id, "Engano", Ct));
+        Assert.Contains("paga", erro.Message);
+        Assert.Equal(saldo, (await cadastro.ObterAsync(produtoId, Ct))!.EstoqueAtual);
+    }
 }

@@ -2233,6 +2233,14 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("data");
 
+                    b.Property<DateTime?>("EstornadaEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("estornadaem");
+
+                    b.Property<int?>("EstornoDeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("estornodeid");
+
                     b.Property<int?>("EventoId")
                         .HasColumnType("integer")
                         .HasColumnName("eventoid");
@@ -2298,6 +2306,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("Data")
                         .HasDatabaseName("ix_movimentacoesestoque_data");
+
+                    b.HasIndex("EstornoDeId")
+                        .HasDatabaseName("ix_movimentacoesestoque_estornodeid");
 
                     b.HasIndex("EventoId")
                         .HasDatabaseName("ix_movimentacoesestoque_eventoid");
@@ -4247,6 +4258,12 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_movimentacoesestoque_contaspagar_contapagarid");
 
+                    b.HasOne("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", "EstornoDe")
+                        .WithMany()
+                        .HasForeignKey("EstornoDeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_movimentacoesestoque_movimentacoesestoque_estornodeid");
+
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
                         .WithMany()
                         .HasForeignKey("EventoId")
@@ -4273,6 +4290,8 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_movimentacoesestoque_produtos_produtoid");
 
                     b.Navigation("ContaPagar");
+
+                    b.Navigation("EstornoDe");
 
                     b.Navigation("ParcelamentoPagar");
 

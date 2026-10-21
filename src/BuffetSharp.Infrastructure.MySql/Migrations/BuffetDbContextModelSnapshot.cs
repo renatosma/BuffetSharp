@@ -1719,6 +1719,12 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<DateTime>("Data")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("EstornadaEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("EstornoDeId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("EventoId")
                         .HasColumnType("int");
 
@@ -1769,6 +1775,8 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.HasIndex("ContaPagarId");
 
                     b.HasIndex("Data");
+
+                    b.HasIndex("EstornoDeId");
 
                     b.HasIndex("EventoId");
 
@@ -3286,6 +3294,11 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasForeignKey("ContaPagarId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", "EstornoDe")
+                        .WithMany()
+                        .HasForeignKey("EstornoDeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
                         .WithMany()
                         .HasForeignKey("EventoId")
@@ -3308,6 +3321,8 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired();
 
                     b.Navigation("ContaPagar");
+
+                    b.Navigation("EstornoDe");
 
                     b.Navigation("ParcelamentoPagar");
 

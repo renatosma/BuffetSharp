@@ -43,6 +43,37 @@ public class CadastrosTests
     }
 
     [Fact]
+    public void Estorno_de_entrada_devolve_o_saldo_e_o_custo_medio_anterior()
+    {
+        var produto = new Produto { Nome = "Filé", CustoMedio = 0 };
+        produto.RegistrarEntrada(10, 80m, DateTime.Now, null);
+        var errada = produto.RegistrarEntrada(10, 100m, DateTime.Now, null);
+
+        var estorno = produto.EstornarEntrada(errada, DateTime.Now, "Lançada em duplicidade");
+
+        Assert.Equal(10, produto.EstoqueAtual);
+        Assert.Equal(80m, produto.CustoMedio);
+        Assert.Equal(TipoMovimentacao.Estorno, estorno.Tipo);
+        Assert.Equal(10, estorno.Quantidade);
+        Assert.True(errada.Estornada);
+        Assert.Same(errada, estorno.EstornoDe);
+        Assert.Throws<RegraNegocioException>(() => produto.EstornarEntrada(errada, DateTime.Now, "De novo"));
+        Assert.Throws<RegraNegocioException>(() => produto.EstornarEntrada(estorno, DateTime.Now, "Estorno do estorno"));
+    }
+
+    [Fact]
+    public void Entrada_ja_usada_nao_pode_ser_estornada()
+    {
+        var produto = new Produto { Nome = "Arroz" };
+        var entrada = produto.RegistrarEntrada(10, 5m, DateTime.Now, null);
+        produto.RegistrarSaida(4, DateTime.Now, "Consumo");
+
+        var erro = Assert.Throws<RegraNegocioException>(() => produto.EstornarEntrada(entrada, DateTime.Now, "Engano"));
+        Assert.Contains("inventário", erro.Message);
+        Assert.Equal(6, produto.EstoqueAtual);
+    }
+
+    [Fact]
     public void Saida_maior_que_o_saldo_e_bloqueada_salvo_quando_permitido()
     {
         var produto = new Produto { Nome = "Arroz" };

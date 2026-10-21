@@ -7,7 +7,10 @@ public enum TipoMovimentacao
 {
     Entrada,
     Saida,
-    Ajuste
+    Ajuste,
+
+    /// <summary>Desfaz uma entrada lançada por engano (tira do estoque a quantidade e o custo dela).</summary>
+    Estorno
 }
 
 /// <summary>
@@ -66,7 +69,36 @@ public class MovimentacaoEstoque : Entidade
     public int? ParcelamentoPagarId { get; private set; }
     public ParcelamentoPagar? ParcelamentoPagar { get; private set; }
 
+    /// <summary>Quando a entrada foi estornada (nulo se não foi).</summary>
+    public DateTime? EstornadaEm { get; private set; }
+
+    /// <summary>No estorno, a entrada que ele desfez.</summary>
+    public int? EstornoDeId { get; private set; }
+    public MovimentacaoEstoque? EstornoDe { get; private set; }
+
+    public bool Estornada => EstornadaEm is not null;
+
     public decimal ValorTotal => Math.Round(Math.Abs(Quantidade) * CustoUnitario, 2);
+
+    internal void MarcarEstornada(MovimentacaoEstoque estorno, DateTime agora)
+    {
+        EstornadaEm = agora;
+        estorno.EstornoDe = this;
+        estorno.EstornoDeId = Id;
+    }
+
+    /// <summary>
+    /// Ao estornar a entrada, a conta da compra é cancelada. Se algo já foi pago, o estorno é recusado: o pagamento precisa
+    /// ser estornado antes, em contas a pagar.
+    /// </summary>
+    public void CancelarContaDaCompra()
+    {
+        var contas = ContaPagar is not null ? [ContaPagar] : ParcelamentoPagar?.Parcelas.ToList() ?? [];
+        Validador.Garantir(contas.All(c => c.Status != StatusTitulo.Pago),
+            "A conta desta compra já foi paga (total ou parcialmente). Estorne o pagamento em contas a pagar antes de estornar a entrada.");
+        foreach (var conta in contas.Where(c => c.Status == StatusTitulo.Aberto))
+            conta.Cancelar();
+    }
 
     /// <summary>Liga a entrada à conta a pagar (ou à compra parcelada) lançada junto com ela.</summary>
     public void VincularConta(ContaPagar? conta, ParcelamentoPagar? parcelamento)

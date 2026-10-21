@@ -68,6 +68,27 @@ public sealed class EstoqueService(IBuffetDbContextFactory fabrica, TimeProvider
         entrada.VincularConta(null, parcelamento);
     }
 
+    /// <summary>
+    /// Estorna uma entrada lançada por engano: o estoque e o custo médio voltam e a conta a pagar da compra (conta única ou
+    /// parcelas) é cancelada. Recusado se a conta já foi paga ou se o produto já foi usado.
+    /// </summary>
+    public async Task<MovimentacaoEstoque> EstornarEntradaAsync(int movimentacaoId, string motivo, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var entrada = await db.MovimentacoesEstoque
+                          .Include(m => m.Produto)
+                          .Include(m => m.ContaPagar)
+                          .Include(m => m.ParcelamentoPagar!).ThenInclude(p => p.Parcelas)
+                          .FirstOrDefaultAsync(m => m.Id == movimentacaoId, ct)
+                      ?? throw new RegraNegocioException("Movimentação não encontrada. Atualize a lista.");
+
+        var estorno = entrada.Produto!.EstornarEntrada(entrada, relogio.GetLocalNow().DateTime, motivo);
+        entrada.CancelarContaDaCompra();
+        db.MovimentacoesEstoque.Add(estorno);
+        await db.SaveChangesAsync(ct);
+        return estorno;
+    }
+
     /// <summary>Embalagens de compra do produto (com fornecedor e unidade), para a tela de entrada.</summary>
     public async Task<List<ProdutoEmbalagem>> ListarEmbalagensAsync(int produtoId, CancellationToken ct = default)
     {

@@ -1,4 +1,5 @@
 using BuffetSharp.Application.Consultas;
+using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.WinForms.Infra;
 
@@ -9,6 +10,7 @@ internal sealed class FormMovimentacoes : FormListagem<MovimentacaoResumo>
 {
     private readonly IConsultasEstoqueCardapio _consultas;
     private readonly IConsultasLookup _lookups;
+    private readonly EstoqueService _estoque;
     private readonly int _produtoInicial;
     private readonly DateTimePicker _de;
     private readonly DateTimePicker _ate;
@@ -16,11 +18,13 @@ internal sealed class FormMovimentacoes : FormListagem<MovimentacaoResumo>
     private readonly ComboBox _tipo = new() { Width = 120, DropDownStyle = ComboBoxStyle.DropDownList };
     private bool _carregouFiltros;
 
-    public FormMovimentacoes(IConsultasEstoqueCardapio consultas, IConsultasLookup lookups, int produtoId = 0)
+    public FormMovimentacoes(IConsultasEstoqueCardapio consultas, IConsultasLookup lookups, EstoqueService estoque, int produtoId = 0)
         : base("Movimentações de estoque", "Kardex com todas as entradas, saídas, ajustes de inventário e consumo dos eventos.")
     {
         _consultas = consultas;
         _lookups = lookups;
+        _estoque = estoque;
+        Botao("Estornar entrada", Icones.Desfazer, EstornarAsync, "Desfaz uma entrada lançada por engano e cancela a conta a pagar dela");
         _produtoInicial = produtoId;
 
         _de = FiltroData("De", DateTime.Today.AddMonths(-3), opcional: false);
@@ -33,8 +37,10 @@ internal sealed class FormMovimentacoes : FormListagem<MovimentacaoResumo>
 
         Grade.Data("Data", m => m.Data, "dd/MM/yyyy HH:mm", 30)
             .Texto("Produto", m => m.Produto, 50)
-            .Status("Tipo", m => m.Tipo, 18)
-            .Numero("Quantidade", m => m.Quantidade, "N3", 22, m => m.Quantidade < 0 || m.Tipo == TipoMovimentacao.Saida ? Tema.Perigo : Tema.Sucesso)
+            .Texto("Tipo", m => Textos.Exibir(m.Tipo) + (m.EstornadaEm is not null ? " (estornada)" : ""), 22,
+                m => m.EstornadaEm is not null ? Tema.Neutro : Textos.Cor(m.Tipo))
+            .Numero("Quantidade", m => m.Quantidade, "N3", 22,
+                m => m.Quantidade < 0 || m.Tipo is TipoMovimentacao.Saida or TipoMovimentacao.Estorno ? Tema.Perigo : Tema.Sucesso)
             .Texto("Un.", m => m.Unidade, 10)
             .Texto("Compra", m => m.Compra, 16)
             .Texto("Fornecedor", m => m.Fornecedor, 30)
@@ -69,5 +75,27 @@ internal sealed class FormMovimentacoes : FormListagem<MovimentacaoResumo>
 
     protected override string TextoRodape(IReadOnlyList<MovimentacaoResumo> visiveis) =>
         $"{visiveis.Count} movimentação(ões)  •  entradas: {Textos.Moeda(visiveis.Where(m => m.Tipo == TipoMovimentacao.Entrada).Sum(m => m.ValorTotal))}" +
-        $"  •  saídas: {Textos.Moeda(visiveis.Where(m => m.Tipo == TipoMovimentacao.Saida).Sum(m => m.ValorTotal))}";
+        $"  •  saídas: {Textos.Moeda(visiveis.Where(m => m.Tipo == TipoMovimentacao.Saida).Sum(m => m.ValorTotal))}" +
+        (visiveis.Any(m => m.Tipo == TipoMovimentacao.Estorno)
+            ? $"  •  estornos: {Textos.Moeda(visiveis.Where(m => m.Tipo == TipoMovimentacao.Estorno).Sum(m => m.ValorTotal))}"
+            : "");
+
+    private async Task EstornarAsync()
+    {
+        if (Selecionado() is not { } entrada)
+            return;
+        if (entrada.Tipo != TipoMovimentacao.Entrada || entrada.EstornadaEm is not null)
+        {
+            Mensagens.Aviso(this, "Selecione uma entrada que ainda não foi estornada.");
+            return;
+        }
+        var conta = entrada.ContaPagar.Length > 0 ? " A conta a pagar da compra será cancelada." : "";
+        var motivo = Dialogos.PedirTexto(this, "Estornar entrada", "Motivo do estorno",
+            subtitulo: $"{entrada.Quantidade:N3} {entrada.Unidade} de {entrada.Produto} em {entrada.Data:dd/MM/yyyy} " +
+                       $"({Textos.Moeda(entrada.ValorTotal)}) saem do estoque e o custo médio é recalculado.{conta}");
+        if (motivo is null)
+            return;
+        await _estoque.EstornarEntradaAsync(entrada.Id, motivo);
+        await CarregarAsync();
+    }
 }

@@ -1787,6 +1787,12 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<DateTime>("Data")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("EstornadaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EstornoDeId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("EventoId")
                         .HasColumnType("int");
 
@@ -1837,6 +1843,8 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.HasIndex("ContaPagarId");
 
                     b.HasIndex("Data");
+
+                    b.HasIndex("EstornoDeId");
 
                     b.HasIndex("EventoId");
 
@@ -3403,6 +3411,11 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .HasForeignKey("ContaPagarId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", "EstornoDe")
+                        .WithMany()
+                        .HasForeignKey("EstornoDeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
                         .WithMany()
                         .HasForeignKey("EventoId")
@@ -3425,6 +3438,8 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .IsRequired();
 
                     b.Navigation("ContaPagar");
+
+                    b.Navigation("EstornoDe");
 
                     b.Navigation("ParcelamentoPagar");
 

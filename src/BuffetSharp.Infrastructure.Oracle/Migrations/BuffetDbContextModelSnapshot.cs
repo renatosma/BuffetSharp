@@ -2228,6 +2228,14 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("DATA");
 
+                    b.Property<DateTime?>("EstornadaEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ESTORNADAEM");
+
+                    b.Property<int?>("EstornoDeId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ESTORNODEID");
+
                     b.Property<int?>("EventoId")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("EVENTOID");
@@ -2293,6 +2301,9 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
 
                     b.HasIndex("Data")
                         .HasDatabaseName("IX_MOVIMENTACOESESTOQUE_DATA");
+
+                    b.HasIndex("EstornoDeId")
+                        .HasDatabaseName("IX_MOVIMENTACOESESTOQUE_ESTORNODEID");
 
                     b.HasIndex("EventoId")
                         .HasDatabaseName("IX_MOVIMENTACOESESTOQUE_EVENTOID");
@@ -4239,6 +4250,12 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("FK_MOVIMENTACOESESTOQUE_CONTASPAGAR_CONTAPAGARID");
 
+                    b.HasOne("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", "EstornoDe")
+                        .WithMany()
+                        .HasForeignKey("EstornoDeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_MOVIMENTACOESESTOQUE_MOVIMENTACOESESTOQUE_ESTORNODEID");
+
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
                         .WithMany()
                         .HasForeignKey("EventoId")
@@ -4265,6 +4282,8 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasConstraintName("FK_MOVIMENTACOESESTOQUE_PRODUTOS_PRODUTOID");
 
                     b.Navigation("ContaPagar");
+
+                    b.Navigation("EstornoDe");
 
                     b.Navigation("ParcelamentoPagar");
 

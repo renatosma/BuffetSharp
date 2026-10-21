@@ -99,6 +99,37 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
         return new MovimentacaoEstoque(this, TipoMovimentacao.Saida, quantidade, CustoMedio, data, observacao, eventoId);
     }
 
+    /// <summary>
+    /// Desfaz uma entrada lançada por engano: o saldo volta e o custo médio é recalculado sem o custo dela. Se o produto já
+    /// foi usado e o saldo não cobre a entrada, o estorno é recusado (corrija pelo inventário).
+    /// </summary>
+    public MovimentacaoEstoque EstornarEntrada(MovimentacaoEstoque entrada, DateTime data, string motivo)
+    {
+        Validador.Garantir(entrada.ProdutoId == Id, "A entrada não é deste produto.");
+        Validador.Garantir(entrada.Tipo == TipoMovimentacao.Entrada, "Somente entradas podem ser estornadas.");
+        Validador.Garantir(!entrada.Estornada, "Esta entrada já foi estornada.");
+        Validador.Garantir(!string.IsNullOrWhiteSpace(motivo), "Informe o motivo do estorno.");
+        Validador.Garantir(entrada.Quantidade <= EstoqueAtual,
+            $"O saldo de '{Nome}' ({EstoqueAtual:N3}) é menor que a entrada ({entrada.Quantidade:N3}): o produto já foi usado. " +
+            "Corrija o saldo pelo inventário em vez de estornar.");
+
+        // Custo médio sem a entrada: valor em estoque menos o valor dela, dividido pelo saldo que sobra.
+        var saldo = EstoqueAtual - entrada.Quantidade;
+        if (saldo > 0)
+        {
+            var custo = Math.Round((EstoqueAtual * CustoMedio - entrada.Quantidade * entrada.CustoUnitario) / saldo, 4);
+            if (custo > 0)
+                CustoMedio = custo;
+        }
+        EstoqueAtual = saldo;
+
+        var texto = $"Estorno da entrada de {entrada.Data:dd/MM/yyyy}: {motivo.Trim()}";
+        var estorno = new MovimentacaoEstoque(this, TipoMovimentacao.Estorno, entrada.Quantidade, entrada.CustoUnitario, data,
+            texto[..Math.Min(texto.Length, 300)]);
+        entrada.MarcarEstornada(estorno, data);
+        return estorno;
+    }
+
     /// <summary>Inventário: ajusta o saldo para o valor contado fisicamente.</summary>
     public MovimentacaoEstoque AjustarSaldo(decimal saldoContado, DateTime data, string? observacao)
     {

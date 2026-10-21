@@ -232,6 +232,9 @@ public sealed record MovimentacaoResumo
     public string Compra => QuantidadeCompra is { } quantidade && UnidadeCompra is not null ? $"{quantidade:0.###} {UnidadeCompra}" : string.Empty;
     public decimal ValorTotal => Math.Round(Math.Abs(Quantidade) * CustoUnitario, 2);
 
+    /// <summary>Quando a entrada foi estornada.</summary>
+    public DateTime? EstornadaEm { get; init; }
+
     /// <summary>Conta a pagar gerada pela entrada (conta única) e a situação dela.</summary>
     public int? ContaPagarId { get; init; }
     public StatusTitulo? SituacaoConta { get; init; }
