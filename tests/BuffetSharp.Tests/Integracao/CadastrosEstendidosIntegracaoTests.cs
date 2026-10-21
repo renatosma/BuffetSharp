@@ -219,14 +219,14 @@ public class CadastrosEstendidosIntegracaoTests(BancoFixture banco)
         var estoque = banco.Obter<EstoqueService>();
         var nota = $"NF {Guid.NewGuid():N}"[..20];
 
-        await estoque.RegistrarCompraAsync(new EntradaEstoqueInput
+        var entradaUnica = await estoque.RegistrarCompraAsync(new EntradaEstoqueInput
         {
             ProdutoId = produtoId, FornecedorId = fornecedorId, Quantidade = 10, CustoUnitario = 8.75m,
             GerarContaPagar = true, Documento = nota, Vencimento = Hoje.AddDays(28)
         }, Ct);
 
         var parcelada = nota + "P";
-        await estoque.RegistrarCompraAsync(new EntradaEstoqueInput
+        var entradaParcelada = await estoque.RegistrarCompraAsync(new EntradaEstoqueInput
         {
             ProdutoId = produtoId, FornecedorId = fornecedorId, Quantidade = 30, CustoUnitario = 10m,
             GerarContaPagar = true, Documento = parcelada, Vencimento = Hoje.AddDays(30), Parcelas = 3,
@@ -247,6 +247,23 @@ public class CadastrosEstendidosIntegracaoTests(BancoFixture banco)
         Assert.All(parcelas, c => Assert.NotNull(c.ParcelamentoId));
         Assert.All(parcelas, c => Assert.Equal(Domain.Financeiro.CategoriaDespesa.Outros, c.Categoria));
         Assert.Equal(Hoje.AddDays(30), parcelas[0].Vencimento);
+
+        // Vínculo nos dois sentidos: a entrada aponta para a conta e a conta mostra de qual entrada veio.
+        Assert.Equal(unica.Id, entradaUnica.ContaPagarId);
+        Assert.Equal(parcelas[0].ParcelamentoId, entradaParcelada.ParcelamentoPagarId);
+        var financeiro = banco.Obter<FinanceiroService>();
+        Assert.Contains("Refrigerante 2L", (await financeiro.ObterContaAsync(unica.Id, Ct)).OrigemEstoque);
+        Assert.Contains("Refrigerante 2L", (await financeiro.ObterContaAsync(parcelas[1].Id, Ct)).OrigemEstoque);
+        var kardex = await banco.Obter<IConsultasEstoqueCardapio>().ListarMovimentacoesAsync(DateTime.Today, DateTime.Today, produtoId, ct: Ct);
+        Assert.Equal("Conta em aberto", kardex.Single(m => m.Id == entradaUnica.Id).ContaPagar);
+        Assert.Equal($"PAR-{entradaParcelada.ParcelamentoPagarId:D5}: 0 de 3 paga(s)", kardex.Single(m => m.Id == entradaParcelada.Id).ContaPagar);
+
+        // Excluir a conta ou desfazer o parcelamento solta o vínculo; a entrada continua no histórico.
+        await financeiro.ExcluirContaAsync(unica.Id, Ct);
+        await financeiro.DesfazerParcelamentoAsync(entradaParcelada.ParcelamentoPagarId!.Value, Ct);
+        kardex = await banco.Obter<IConsultasEstoqueCardapio>().ListarMovimentacoesAsync(DateTime.Today, DateTime.Today, produtoId, ct: Ct);
+        Assert.Equal("", kardex.Single(m => m.Id == entradaUnica.Id).ContaPagar);
+        Assert.Equal("", kardex.Single(m => m.Id == entradaParcelada.Id).ContaPagar);
 
         // Sem vencimento não há conta: nada é gravado, nem a entrada no estoque.
         var saldo = (await banco.Obter<ICadastroService<Produto>>().ObterAsync(produtoId, Ct))!.EstoqueAtual;

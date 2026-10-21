@@ -1,4 +1,5 @@
 using BuffetSharp.Domain.Comum;
+using BuffetSharp.Domain.Financeiro;
 
 namespace BuffetSharp.Domain.Estoque;
 
@@ -57,7 +58,35 @@ public class MovimentacaoEstoque : Entidade
     /// <summary>Custo de cada unidade de compra (ex.: R$ 45,00 a caixa).</summary>
     public decimal? CustoUnitarioCompra { get; private set; }
 
+    /// <summary>Conta a pagar gerada pela compra (conta única).</summary>
+    public int? ContaPagarId { get; private set; }
+    public ContaPagar? ContaPagar { get; private set; }
+
+    /// <summary>Compra parcelada gerada pela entrada (as parcelas são contas a pagar do parcelamento).</summary>
+    public int? ParcelamentoPagarId { get; private set; }
+    public ParcelamentoPagar? ParcelamentoPagar { get; private set; }
+
     public decimal ValorTotal => Math.Round(Math.Abs(Quantidade) * CustoUnitario, 2);
+
+    /// <summary>Liga a entrada à conta a pagar (ou à compra parcelada) lançada junto com ela.</summary>
+    public void VincularConta(ContaPagar? conta, ParcelamentoPagar? parcelamento)
+    {
+        Validador.Garantir(Tipo == TipoMovimentacao.Entrada, "Somente entradas de compra geram conta a pagar.");
+        Validador.Garantir(conta is null ^ parcelamento is null, "Informe a conta única ou o parcelamento da compra.");
+        Validador.Garantir(ContaPagarId is null && ParcelamentoPagarId is null && ContaPagar is null && ParcelamentoPagar is null,
+            "Esta entrada já tem conta a pagar.");
+        ContaPagar = conta;
+        ParcelamentoPagar = parcelamento;
+    }
+
+    /// <summary>A conta foi excluída ou o parcelamento desfeito: a entrada continua no histórico, sem o vínculo.</summary>
+    public void DesvincularConta()
+    {
+        ContaPagar = null;
+        ContaPagarId = null;
+        ParcelamentoPagar = null;
+        ParcelamentoPagarId = null;
+    }
 
     internal void RegistrarCompra(int? fornecedorId, string? unidade, decimal? quantidade, decimal? fator, decimal? custoUnitario)
     {

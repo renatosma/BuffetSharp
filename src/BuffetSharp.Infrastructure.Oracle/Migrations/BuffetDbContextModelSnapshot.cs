@@ -2206,6 +2206,10 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("ATUALIZADOEM");
 
+                    b.Property<int?>("ContaPagarId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("CONTAPAGARID");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("CRIADOEM");
@@ -2241,6 +2245,10 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("NVARCHAR2(300)")
                         .HasColumnName("OBSERVACAO");
+
+                    b.Property<int?>("ParcelamentoPagarId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("PARCELAMENTOPAGARID");
 
                     b.Property<int>("ProdutoId")
                         .HasColumnType("NUMBER(10)")
@@ -2280,6 +2288,9 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.HasKey("Id")
                         .HasName("PK_MOVIMENTACOESESTOQUE");
 
+                    b.HasIndex("ContaPagarId")
+                        .HasDatabaseName("IX_MOVIMENTACOESESTOQUE_CONTAPAGARID");
+
                     b.HasIndex("Data")
                         .HasDatabaseName("IX_MOVIMENTACOESESTOQUE_DATA");
 
@@ -2288,6 +2299,9 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
 
                     b.HasIndex("FornecedorId")
                         .HasDatabaseName("IX_MOVIMENTACOESESTOQUE_FORNECEDORID");
+
+                    b.HasIndex("ParcelamentoPagarId")
+                        .HasDatabaseName("IX_MOVIMENTACOESESTOQUE_PARCELAMENTOPAGARID");
 
                     b.HasIndex("ProdutoId", "Data")
                         .HasDatabaseName("IX_MOVIMENTACOESESTOQUE_PRODUTOID_DATA");
@@ -4219,6 +4233,12 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", b =>
                 {
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ContaPagar", "ContaPagar")
+                        .WithMany()
+                        .HasForeignKey("ContaPagarId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_MOVIMENTACOESESTOQUE_CONTASPAGAR_CONTAPAGARID");
+
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
                         .WithMany()
                         .HasForeignKey("EventoId")
@@ -4231,12 +4251,22 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("FK_MOVIMENTACOESESTOQUE_FORNECEDORES_FORNECEDORID");
 
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", "ParcelamentoPagar")
+                        .WithMany()
+                        .HasForeignKey("ParcelamentoPagarId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_MOVIMENTACOESESTOQUE_PARCELAMENTOSPAGAR_PARCELAMENTOPAGARID");
+
                     b.HasOne("BuffetSharp.Domain.Estoque.Produto", "Produto")
                         .WithMany()
                         .HasForeignKey("ProdutoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("FK_MOVIMENTACOESESTOQUE_PRODUTOS_PRODUTOID");
+
+                    b.Navigation("ContaPagar");
+
+                    b.Navigation("ParcelamentoPagar");
 
                     b.Navigation("Produto");
                 });

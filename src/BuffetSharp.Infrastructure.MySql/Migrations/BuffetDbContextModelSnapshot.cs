@@ -1702,6 +1702,9 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("ContaPagarId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime(6)");
 
@@ -1729,6 +1732,9 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<string>("Observacao")
                         .HasMaxLength(300)
                         .HasColumnType("varchar(300)");
+
+                    b.Property<int?>("ParcelamentoPagarId")
+                        .HasColumnType("int");
 
                     b.Property<int>("ProdutoId")
                         .HasColumnType("int");
@@ -1760,11 +1766,15 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ContaPagarId");
+
                     b.HasIndex("Data");
 
                     b.HasIndex("EventoId");
 
                     b.HasIndex("FornecedorId");
+
+                    b.HasIndex("ParcelamentoPagarId");
 
                     b.HasIndex("ProdutoId", "Data");
 
@@ -3271,6 +3281,11 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", b =>
                 {
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ContaPagar", "ContaPagar")
+                        .WithMany()
+                        .HasForeignKey("ContaPagarId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
                         .WithMany()
                         .HasForeignKey("EventoId")
@@ -3281,11 +3296,20 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasForeignKey("FornecedorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", "ParcelamentoPagar")
+                        .WithMany()
+                        .HasForeignKey("ParcelamentoPagarId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BuffetSharp.Domain.Estoque.Produto", "Produto")
                         .WithMany()
                         .HasForeignKey("ProdutoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("ContaPagar");
+
+                    b.Navigation("ParcelamentoPagar");
 
                     b.Navigation("Produto");
                 });

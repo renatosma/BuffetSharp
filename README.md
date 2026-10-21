@@ -156,7 +156,8 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 - **Estoque**: entrada (com **custo médio ponderado**), saída, inventário e kardex completo. A entrada aceita a
   **embalagem do fornecedor** (ex.: 2 caixas com 12 = 24 UN): quantidade e custo são convertidos para a unidade do
   estoque e o kardex mostra o que foi comprado. Na mesma tela, a compra já é lançada em **contas a pagar** (marcado por
-  padrão): conta única ou parcelada, com categoria, nota fiscal e vencimento, gravada junto com a entrada.
+  padrão): conta única ou parcelada, com categoria, nota fiscal e vencimento, gravada junto com a entrada. A entrada fica
+  ligada à conta: o kardex mostra a situação do pagamento e a conta mostra de qual entrada veio.
 - **Contatos e endereços**: clientes, fornecedores e funcionários têm, além do telefone, e-mail e endereço principais,
   quantos telefones, WhatsApps, e-mails e endereços adicionais forem precisos (com observação: "mãe da noiva",
   "financeiro", "cobrança"...). A pesquisa de clientes e fornecedores encontra também os contatos adicionais.

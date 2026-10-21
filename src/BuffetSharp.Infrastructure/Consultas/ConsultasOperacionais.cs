@@ -281,11 +281,15 @@ internal sealed class ConsultasEstoqueCardapio(FabricaConexao conexoes) : IConsu
         const string sql = """
             SELECT m.Id, m.Data, m.ProdutoId, p.Nome AS Produto, u.Sigla AS Unidade, m.Tipo, m.Quantidade,
                    m.CustoUnitario, m.SaldoApos, m.Observacao, m.EventoId,
-                   COALESCE(f.NomeFantasia, f.RazaoSocial) AS Fornecedor, m.UnidadeCompra, m.QuantidadeCompra
+                   COALESCE(f.NomeFantasia, f.RazaoSocial) AS Fornecedor, m.UnidadeCompra, m.QuantidadeCompra,
+                   m.ContaPagarId, cp.Status AS SituacaoConta, m.ParcelamentoPagarId,
+                   (SELECT COUNT(*) FROM ContasPagar x WHERE x.ParcelamentoId = m.ParcelamentoPagarId) AS ParcelasConta,
+                   (SELECT COUNT(*) FROM ContasPagar x WHERE x.ParcelamentoId = m.ParcelamentoPagarId AND x.Status = 'Pago') AS ParcelasPagas
               FROM MovimentacoesEstoque m
               JOIN Produtos p ON p.Id = m.ProdutoId
               JOIN UnidadesMedida u ON u.Id = p.UnidadeMedidaId
               LEFT JOIN Fornecedores f ON f.Id = m.FornecedorId
+              LEFT JOIN ContasPagar cp ON cp.Id = m.ContaPagarId
              WHERE m.Data >= @De AND m.Data < @AteExclusivo
                AND (@ProdutoId IS NULL OR m.ProdutoId = @ProdutoId)
                AND (@Tipo IS NULL OR m.Tipo = @Tipo)

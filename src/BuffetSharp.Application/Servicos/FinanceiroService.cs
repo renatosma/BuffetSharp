@@ -17,6 +17,8 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
         await using var db = fabrica.Criar();
         var c = await db.ContasPagar.AsNoTracking().Include(x => x.FormaPagamento).FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new RegraNegocioException("Conta não encontrada.");
+        var entrada = await db.MovimentacoesEstoque.AsNoTracking().Include(m => m.Produto!).ThenInclude(p => p.UnidadeMedida)
+            .FirstOrDefaultAsync(m => m.ContaPagarId == id || (c.ParcelamentoId != null && m.ParcelamentoPagarId == c.ParcelamentoId), ct);
         return new ContaPagarInput
         {
             Id = c.Id,
@@ -34,7 +36,10 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
             ValorPago = c.ValorPago,
             FormaPagamento = c.FormaPagamento?.Nome,
             TipoFormaPagamento = c.FormaPagamento?.Tipo,
-            Parcelamento = c.ParcelamentoId is { } p ? $"PAR-{p:D5}" : c.AgrupadaEmId is { } a ? $"juntada em PAR-{a:D5}" : null
+            Parcelamento = c.ParcelamentoId is { } p ? $"PAR-{p:D5}" : c.AgrupadaEmId is { } a ? $"juntada em PAR-{a:D5}" : null,
+            OrigemEstoque = entrada is null
+                ? null
+                : $"Entrada de {entrada.Quantidade:N3} {entrada.Produto?.UnidadeMedida?.Sigla} de {entrada.Produto?.Nome} em {entrada.Data:dd/MM/yyyy HH:mm}"
         };
     }
 
@@ -78,6 +83,8 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
             "Esta conta é parcela da fatura de um cartão. Para desfazê-la, estorne o pagamento feito com o cartão.");
         Validador.Garantir(!conta.EhParcela && !conta.FoiAgrupada,
             $"Esta conta faz parte do parcelamento PAR-{conta.ParcelamentoId ?? conta.AgrupadaEmId:D5}. Use \"Desfazer parcelamento\" ou cancele a parcela.");
+        foreach (var entrada in await db.MovimentacoesEstoque.Where(m => m.ContaPagarId == contaId).ToListAsync(ct))
+            entrada.DesvincularConta();
         db.ContasPagar.Remove(conta);
         await db.SaveChangesAsync(ct);
     }
@@ -148,6 +155,8 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
     {
         await using var db = fabrica.Criar();
         var parcelamento = await CarregarParcelamentoAsync(db, parcelamentoId, ct);
+        foreach (var entrada in await db.MovimentacoesEstoque.Where(m => m.ParcelamentoPagarId == parcelamentoId).ToListAsync(ct))
+            entrada.DesvincularConta();
         foreach (var item in parcelamento.Desfazer())
         {
             switch (item)

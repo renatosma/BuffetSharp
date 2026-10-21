@@ -222,6 +222,8 @@ internal sealed class FormContasPagar : FormTitulos<ContaPagarResumo>
             e.Inteiro("Repetir por (meses)", () => input.Repeticoes, v => input.Repeticoes = v, minimo: 1, maximo: 24);
         else if (input.Parcelamento is not null)
             e.Informacao("Parcelamento", () => input.Parcelamento);
+        if (input.OrigemEstoque is not null)
+            e.Informacao("Origem", () => input.OrigemEstoque, span: 2);
         e.Lista("Fornecedor", fornecedores, () => input.FornecedorId, v => input.FornecedorId = v, permitirVazio: true, span: 2);
         e.Lista("Vincular ao evento (custo extra do evento)", eventos, () => input.EventoId, v => input.EventoId = v, permitirVazio: true, span: 2);
         e.Texto("Observação", () => input.Observacao, v => input.Observacao = v, maximo: 500, span: 2, linhas: 2);

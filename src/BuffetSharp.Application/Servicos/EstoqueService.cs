@@ -31,12 +31,13 @@ public sealed class EstoqueService(IBuffetDbContextFactory fabrica, TimeProvider
             input.Observacao, input.FornecedorId, embalagem);
         db.MovimentacoesEstoque.Add(movimentacao);
         if (input.GerarContaPagar)
-            LancarContaPagar(db, input, produto, embalagem);
+            LancarContaPagar(db, input, produto, embalagem, movimentacao);
         await db.SaveChangesAsync(ct);
         return movimentacao;
     }
 
-    private static void LancarContaPagar(IBuffetDbContext db, EntradaEstoqueInput input, Produto produto, ProdutoEmbalagem? embalagem)
+    private static void LancarContaPagar(IBuffetDbContext db, EntradaEstoqueInput input, Produto produto, ProdutoEmbalagem? embalagem,
+        MovimentacaoEstoque entrada)
     {
         Validador.Garantir(input.ValorCompra > 0, "Informe o custo da compra para lançar a conta a pagar.");
         Validador.Garantir(input.Vencimento is not null, "Informe o vencimento da conta a pagar.");
@@ -56,6 +57,7 @@ public sealed class EstoqueService(IBuffetDbContextFactory fabrica, TimeProvider
             };
             conta.DefinirDocumento(input.Documento);
             db.ContasPagar.Add(conta);
+            entrada.VincularConta(conta, null);
             return;
         }
 
@@ -63,6 +65,7 @@ public sealed class EstoqueService(IBuffetDbContextFactory fabrica, TimeProvider
             observacao);
         parcelamento.GerarParcelas(input.Parcelas, input.Vencimento!.Value, intervaloDias: input.IntervaloDias is > 0 ? input.IntervaloDias : null);
         db.ParcelamentosPagar.Add(parcelamento);
+        entrada.VincularConta(null, parcelamento);
     }
 
     /// <summary>Embalagens de compra do produto (com fornecedor e unidade), para a tela de entrada.</summary>

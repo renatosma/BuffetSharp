@@ -52,6 +52,10 @@ internal sealed class MovimentacaoEstoqueConfig : IEntityTypeConfiguration<Movim
         b.Property(x => x.CustoUnitarioCompra).HasPrecision(18, 4);
         b.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<Evento>().WithMany().HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Restrict);
+
+        // Conta a pagar da compra. Excluir a conta ou desfazer o parcelamento desfaz o vínculo antes (serviço financeiro).
+        b.HasOne(x => x.ContaPagar).WithMany().HasForeignKey(x => x.ContaPagarId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.ParcelamentoPagar).WithMany().HasForeignKey(x => x.ParcelamentoPagarId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<Fornecedor>().WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.ProdutoId, x.Data });
         b.HasIndex(x => x.Data);

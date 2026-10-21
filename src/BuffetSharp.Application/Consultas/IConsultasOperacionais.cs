@@ -231,6 +231,21 @@ public sealed record MovimentacaoResumo
 
     public string Compra => QuantidadeCompra is { } quantidade && UnidadeCompra is not null ? $"{quantidade:0.###} {UnidadeCompra}" : string.Empty;
     public decimal ValorTotal => Math.Round(Math.Abs(Quantidade) * CustoUnitario, 2);
+
+    /// <summary>Conta a pagar gerada pela entrada (conta única) e a situação dela.</summary>
+    public int? ContaPagarId { get; init; }
+    public StatusTitulo? SituacaoConta { get; init; }
+
+    /// <summary>Compra parcelada gerada pela entrada, com quantas parcelas já foram pagas.</summary>
+    public int? ParcelamentoPagarId { get; init; }
+    public int ParcelasConta { get; init; }
+    public int ParcelasPagas { get; init; }
+
+    public string ContaPagar => ContaPagarId is not null
+        ? SituacaoConta switch { StatusTitulo.Pago => "Conta paga", StatusTitulo.Cancelado => "Conta cancelada", _ => "Conta em aberto" }
+        : ParcelamentoPagarId is { } parcelamento
+            ? $"PAR-{parcelamento:D5}: {ParcelasPagas} de {ParcelasConta} paga(s)"
+            : string.Empty;
 }
 
 public sealed record ItemCardapioResumo

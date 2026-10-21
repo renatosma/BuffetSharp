@@ -38,12 +38,14 @@ internal sealed class FormMovimentacoes : FormListagem<MovimentacaoResumo>
             .Texto("Un.", m => m.Unidade, 10)
             .Texto("Compra", m => m.Compra, 16)
             .Texto("Fornecedor", m => m.Fornecedor, 30)
+            .Texto("Conta a pagar", m => m.ContaPagar, 26,
+                m => m.SituacaoConta == Domain.Financeiro.StatusTitulo.Pago || (m.ParcelasConta > 0 && m.ParcelasPagas == m.ParcelasConta) ? Tema.Sucesso : Tema.Info)
             .Numero("Custo unit.", m => m.CustoUnitario, "C4", 22)
             .Moeda("Valor", m => m.ValorTotal, 22)
             .Numero("Saldo após", m => m.SaldoApos, "N3", 22)
             .Texto("Evento", m => m.EventoId is { } id ? $"EVT-{id:D5}" : "", 18)
             .Texto("Observação", m => m.Observacao, 60)
-            .Busca(m => $"{m.Produto} {m.Observacao} {m.EventoId} {m.Fornecedor}");
+            .Busca(m => $"{m.Produto} {m.Observacao} {m.EventoId} {m.Fornecedor} {m.ContaPagar}");
     }
 
     protected override async Task CarregarAsync()

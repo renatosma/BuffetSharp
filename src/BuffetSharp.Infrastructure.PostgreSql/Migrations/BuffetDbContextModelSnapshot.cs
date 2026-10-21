@@ -2211,6 +2211,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("atualizadoem");
 
+                    b.Property<int?>("ContaPagarId")
+                        .HasColumnType("integer")
+                        .HasColumnName("contapagarid");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("criadoem");
@@ -2246,6 +2250,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)")
                         .HasColumnName("observacao");
+
+                    b.Property<int?>("ParcelamentoPagarId")
+                        .HasColumnType("integer")
+                        .HasColumnName("parcelamentopagarid");
 
                     b.Property<int>("ProdutoId")
                         .HasColumnType("integer")
@@ -2285,6 +2293,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.HasKey("Id")
                         .HasName("pk_movimentacoesestoque");
 
+                    b.HasIndex("ContaPagarId")
+                        .HasDatabaseName("ix_movimentacoesestoque_contapagarid");
+
                     b.HasIndex("Data")
                         .HasDatabaseName("ix_movimentacoesestoque_data");
 
@@ -2293,6 +2304,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("FornecedorId")
                         .HasDatabaseName("ix_movimentacoesestoque_fornecedorid");
+
+                    b.HasIndex("ParcelamentoPagarId")
+                        .HasDatabaseName("ix_movimentacoesestoque_parcelamentopagarid");
 
                     b.HasIndex("ProdutoId", "Data")
                         .HasDatabaseName("ix_movimentacoesestoque_produtoid_data");
@@ -4227,6 +4241,12 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", b =>
                 {
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ContaPagar", "ContaPagar")
+                        .WithMany()
+                        .HasForeignKey("ContaPagarId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_movimentacoesestoque_contaspagar_contapagarid");
+
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
                         .WithMany()
                         .HasForeignKey("EventoId")
@@ -4239,12 +4259,22 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_movimentacoesestoque_fornecedores_fornecedorid");
 
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", "ParcelamentoPagar")
+                        .WithMany()
+                        .HasForeignKey("ParcelamentoPagarId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_movimentacoesestoque_parcelamentospagar_parcelamentopagarid");
+
                     b.HasOne("BuffetSharp.Domain.Estoque.Produto", "Produto")
                         .WithMany()
                         .HasForeignKey("ProdutoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_movimentacoesestoque_produtos_produtoid");
+
+                    b.Navigation("ContaPagar");
+
+                    b.Navigation("ParcelamentoPagar");
 
                     b.Navigation("Produto");
                 });

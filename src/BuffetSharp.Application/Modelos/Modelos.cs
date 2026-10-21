@@ -284,6 +284,9 @@ public sealed class ContaPagarInput
     /// <summary>Somente leitura: parcelamento do qual a conta é parcela ("PAR-00001") ou no qual foi juntada.</summary>
     public string? Parcelamento { get; set; }
 
+    /// <summary>Somente leitura: entrada de estoque que gerou a conta (compra lançada pela tela de entrada).</summary>
+    public string? OrigemEstoque { get; set; }
+
     /// <summary>Somente leitura: quando, quanto e com que forma foi pago.</summary>
     public DateOnly? DataPagamento { get; set; }
     public decimal? ValorPago { get; set; }
