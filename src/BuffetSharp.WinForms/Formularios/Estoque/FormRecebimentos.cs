@@ -15,16 +15,18 @@ internal sealed class FormRecebimentos : FormListagem<RecebimentoResumo>
 {
     private readonly IConsultasCompras _consultas;
     private readonly CompraService _servico;
+    private readonly ImportacaoNfeService _importacao;
     private readonly BuffetOptions _opcoes;
     private readonly DateTimePicker _de;
     private readonly DateTimePicker _ate;
     private readonly ComboBox _status = new() { Width = 170, DropDownStyle = ComboBoxStyle.DropDownList };
 
-    public FormRecebimentos(IConsultasCompras consultas, CompraService servico, BuffetOptions opcoes)
+    public FormRecebimentos(IConsultasCompras consultas, CompraService servico, ImportacaoNfeService importacao, BuffetOptions opcoes)
         : base("Recebimentos", "Mercadoria que chegou dos pedidos de compra (já no estoque). Lance a nota fiscal de entrada para gerar as contas a pagar: uma nota pode juntar vários recebimentos do mesmo fornecedor.")
     {
         _consultas = consultas;
         _servico = servico;
+        _importacao = importacao;
         _opcoes = opcoes;
 
         _de = FiltroData("De", DateTime.Today.AddMonths(-2));
@@ -73,7 +75,7 @@ internal sealed class FormRecebimentos : FormListagem<RecebimentoResumo>
     {
         var selecionado = Selecionado();
         var marcados = selecionado is { Status: StatusRecebimento.AFaturar } ? new[] { selecionado.Id } : null;
-        if (await DialogosNotaEntrada.LancarAsync(this, _servico, _consultas, selecionado?.FornecedorId, marcados) is null)
+        if (await DialogosNotaEntrada.LancarAsync(this, _servico, _consultas, _importacao, selecionado?.FornecedorId, marcados) is null)
             return;
         await CarregarAsync();
     }

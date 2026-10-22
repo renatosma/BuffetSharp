@@ -13,15 +13,17 @@ internal sealed class FormNotasEntrada : FormListagem<NotaEntradaResumo>
 {
     private readonly IConsultasCompras _consultas;
     private readonly CompraService _servico;
+    private readonly ImportacaoNfeService _importacao;
     private readonly DateTimePicker _de;
     private readonly DateTimePicker _ate;
     private readonly ComboBox _status = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
 
-    public FormNotasEntrada(IConsultasCompras consultas, CompraService servico)
-        : base("Notas fiscais de entrada", "Cada nota fatura um ou mais recebimentos do mesmo fornecedor e vira uma conta a pagar (ou parcelas, conforme os boletos).")
+    public FormNotasEntrada(IConsultasCompras consultas, CompraService servico, ImportacaoNfeService importacao)
+        : base("Notas fiscais de entrada", "Cada nota fatura um ou mais recebimentos do mesmo fornecedor e vira uma conta a pagar (ou parcelas, conforme os boletos). Pelo XML da NF-e, a nota vem preenchida; numa compra sem pedido, os itens também entram no estoque.")
     {
         _consultas = consultas;
         _servico = servico;
+        _importacao = importacao;
 
         _de = FiltroData("Emissão de", DateTime.Today.AddMonths(-2));
         _ate = FiltroData("até", null);
@@ -31,7 +33,8 @@ internal sealed class FormNotasEntrada : FormListagem<NotaEntradaResumo>
         _ate.ValueChanged += async (_, _) => await RecarregarAsync();
         _status.SelectionChangeCommitted += async (_, _) => await RecarregarAsync();
 
-        Botao("Lançar nota", Icones.Adicionar, LancarAsync, "Escolha o fornecedor e os recebimentos que vieram na nota", destaque: true);
+        Botao("Importar XML da NF-e", Icones.Exportar, ImportarAsync, "Lê o XML que o fornecedor mandou: com pedido ou sem pedido", destaque: true);
+        Botao("Lançar nota", Icones.Adicionar, LancarAsync, "Escolha o fornecedor e os recebimentos que vieram na nota");
         Botao("Cancelar nota", Icones.Cancelar, CancelarAsync, "Lançada errada: cancela as contas e os recebimentos voltam a aguardar nota");
 
         Grade.Texto("Número", n => n.Descricao, 16)
@@ -62,7 +65,16 @@ internal sealed class FormNotasEntrada : FormListagem<NotaEntradaResumo>
 
     private async Task LancarAsync()
     {
-        if (await DialogosNotaEntrada.LancarAsync(this, _servico, _consultas) is { } id)
+        if (await DialogosNotaEntrada.LancarAsync(this, _servico, _consultas, _importacao) is { } id)
+        {
+            await CarregarAsync();
+            Grade.Selecionar(n => n.Id == id);
+        }
+    }
+
+    private async Task ImportarAsync()
+    {
+        if (await DialogosNotaEntrada.ImportarAsync(this, _importacao, _servico, _consultas) is { } id)
         {
             await CarregarAsync();
             Grade.Selecionar(n => n.Id == id);

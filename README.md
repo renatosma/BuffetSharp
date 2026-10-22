@@ -200,6 +200,13 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   - **Nota fiscal de entrada**: junta um ou mais recebimentos do mesmo fornecedor, com o valor da nota (frete, desconto)
     e os vencimentos dos boletos, e vira uma conta a pagar ou parcelas. Cancelar a nota cancela as contas (se nada foi
     pago) e devolve os recebimentos para "a faturar".
+  - **Importação do XML da NF-e**: o fornecedor é reconhecido pelo CNPJ e a nota vem preenchida (número, série, emissão,
+    valor e boletos), com a chave de acesso guardada para a mesma nota não entrar duas vezes. **Com pedido**, os
+    recebimentos do fornecedor vêm marcados e a nota é conferida com eles (o que veio a mais ou a menos aparece na hora).
+    **Sem pedido** (compra no atacado, por exemplo), cada item é ligado a um produto do sistema e à unidade em que veio:
+    pelo vínculo de uma nota anterior, pelo código do fornecedor na embalagem ou pelo nome (sugestão para conferir). Itens
+    que não são de estoque ficam só no valor da nota. Ao salvar, o fornecedor é cadastrado (se preciso), os itens entram
+    no estoque e a nota vira contas a pagar, de uma vez; os vínculos ficam gravados para a próxima nota.
 - **Lista de compras**: o que comprar para os eventos confirmados de um período (ficha técnica × pessoas, menos o
   estoque, opcionalmente repondo o mínimo), na embalagem do fornecedor, impressa por fornecedor ou enviada como pedido
   pelo WhatsApp.
@@ -287,16 +294,16 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **274 testes** (xUnit v3): 253 de domínio, integração e bancos, e 21 das telas.
+São **284 testes** (xUnit v3): 262 de domínio, integração e bancos, e 22 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
   parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, diárias da equipe, BR Code do
-  PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial e nota fiscal de entrada.
+  PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada e leitura do XML da NF-e.
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
-  backup, funil, lembretes, reajuste, lista de compras, cotação, recebimento e nota de entrada, ordem de produção,
+  backup, funil, lembretes, reajuste, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, ordem de produção,
   checklist, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 

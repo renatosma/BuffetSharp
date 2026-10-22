@@ -202,4 +202,62 @@ public class MelhoriasTelasTests(AmbienteTelas ambiente)
                 .Single(p => p.CotacaoCompraId == id);
             Assert.Equal((fornecedor.Id, 150m), (gerado.FornecedorId, gerado.Total));
         });
+
+    [Fact]
+    public void NFe_de_compra_sem_pedido_importada_pelo_XML() =>
+        Robo.Executar(ambiente, robo =>
+        {
+            static string Cnpj()
+            {
+                var d = Enumerable.Range(0, 8).Select(_ => Random.Shared.Next(10)).Concat([0, 0, 0, 1]).ToList();
+                int Digito(int[] pesos) => d.Select((x, i) => x * pesos[i]).Sum() % 11 is var resto && resto < 2 ? 0 : 11 - resto;
+                d.Add(Digito([5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]));
+                d.Add(Digito([6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]));
+                return string.Concat(d);
+            }
+            var numero = Random.Shared.Next(100_000, 999_999).ToString();
+            var cnpj = Cnpj();
+            var chave = $"3526{DateTime.Today:MM}{cnpj}55001{numero.PadLeft(9, '0')}1{Random.Shared.Next(10_000_000, 99_999_999)}0";
+            var arquivo = Path.Combine(Path.GetTempPath(), $"nfe-{numero}.xml");
+            File.WriteAllText(arquivo, $"""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <nfeProc xmlns="http://www.portalfiscal.inf.br/nfe"><NFe><infNFe Id="NFe{chave}">
+                  <ide><mod>55</mod><serie>1</serie><nNF>{numero}</nNF><dhEmi>{DateTime.Today:yyyy-MM-dd}T09:00:00-03:00</dhEmi></ide>
+                  <emit><CNPJ>{cnpj}</CNPJ><xNome>Empório da Tela Ltda</xNome><xFant>Empório da Tela</xFant></emit>
+                  <det nItem="1"><prod><cProd>A1</cProd><xProd>ARROZ AGULHINHA TIPO 1</xProd><uCom>KG</uCom><qCom>10</qCom><vUnCom>6.00</vUnCom><vProd>60.00</vProd></prod></det>
+                  <det nItem="2"><prod><cProd>Z9</cProd><xProd>VELA DE ANIVERSARIO</xProd><uCom>UN</uCom><qCom>1</qCom><vUnCom>5.00</vUnCom><vProd>5.00</vProd></prod></det>
+                  <total><ICMSTot><vProd>65.00</vProd><vFrete>0</vFrete><vDesc>0</vDesc><vNF>65.00</vNF></ICMSTot></total>
+                  <cobr><dup><nDup>001</nDup><dVenc>{DateTime.Today.AddDays(21):yyyy-MM-dd}</dVenc><vDup>65.00</vDup></dup></cobr>
+                </infNFe></NFe></nfeProc>
+                """);
+            var escolher = DialogosNotaEntrada.EscolherXml;
+            DialogosNotaEntrada.EscolherXml = _ => arquivo;
+            try
+            {
+                var principal = robo.Entrar();
+                var tela = robo.AbrirMenu<FormNotasEntrada>(principal, "Notas fiscais de entrada");
+                robo.Dialogo<FormEdicao>(() => robo.Clicar(tela, "Importar XML da NF-e"), dialogo =>
+                {
+                    // O arroz vem reconhecido pelo nome; a vela não é do estoque.
+                    var itens = Robo.Descendentes(dialogo).OfType<DataGridView>().First(g => g.Columns.Count == 10);
+                    robo.Esperar(() => itens.Rows.Count == 2, "itens da NF-e");
+                    Assert.Equal("Arroz agulhinha", itens.Rows[0].Cells[6].FormattedValue);
+                    Assert.Equal("Escolha o produto", itens.Rows[1].Cells[9].FormattedValue);
+                    var vela = itens.Rows[1].DataBoundItem!;
+                    vela.GetType().GetProperty("ProdutoId")!.SetValue(vela, -1);
+                    itens.Refresh();
+                    Assert.Equal("Fora do estoque", itens.Rows[1].Cells[9].FormattedValue);
+                    robo.Clicar(dialogo, "Salvar");
+                }, "importar NF-e");
+                robo.Esperar(() => Robo.Linhas<NotaEntradaResumo>(Robo.Grade(tela)).Any(n => n.Numero == numero && n.ValorTotal == 65m),
+                    "nota importada na lista");
+                var nota = Robo.Linhas<NotaEntradaResumo>(Robo.Grade(tela)).Single(n => n.Numero == numero);
+                Assert.Equal(("Empório da Tela", 60m, "Em aberto"), (nota.Fornecedor, nota.ValorProdutos, nota.Pagamento));
+            }
+            finally
+            {
+                DialogosNotaEntrada.EscolherXml = escolher;
+                File.Delete(arquivo);
+            }
+        });
 }

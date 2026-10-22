@@ -2124,6 +2124,67 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("reajustespreco", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CodigoProdutoFornecedor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("codigo");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("descricao");
+
+                    b.Property<int>("FornecedorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("fornecedorid");
+
+                    b.Property<int?>("ProdutoEmbalagemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("produtoembalagemid");
+
+                    b.Property<int>("ProdutoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("produtoid");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("Id")
+                        .HasName("pk_codigosprodutofornecedor");
+
+                    b.HasIndex("ProdutoEmbalagemId")
+                        .HasDatabaseName("ix_codigosprodutofornecedor_produtoembalagemid");
+
+                    b.HasIndex("ProdutoId")
+                        .HasDatabaseName("ix_codigosprodutofornecedor_produtoid");
+
+                    b.HasIndex("FornecedorId", "Codigo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_codigosprodutofornecedor_fornecedorid_codigo");
+
+                    b.ToTable("codigosprodutofornecedor", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.CotacaoCompra", b =>
                 {
                     b.Property<int>("Id")
@@ -2590,6 +2651,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("categoria");
 
+                    b.Property<string>("ChaveAcesso")
+                        .HasMaxLength(44)
+                        .HasColumnType("character varying(44)")
+                        .HasColumnName("chaveacesso");
+
                     b.Property<int?>("ContaPagarId")
                         .HasColumnType("integer")
                         .HasColumnName("contapagarid");
@@ -2654,6 +2720,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_notasfiscaisentrada");
+
+                    b.HasIndex("ChaveAcesso")
+                        .HasDatabaseName("ix_notasfiscaisentrada_chaveacesso");
 
                     b.HasIndex("ContaPagarId")
                         .HasDatabaseName("ix_notasfiscaisentrada_contapagarid");
@@ -4839,6 +4908,33 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_reajusteitens_reajustespreco_reajusteprecoid");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CodigoProdutoFornecedor", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", null)
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_codigosprodutofornecedor_fornecedores_fornecedorid");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.ProdutoEmbalagem", "Embalagem")
+                        .WithMany()
+                        .HasForeignKey("ProdutoEmbalagemId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_codigosprodutofornecedor_produtoembalagens_produtoembalagem~");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.Produto", "Produto")
+                        .WithMany()
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_codigosprodutofornecedor_produtos_produtoid");
+
+                    b.Navigation("Embalagem");
+
+                    b.Navigation("Produto");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.CotacaoCompra", b =>

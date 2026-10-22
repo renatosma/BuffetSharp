@@ -168,10 +168,14 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
         var repetida = await db.NotasFiscaisEntrada.AnyAsync(n => n.FornecedorId == input.FornecedorId && n.Numero == numero &&
                                                                   n.Serie == serie && n.Status == StatusNotaEntrada.Lancada, ct);
         Validador.Garantir(!repetida, $"A nota {numero} deste fornecedor já foi lançada.");
+        var chave = string.IsNullOrWhiteSpace(input.ChaveAcesso) ? null : input.ChaveAcesso;
+        Validador.Garantir(chave is null || !await db.NotasFiscaisEntrada.AnyAsync(n => n.ChaveAcesso == chave && n.Status == StatusNotaEntrada.Lancada, ct),
+            "Esta NF-e já foi lançada.");
 
         var fornecedor = await db.Fornecedores.AsNoTracking().FirstOrDefaultAsync(f => f.Id == input.FornecedorId, ct);
         var nota = new NotaFiscalEntrada(input.FornecedorId, numero, serie, input.DataEmissao, input.Categoria, recebimentos,
             input.ValorTotal, input.Observacoes, Hoje);
+        nota.DefinirChaveAcesso(chave);
         var (conta, parcelamento) = nota.LancarContas(input.Vencimentos.Select(v => (v.Vencimento, v.Valor)).ToList(), fornecedor?.NomeExibicao);
         if (conta is not null)
             db.ContasPagar.Add(conta);

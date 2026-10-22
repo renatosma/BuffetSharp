@@ -18,6 +18,7 @@ public class NotaFiscalEntrada : Entidade
 {
     public const int TamanhoNumero = ContaPagar.TamanhoDocumento;
     public const int TamanhoSerie = 5;
+    public const int TamanhoChave = 44;
 
     private readonly List<RecebimentoCompra> _recebimentos = [];
 
@@ -68,6 +69,10 @@ public class NotaFiscalEntrada : Entidade
     public decimal ValorTotal { get; private set; }
 
     public string? Observacoes { get; private set; }
+
+    /// <summary>Chave de acesso da NF-e (44 dígitos), quando a nota foi importada do XML.</summary>
+    public string? ChaveAcesso { get; private set; }
+
     public StatusNotaEntrada Status { get; private set; } = StatusNotaEntrada.Lancada;
     public DateTime? CanceladaEm { get; private set; }
     public string? MotivoCancelamento { get; private set; }
@@ -84,12 +89,22 @@ public class NotaFiscalEntrada : Entidade
 
     public string Descricao => Serie is null ? $"NF {Numero}" : $"NF {Numero}/{Serie}";
 
+    /// <summary>Nota importada do XML da NF-e: guarda a chave de acesso (evita lançar a mesma nota duas vezes).</summary>
+    public void DefinirChaveAcesso(string? chave)
+    {
+        var digitos = chave is null ? null : new string(chave.Where(char.IsDigit).ToArray());
+        Validador.Garantir(string.IsNullOrEmpty(digitos) || digitos.Length == TamanhoChave,
+            $"A chave de acesso da NF-e deve ter {TamanhoChave} dígitos.");
+        ChaveAcesso = string.IsNullOrEmpty(digitos) ? null : digitos;
+    }
+
     /// <summary>
     /// Lança a nota em contas a pagar: um vencimento vira uma conta, vários viram uma compra parcelada. A soma precisa bater
     /// com o total da nota.
     /// </summary>
+    /// <param name="observacao">Texto das contas; sem ele, cita os recebimentos e os pedidos da nota.</param>
     public (ContaPagar? Conta, ParcelamentoPagar? Parcelamento) LancarContas(IReadOnlyList<(DateOnly Vencimento, decimal Valor)> vencimentos,
-        string? fornecedor)
+        string? fornecedor, string? observacao = null)
     {
         Validador.Garantir(ContaPagar is null && ParcelamentoPagar is null && ContaPagarId is null && ParcelamentoPagarId is null,
             "As contas desta nota já foram lançadas.");
@@ -103,7 +118,7 @@ public class NotaFiscalEntrada : Entidade
         var descricao = $"Compra {Descricao}" + (string.IsNullOrWhiteSpace(fornecedor) ? "" : $" - {fornecedor}");
         descricao = descricao[..Math.Min(descricao.Length, 120)];
         var pedidos = _recebimentos.Select(r => r.PedidoCompra?.Codigo ?? $"PC-{r.PedidoCompraId:D5}").Distinct();
-        var observacao = $"Nota de entrada com {_recebimentos.Count} recebimento(s) do(s) pedido(s) {string.Join(", ", pedidos)}.";
+        observacao ??= $"Nota de entrada com {_recebimentos.Count} recebimento(s) do(s) pedido(s) {string.Join(", ", pedidos)}.";
         observacao = observacao[..Math.Min(observacao.Length, ParcelamentoPagar.TamanhoObservacao)];
         if (vencimentos.Count == 1)
         {

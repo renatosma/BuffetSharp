@@ -132,6 +132,7 @@ internal sealed class NotaFiscalEntradaConfig : IEntityTypeConfiguration<NotaFis
         b.ToTable("NotasFiscaisEntrada");
         b.Property(x => x.Numero).HasMaxLength(NotaFiscalEntrada.TamanhoNumero).IsRequired();
         b.Property(x => x.Serie).HasMaxLength(NotaFiscalEntrada.TamanhoSerie);
+        b.Property(x => x.ChaveAcesso).HasMaxLength(NotaFiscalEntrada.TamanhoChave);
         b.Property(x => x.Observacoes).HasMaxLength(500);
         b.Property(x => x.MotivoCancelamento).HasMaxLength(500);
         b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
@@ -141,5 +142,21 @@ internal sealed class NotaFiscalEntradaConfig : IEntityTypeConfiguration<NotaFis
         b.HasOne(x => x.ParcelamentoPagar).WithMany().HasForeignKey(x => x.ParcelamentoPagarId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.FornecedorId, x.Numero });
         b.HasIndex(x => x.DataEmissao);
+        b.HasIndex(x => x.ChaveAcesso);
+    }
+}
+
+internal sealed class CodigoProdutoFornecedorConfig : IEntityTypeConfiguration<CodigoProdutoFornecedor>
+{
+    public void Configure(EntityTypeBuilder<CodigoProdutoFornecedor> b)
+    {
+        b.ToTable("CodigosProdutoFornecedor");
+        b.Property(x => x.Codigo).HasMaxLength(CodigoProdutoFornecedor.TamanhoCodigo).IsRequired();
+        b.Property(x => x.Descricao).HasMaxLength(CodigoProdutoFornecedor.TamanhoDescricao);
+        b.HasOne<Fornecedor>().WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
+        // Embalagem retirada do produto: o vínculo continua, na unidade do estoque.
+        b.HasOne(x => x.Embalagem).WithMany().HasForeignKey(x => x.ProdutoEmbalagemId).OnDelete(DeleteBehavior.SetNull);
+        b.HasIndex(x => new { x.FornecedorId, x.Codigo }).IsUnique();
     }
 }

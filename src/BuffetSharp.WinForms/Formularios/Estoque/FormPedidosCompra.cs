@@ -18,17 +18,20 @@ internal sealed class FormPedidosCompra : FormListagem<PedidoCompraResumo>
     private readonly IConsultasCompras _consultas;
     private readonly IConsultasLookup _lookups;
     private readonly CompraService _servico;
+    private readonly ImportacaoNfeService _importacao;
     private readonly BuffetOptions _opcoes;
     private readonly DateTimePicker _de;
     private readonly DateTimePicker _ate;
     private readonly ComboBox _status = new() { Width = 170, DropDownStyle = ComboBoxStyle.DropDownList };
 
-    public FormPedidosCompra(IConsultasCompras consultas, IConsultasLookup lookups, CompraService servico, BuffetOptions opcoes)
+    public FormPedidosCompra(IConsultasCompras consultas, IConsultasLookup lookups, CompraService servico, ImportacaoNfeService importacao,
+        BuffetOptions opcoes)
         : base("Pedidos de compra", "O que foi pedido a cada fornecedor. Ao chegar a mercadoria (inteira ou em partes), registre o recebimento: entra no estoque na hora. A nota fiscal vem depois, em Notas fiscais de entrada.")
     {
         _consultas = consultas;
         _lookups = lookups;
         _servico = servico;
+        _importacao = importacao;
         _opcoes = opcoes;
 
         _de = FiltroData("De", DateTime.Today.AddMonths(-2));
@@ -106,7 +109,7 @@ internal sealed class FormPedidosCompra : FormListagem<PedidoCompraResumo>
         Grade.Selecionar(p => p.Id == pedido.Id);
         if (Mensagens.Confirmar(this, "Mercadoria no estoque. A nota fiscal já chegou? Você pode lançá-la agora ou depois, em " +
                                       "Compras › Notas fiscais de entrada (uma nota pode juntar vários recebimentos).", "Lançar a nota fiscal agora?") &&
-            await DialogosNotaEntrada.LancarAsync(this, _servico, _consultas, pedido.FornecedorId, [recebimento]) is not null)
+            await DialogosNotaEntrada.LancarAsync(this, _servico, _consultas, _importacao, pedido.FornecedorId, [recebimento]) is not null)
             await CarregarAsync();
     }
 

@@ -61,6 +61,10 @@ public sealed class NotaEntradaInput
     public CategoriaDespesa Categoria { get; set; } = CategoriaDespesa.Insumos;
     public decimal ValorTotal { get; set; }
     public string? Observacoes { get; set; }
+
+    /// <summary>Chave de acesso da NF-e, quando os dados vieram do XML.</summary>
+    public string? ChaveAcesso { get; set; }
+
     public List<int> Recebimentos { get; set; } = [];
     public List<VencimentoInput> Vencimentos { get; set; } = [];
 }
