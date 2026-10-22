@@ -233,6 +233,8 @@ public class ComprasTests
     {
         var cotacao = Cotacao(out var picanha, out var refrigerante, out _, out var acougue);
         cotacao.EscolherVencedor(picanha, acougue, "Cliente pediu Angus");
+        var caixa = new ProdutoEmbalagem { FornecedorId = 7, Fator = 12 };
+        refrigerante.Produto!.Embalagens.AddRange([new ProdutoEmbalagem { FornecedorId = 99, Fator = 6 }, caixa]);
 
         var semCadastro = Assert.Throws<RegraNegocioException>(() => cotacao.GerarPedidos(Hoje, Agora));
         Assert.Contains("Açougue do Zé", semCadastro.Message);
@@ -245,9 +247,10 @@ public class ComprasTests
         Assert.Equal(2, pedidos.Count);
         var doAcougue = pedidos.Single(p => p.FornecedorId == 9);
         Assert.Equal(2397m, doAcougue.Total); // 30 x 79,90
-        Assert.Equal(650m, pedidos.Single(p => p.FornecedorId == 7).Total);
+        var refrigerantes = pedidos.Single(p => p.FornecedorId == 7).Itens.Single();
+        Assert.Equal((caixa, 9m, 78m), (refrigerantes.Embalagem, refrigerantes.Quantidade, refrigerantes.CustoUnitario)); // 100 un. -> 9 CX de 12
+        Assert.Null(doAcougue.Itens.Single().Embalagem);
         Assert.All(pedidos, p => Assert.Same(cotacao, p.CotacaoCompra));
-        Assert.Contains(refrigerante.Produto!, pedidos.Single(p => p.FornecedorId == 7).Itens.Select(i => i.Produto));
         Assert.Throws<RegraNegocioException>(() => cotacao.DefinirPreco(picanha, acougue, 1m, null));
     }
 

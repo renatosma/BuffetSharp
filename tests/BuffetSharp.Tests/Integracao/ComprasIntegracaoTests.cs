@@ -119,12 +119,13 @@ public class ComprasIntegracaoTests(BancoFixture banco)
     }
 
     [Fact]
-    public async Task Cotacao_com_participante_sem_cadastro_vira_um_pedido_por_vencedor()
+    public async Task Cotacao_com_participante_sem_cadastro_vira_um_pedido_por_vencedor_na_embalagem_de_compra()
     {
         var cotacoes = banco.Obter<CotacaoService>();
         var refrigerante = (await Lookup(TipoLookup.Produtos, p => p.Nome == "Refrigerante 2L")).Id;
-        var outro = (await Lookup(TipoLookup.Produtos, p => p.Id != refrigerante)).Id;
-        var cadastrado = await Lookup(TipoLookup.Fornecedores, _ => true);
+        var outro = (await Lookup(TipoLookup.Produtos, p => p.Nome == "Cerveja long neck")).Id; // caixa com 24 de qualquer fornecedor
+        var fardo = (await banco.Obter<EstoqueService>().ListarEmbalagensAsync(refrigerante, Ct)).Single(e => e.Fator == 6);
+        var cadastrado = await Lookup(TipoLookup.Fornecedores, f => f.Id == fardo.FornecedorId);
         var novo = $"Mercado {Guid.NewGuid():N}"[..20];
 
         var input = cotacoes.Nova();
@@ -132,7 +133,7 @@ public class ComprasIntegracaoTests(BancoFixture banco)
         input.Itens =
         [
             new CotacaoItemInput { ProdutoId = refrigerante, Quantidade = 120, Especificacao = "Marca líder, a pedido do cliente" },
-            new CotacaoItemInput { ProdutoId = outro, Quantidade = 10 }
+            new CotacaoItemInput { ProdutoId = outro, Quantidade = 50 }
         ];
         input.Participantes =
         [
@@ -159,7 +160,7 @@ public class ComprasIntegracaoTests(BancoFixture banco)
         await cotacoes.SalvarMapaAsync(mapa, Ct);
 
         var resumo = (await banco.Obter<IConsultasCompras>().ListarCotacoesAsync(new FiltroCotacoes(), Ct)).Single(c => c.Id == id);
-        Assert.Equal((1180m, 1, "4 de 4"), (resumo.TotalVencedores, resumo.EscolhasManuais, resumo.Respostas)); // 120 x 9,50 + 10 x 4,00
+        Assert.Equal((1340m, 1, "4 de 4"), (resumo.TotalVencedores, resumo.EscolhasManuais, resumo.Respostas)); // 120 x 9,50 + 50 x 4,00
         Assert.Equal(pCadastrado.Id, (await cotacoes.ObterMapaAsync(id, Ct)).Itens[0].Escolhido);
 
         // O vencedor do outro produto não é cadastrado: o pedido só sai com o cadastro.
@@ -169,9 +170,15 @@ public class ComprasIntegracaoTests(BancoFixture banco)
 
         Assert.Equal(2, pedidos.Count);
         var gerados = (await banco.Obter<IConsultasCompras>().ListarPedidosAsync(new FiltroPedidosCompra(), Ct)).Where(p => pedidos.Contains(p.Id)).ToList();
-        Assert.Equal(1140m, gerados.Single(p => p.FornecedorId == cadastrado.Id).Total);
+        var doCadastrado = gerados.Single(p => p.FornecedorId == cadastrado.Id);
         var doNovo = gerados.Single(p => p.FornecedorId != cadastrado.Id);
-        Assert.Equal((novo, "11988887777", 40m), (doNovo.Fornecedor, doNovo.TelefoneFornecedor, doNovo.Total));
+        Assert.Equal((novo, "11988887777"), (doNovo.Fornecedor, doNovo.TelefoneFornecedor));
+
+        // Os itens vêm na embalagem: a do fornecedor (fardo com 6) ou a de qualquer um (caixa com 24), em embalagens inteiras.
+        var itemCadastrado = Assert.Single(await banco.Obter<IConsultasCompras>().ItensAsync(doCadastrado.Id, Ct));
+        Assert.Equal((20m, "PCT", 57m, 1140m), (itemCadastrado.Quantidade, itemCadastrado.Unidade, itemCadastrado.CustoUnitario, doCadastrado.Total));
+        var itemNovo = Assert.Single(await banco.Obter<IConsultasCompras>().ItensAsync(doNovo.Id, Ct));
+        Assert.Equal((3m, "CX", 96m, 288m), (itemNovo.Quantidade, itemNovo.Unidade, itemNovo.CustoUnitario, doNovo.Total)); // 50 un. -> 3 CX
         Assert.All(gerados, p => Assert.Equal($"COT-{id:D5}", p.Cotacao));
         Assert.Contains("28 dias", doNovo.Observacoes);
 

@@ -192,7 +192,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
     fornecedores (basta nome e contato). No mapa de preços, o menor preço de cada produto fica em destaque e vence por
     padrão; dá para escolher outro participante (marca ou qualidade pedida pelo cliente) informando o motivo. A lista
     de preços sai pelo WhatsApp para cada participante e o mapa sai impresso. Ao concluir, gera um pedido de compra por
-    vencedor; quem ainda não tem cadastro é cadastrado como fornecedor nessa hora (com confirmação).
+    vencedor, já na embalagem do fornecedor (ou na que vale para qualquer um), em embalagens inteiras; quem ainda não tem cadastro é cadastrado como fornecedor nessa hora (com confirmação).
   - **Pedido de compra**: vários produtos de um fornecedor, cada um na unidade de compra (embalagem) do fornecedor.
     Feito à mão, pela lista de compras ou pela cotação; sai impresso ou pelo WhatsApp.
   - **Recebimento**: o que chegou do pedido, inteiro ou em partes. Entra no estoque na hora; o saldo continua no pedido

@@ -55,7 +55,7 @@ public sealed class PlanejamentoService(IBuffetDbContextFactory fabrica)
             var aComprar = Math.Round(necessidade + (reporMinimo ? produto.EstoqueMinimo : 0) - Math.Max(produto.EstoqueAtual, 0), 3);
             if (aComprar <= 0)
                 continue;
-            var embalagem = EscolherEmbalagem(produto, aComprar);
+            var embalagem = produto.EmbalagemDeCompra(produto.FornecedorId, aComprar);
             itens.Add(new ItemListaCompras
             {
                 ProdutoId = produto.Id,
@@ -84,26 +84,13 @@ public sealed class PlanejamentoService(IBuffetDbContextFactory fabrica)
             itens.OrderBy(i => i.Fornecedor).ThenBy(i => i.Categoria).ThenBy(i => i.Produto).ToList());
     }
 
-    /// <summary>
-    /// Embalagem do fornecedor padrão (ou a genérica) para comprar a quantidade: a maior que não passe da quantidade, para
-    /// comprar o mínimo de embalagens sem sobra grande; se todas forem maiores, a menor.
-    /// </summary>
+    /// <summary>Embalagem do fornecedor padrão (ou a genérica) para comprar a quantidade, ex.: "3 CX de 12 UN".</summary>
     internal static string? SugerirEmbalagem(Produto produto, decimal aComprar)
     {
-        if (EscolherEmbalagem(produto, aComprar) is not { } embalagem)
+        if (produto.EmbalagemDeCompra(produto.FornecedorId, aComprar) is not { } embalagem)
             return null;
         var quantidade = Math.Ceiling(aComprar / embalagem.Fator);
         return $"{quantidade:0} {embalagem.UnidadeMedida?.Sigla ?? "emb."} de {embalagem.Fator:0.###} {produto.UnidadeMedida?.Sigla}".TrimEnd();
-    }
-
-    private static ProdutoEmbalagem? EscolherEmbalagem(Produto produto, decimal aComprar)
-    {
-        var candidatas = produto.Embalagens.Where(e => e.FornecedorId == produto.FornecedorId && e.Fator > 1).ToList();
-        if (candidatas.Count == 0)
-            candidatas = produto.Embalagens.Where(e => e.FornecedorId is null && e.Fator > 1).ToList();
-        if (candidatas.Count == 0)
-            return null;
-        return candidatas.Where(e => e.Fator <= aComprar).MaxBy(e => e.Fator) ?? candidatas.MinBy(e => e.Fator)!;
     }
 
     // ------------------------- Ordem de produção -------------------------

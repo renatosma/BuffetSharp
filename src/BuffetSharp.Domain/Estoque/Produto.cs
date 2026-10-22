@@ -43,6 +43,21 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
 
     public bool AbaixoDoMinimo => EstoqueAtual < EstoqueMinimo;
 
+    /// <summary>
+    /// Embalagem para comprar a quantidade (na unidade do estoque) do fornecedor: a dele ou, se não houver, a que vale para
+    /// qualquer fornecedor. Entre as possíveis, a maior que não passe da quantidade, para comprar o mínimo de embalagens
+    /// sem sobra grande; se todas forem maiores, a menor. Nula = comprar na unidade do estoque.
+    /// </summary>
+    public ProdutoEmbalagem? EmbalagemDeCompra(int? fornecedorId, decimal quantidade)
+    {
+        var candidatas = Embalagens.Where(e => e.FornecedorId is not null && e.FornecedorId == fornecedorId && e.Fator > 1).ToList();
+        if (candidatas.Count == 0)
+            candidatas = Embalagens.Where(e => e.FornecedorId is null && e.Fator > 1).ToList();
+        if (candidatas.Count == 0)
+            return null;
+        return candidatas.Where(e => e.Fator <= quantidade).MaxBy(e => e.Fator) ?? candidatas.MinBy(e => e.Fator)!;
+    }
+
     public decimal ValorEmEstoque => Math.Round(Math.Max(EstoqueAtual, 0) * CustoMedio, 2);
 
     IReadOnlyCollection<string> ICamposControlados.CamposControladosPeloSistema => [nameof(EstoqueAtual)];

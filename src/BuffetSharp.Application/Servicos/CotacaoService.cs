@@ -223,6 +223,7 @@ public sealed class CotacaoService(IBuffetDbContextFactory fabrica, TimeProvider
     {
         IQueryable<CotacaoCompra> consulta = db.CotacoesCompra
             .Include(c => c.Itens).ThenInclude(i => i.Produto!).ThenInclude(p => p.UnidadeMedida)
+            .Include(c => c.Itens).ThenInclude(i => i.Produto!).ThenInclude(p => p.Embalagens).ThenInclude(e => e.UnidadeMedida)
             .Include(c => c.Participantes)
             .Include(c => c.Precos);
         return await (rastrear ? consulta : consulta.AsNoTrackingWithIdentityResolution()).FirstOrDefaultAsync(c => c.Id == id, ct)

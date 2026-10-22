@@ -242,7 +242,9 @@ public class CotacaoCompra : Entidade
 
     /// <summary>
     /// Conclui a cotação com um pedido de compra por vencedor (cada um com os produtos que ganhou, ao preço cotado). Todo
-    /// produto precisa de vencedor e todo vencedor precisa estar cadastrado como fornecedor.
+    /// produto precisa de vencedor e todo vencedor precisa estar cadastrado como fornecedor. Com as embalagens dos
+    /// produtos carregadas, o item vem na embalagem do fornecedor (ou na que vale para qualquer um), arredondado para
+    /// cima em embalagens inteiras; sem embalagem, na unidade do estoque.
     /// </summary>
     public IReadOnlyList<PedidoCompra> GerarPedidos(DateOnly hoje, DateTime agora)
     {
@@ -265,7 +267,7 @@ public class CotacaoCompra : Entidade
             var observacoes = $"Gerado pela cotação {Codigo} - {Descricao}." +
                               (participante.CondicaoPagamento is { } condicao ? $" Pagamento: {condicao}." : "");
             pedido.Alterar(fornecedorId, hoje, previsao, CategoriaDespesa.Insumos, observacoes);
-            pedido.DefinirItens(grupo.Select(i => (i.Produto!, (ProdutoEmbalagem?)null, i.Quantidade, PrecoDe(i, participante)!.PrecoUnitario)));
+            pedido.DefinirItens(grupo.Select(i => ItemDoPedido(i, fornecedorId, PrecoDe(i, participante)!.PrecoUnitario)));
             pedido.VincularCotacao(this);
             pedidos.Add(pedido);
         }
@@ -273,6 +275,14 @@ public class CotacaoCompra : Entidade
         Status = StatusCotacao.Concluida;
         ConcluidaEm = agora;
         return pedidos;
+    }
+
+    private static (Produto, ProdutoEmbalagem?, decimal, decimal) ItemDoPedido(CotacaoItem item, int fornecedorId, decimal precoUnitario)
+    {
+        var produto = item.Produto!;
+        if (produto.EmbalagemDeCompra(fornecedorId, item.Quantidade) is not { } embalagem)
+            return (produto, null, item.Quantidade, precoUnitario);
+        return (produto, embalagem, Math.Ceiling(item.Quantidade / embalagem.Fator), Math.Round(precoUnitario * embalagem.Fator, 4));
     }
 
     public void Cancelar(string motivo)
