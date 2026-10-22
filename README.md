@@ -187,11 +187,19 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   depois de tratado, o lembrete some. O painel mostra quantos há. Opcionalmente, os e-mails saem sozinhos.
 - **Reajuste de preços**: percentual sobre os pacotes, serviços e espaços, com arredondamento (centavos, real inteiro ou
   múltiplo de R$ 5), simulação antes de aplicar e vigência futura (aplicado sozinho na data). Pode ser desfeito.
-- **Pedidos de compra**: vários produtos de um fornecedor numa nota só, cada um na unidade de compra (embalagem) do
-  fornecedor. No recebimento informa-se só o número da nota fiscal, a data da compra e os vencimentos (gerados pelas
-  parcelas e editáveis conforme os boletos): todos os itens entram no estoque e a nota vira uma conta a pagar ou parcelas,
-  na mesma gravação. O recebimento pode ser estornado (os itens saem do estoque e as contas são canceladas, se nada foi
-  pago) e o pedido sai impresso ou pelo WhatsApp para o fornecedor. A lista de compras gera o pedido de cada fornecedor.
+- **Compras** (cotação → pedido → recebimento → nota fiscal de entrada):
+  - **Cotação**: os mesmos produtos orçados com vários participantes, que não precisam estar cadastrados como
+    fornecedores (basta nome e contato). No mapa de preços, o menor preço de cada produto fica em destaque e vence por
+    padrão; dá para escolher outro participante (marca ou qualidade pedida pelo cliente) informando o motivo. A lista
+    de preços sai pelo WhatsApp para cada participante e o mapa sai impresso. Ao concluir, gera um pedido de compra por
+    vencedor; quem ainda não tem cadastro é cadastrado como fornecedor nessa hora (com confirmação).
+  - **Pedido de compra**: vários produtos de um fornecedor, cada um na unidade de compra (embalagem) do fornecedor.
+    Feito à mão, pela lista de compras ou pela cotação; sai impresso ou pelo WhatsApp.
+  - **Recebimento**: o que chegou do pedido, inteiro ou em partes. Entra no estoque na hora; o saldo continua no pedido
+    (que fica "recebido em parte") até chegar ou ser encerrado. Pode ser estornado enquanto não tiver nota.
+  - **Nota fiscal de entrada**: junta um ou mais recebimentos do mesmo fornecedor, com o valor da nota (frete, desconto)
+    e os vencimentos dos boletos, e vira uma conta a pagar ou parcelas. Cancelar a nota cancela as contas (se nada foi
+    pago) e devolve os recebimentos para "a faturar".
 - **Lista de compras**: o que comprar para os eventos confirmados de um período (ficha técnica × pessoas, menos o
   estoque, opcionalmente repondo o mínimo), na embalagem do fornecedor, impressa por fornecedor ou enviada como pedido
   pelo WhatsApp.
@@ -279,17 +287,17 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **262 testes** (xUnit v3): 242 de domínio, integração e bancos, e 20 das telas.
+São **274 testes** (xUnit v3): 253 de domínio, integração e bancos, e 21 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
   parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, diárias da equipe, BR Code do
-  PIX, leitura de OFX e conciliação.
+  PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial e nota fiscal de entrada.
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
-  backup, funil, lembretes, reajuste, lista de compras, ordem de produção, checklist, pagamento da equipe, PIX,
-  conciliação e DRE). O banco é excluído no final.
+  backup, funil, lembretes, reajuste, lista de compras, cotação, recebimento e nota de entrada, ordem de produção,
+  checklist, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 
 Para rodar as suítes de integração e de telas em outro banco, copie `BuffetSharp.runsettings.exemplo`

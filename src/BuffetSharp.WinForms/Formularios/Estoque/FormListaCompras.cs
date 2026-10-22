@@ -36,6 +36,7 @@ internal sealed class FormListaCompras : FormListagem<ItemListaCompras>
         _reporMinimo.CheckedChanged += async (_, _) => await RecarregarAsync();
 
         Botao("Imprimir por fornecedor", Icones.Imprimir, ImprimirAsync, "Lista agrupada por fornecedor", destaque: true);
+        Botao("Gerar cotação", Icones.Calculadora, GerarCotacaoAsync, "Orça todos os itens da lista com vários fornecedores antes de comprar");
         Botao("Gerar pedido de compra", Icones.Documento, GerarPedidoAsync, "Cria o pedido de compra com os itens do fornecedor selecionado");
         Botao("Pedido por WhatsApp", Icones.Mensagem, PedidoWhatsAppAsync, "Envia ao fornecedor do item selecionado os itens dele");
         Botao("Eventos considerados", Icones.Bandeira, EventosAsync);
@@ -87,7 +88,7 @@ internal sealed class FormListaCompras : FormListagem<ItemListaCompras>
             return;
         if (item.FornecedorId is not { } fornecedorId)
         {
-            Mensagens.Aviso(this, "Este produto não tem fornecedor padrão. Cadastre o fornecedor no produto ou faça o pedido em Estoque › Pedidos de compra.");
+            Mensagens.Aviso(this, "Este produto não tem fornecedor padrão. Cadastre o fornecedor no produto, faça o pedido em Compras › Pedidos de compra ou gere uma cotação.");
             return;
         }
         var itens = Grade.Visiveis.Where(i => i.FornecedorId == fornecedorId).ToList();
@@ -99,6 +100,25 @@ internal sealed class FormListaCompras : FormListagem<ItemListaCompras>
         var id = await compras.GerarDaListaAsync(fornecedorId, itens);
         await DialogosPedidoCompra.EditarAsync(this, compras, _navegador.Servico<Application.Consultas.IConsultasLookup>(), id);
         _navegador.Abrir<FormPedidosCompra>();
+    }
+
+    private async Task GerarCotacaoAsync()
+    {
+        var itens = Grade.Visiveis.Where(i => i.AComprar > 0).ToList();
+        if (itens.Count == 0)
+        {
+            Mensagens.Aviso(this, "Não há nada a comprar no período.");
+            return;
+        }
+        var descricao = Dialogos.PedirTexto(this, "Gerar cotação", "Descrição", $"Compras dos eventos de {De:dd/MM} a {Ate:dd/MM}", linhas: 1,
+            subtitulo: $"{itens.Count} produto(s) da lista entram na cotação; os fornecedores padrão deles entram como participantes. " +
+                       "Inclua outros fornecedores (cadastrados ou não) para comparar.");
+        if (descricao is null)
+            return;
+        var cotacoes = _navegador.Servico<CotacaoService>();
+        var id = await cotacoes.GerarDaListaAsync(descricao, itens);
+        await DialogosCotacao.EditarAsync(this, cotacoes, _navegador.Servico<Application.Consultas.IConsultasLookup>(), id);
+        _navegador.Abrir<FormCotacoes>();
     }
 
     private Task PedidoWhatsAppAsync()

@@ -2,16 +2,15 @@ using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
-using BuffetSharp.Domain.Financeiro;
 using Microsoft.EntityFrameworkCore;
 
 namespace BuffetSharp.Application.Servicos;
 
 /// <summary>
-/// Pedidos de compra: vários produtos de um fornecedor. No recebimento informa-se só a nota fiscal, a data da compra e os
-/// vencimentos; todos os itens entram no estoque e a nota vira uma conta a pagar (ou parcelas), tudo na mesma gravação.
+/// Pedidos de compra e o que vem depois deles: os recebimentos (a mercadoria entra no estoque, inteira ou em partes) e a
+/// nota fiscal de entrada, que fatura os recebimentos e gera as contas a pagar.
 /// </summary>
-public sealed class CompraService(IBuffetDbContextFactory fabrica, TimeProvider relogio)
+public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuario sessao, TimeProvider relogio)
 {
     private DateTime Agora => relogio.GetLocalNow().DateTime;
     private DateOnly Hoje => DateOnly.FromDateTime(Agora);
@@ -34,8 +33,6 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, TimeProvider 
             Observacoes = p.Observacoes,
             Codigo = p.Codigo,
             Status = p.Status,
-            NotaFiscal = p.NotaFiscal,
-            DataCompra = p.DataCompra,
             Itens = p.Itens.OrderBy(i => i.Id).Select(i => new PedidoCompraItemInput
             {
                 ProdutoId = i.ProdutoId,
@@ -95,77 +92,110 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, TimeProvider 
     }
 
     /// <summary>
-    /// Recebe a mercadoria: cada item entra no estoque (convertido pela embalagem, com o fornecedor e a nota) e a nota vira uma
-    /// conta a pagar com vencimento único ou uma compra parcelada com os vencimentos informados.
+    /// Registra o que chegou do pedido (pode ser só parte): cada item entra no estoque na hora, convertido pela embalagem e
+    /// com o fornecedor. A conta a pagar vem depois, com a nota fiscal de entrada.
     /// </summary>
-    public async Task ReceberAsync(RecebimentoPedidoInput input, CancellationToken ct = default)
+    public async Task<int> ReceberAsync(RecebimentoInput input, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
         var pedido = await db.PedidosCompra
-                         .Include(p => p.Fornecedor)
                          .Include(p => p.Itens).ThenInclude(i => i.Produto)
                          .Include(p => p.Itens).ThenInclude(i => i.Embalagem!).ThenInclude(e => e.UnidadeMedida)
                          .FirstOrDefaultAsync(p => p.Id == input.PedidoId, ct)
                      ?? throw new RegraNegocioException("Pedido de compra não encontrado.");
-        var vencimentos = input.Vencimentos.Select(v => (v.Vencimento, v.Valor)).ToList();
-        pedido.ConferirRecebimento(input.NotaFiscal, input.DataCompra, vencimentos, Hoje);
-
-        var nota = input.NotaFiscal.Trim();
-        var quando = input.DataCompra == Hoje ? Agora : input.DataCompra.ToDateTime(new TimeOnly(12, 0));
-        var entradas = new List<MovimentacaoEstoque>();
-        foreach (var item in pedido.Itens.OrderBy(i => i.Id))
+        var quantidades = new Dictionary<PedidoCompraItem, decimal>();
+        foreach (var item in input.Itens.Where(i => i.Quantidade != 0))
         {
-            var entrada = item.Produto!.RegistrarCompra(item.Quantidade, item.CustoUnitario, quando, $"{pedido.Codigo} - NF {nota}",
-                pedido.FornecedorId, item.Embalagem);
-            db.MovimentacoesEstoque.Add(entrada);
-            entradas.Add(entrada);
+            var doPedido = pedido.Itens.FirstOrDefault(i => i.Id == item.PedidoCompraItemId)
+                           ?? throw new RegraNegocioException("Um dos itens não é deste pedido.");
+            Validador.Garantir(item.Quantidade > 0, $"A quantidade recebida de '{doPedido.Produto?.Nome}' não pode ser negativa.");
+            quantidades[doPedido] = quantidades.GetValueOrDefault(doPedido) + item.Quantidade;
         }
 
-        var fornecedor = pedido.Fornecedor?.NomeFantasia ?? pedido.Fornecedor?.RazaoSocial;
-        var descricao = $"Compra {pedido.Codigo} - NF {nota}" + (fornecedor is null ? "" : $" - {fornecedor}");
-        descricao = descricao[..Math.Min(descricao.Length, 120)];
-        var observacao = $"{pedido.Itens.Count} item(ns) recebido(s) pelo pedido {pedido.Codigo}.";
-        ContaPagar? conta = null;
-        ParcelamentoPagar? parcelamento = null;
-        if (vencimentos.Count == 1)
-        {
-            conta = new ContaPagar(descricao, pedido.Categoria, pedido.Total, vencimentos[0].Vencimento, pedido.FornecedorId)
-            {
-                Observacao = observacao
-            };
-            conta.DefinirDocumento(nota);
-            db.ContasPagar.Add(conta);
-        }
-        else
-        {
-            parcelamento = new ParcelamentoPagar(descricao, pedido.Categoria, pedido.Total, pedido.FornecedorId, null, nota, observacao);
-            parcelamento.GerarParcelas(vencimentos);
-            db.ParcelamentosPagar.Add(parcelamento);
-        }
+        var recebimento = pedido.Receber(input.Data, quantidades, input.Observacoes, sessao.Usuario?.Login, Agora);
+        db.RecebimentosCompra.Add(recebimento);
+        var quando = input.Data == Hoje ? Agora : input.Data.ToDateTime(new TimeOnly(12, 0));
+        db.MovimentacoesEstoque.AddRange(recebimento.DarEntrada(quando));
+        await db.SaveChangesAsync(ct);
+        return recebimento.Id;
+    }
 
-        pedido.VincularRecebimento(nota, input.DataCompra, conta, parcelamento, entradas, Agora);
+    /// <summary>
+    /// Desfaz um recebimento (mercadoria lançada errada ou devolvida): as entradas são estornadas e as quantidades voltam ao
+    /// saldo do pedido. Recusado se o recebimento já está numa nota ou se um produto já foi usado.
+    /// </summary>
+    public async Task EstornarRecebimentoAsync(int recebimentoId, string motivo, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var recebimento = await db.RecebimentosCompra
+                              .Include(r => r.PedidoCompra!).ThenInclude(p => p.Itens)
+                              .Include(r => r.NotaFiscalEntrada)
+                              .Include(r => r.Itens).ThenInclude(i => i.Entrada!).ThenInclude(m => m.Produto)
+                              .FirstOrDefaultAsync(r => r.Id == recebimentoId, ct)
+                          ?? throw new RegraNegocioException("Recebimento não encontrado.");
+        db.MovimentacoesEstoque.AddRange(recebimento.Estornar(motivo, Agora));
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>O saldo que não veio é dispensado: o pedido fica encerrado com o que foi recebido.</summary>
+    public async Task EncerrarSaldoAsync(int pedidoId, string motivo, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var pedido = await db.PedidosCompra.FirstOrDefaultAsync(p => p.Id == pedidoId, ct)
+                     ?? throw new RegraNegocioException("Pedido de compra não encontrado.");
+        pedido.EncerrarSaldo(motivo);
         await db.SaveChangesAsync(ct);
     }
 
     /// <summary>
-    /// Desfaz o recebimento (nota lançada errada): as entradas são estornadas, as contas da nota canceladas e o pedido volta a
-    /// ficar aberto para corrigir e receber de novo. Recusado se a nota já foi paga ou se um produto já foi usado.
+    /// Lança a nota fiscal de entrada: fatura os recebimentos escolhidos (do mesmo fornecedor) e gera a conta a pagar com
+    /// vencimento único ou uma compra parcelada com os vencimentos informados.
     /// </summary>
-    public async Task EstornarRecebimentoAsync(int pedidoId, string motivo, CancellationToken ct = default)
+    public async Task<int> LancarNotaAsync(NotaEntradaInput input, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var pedido = await db.PedidosCompra
-                         .Include(p => p.ContaPagar)
-                         .Include(p => p.ParcelamentoPagar!).ThenInclude(p => p.Parcelas)
-                         .Include(p => p.Itens).ThenInclude(i => i.Entrada!).ThenInclude(m => m.Produto)
-                         .FirstOrDefaultAsync(p => p.Id == pedidoId, ct)
-                     ?? throw new RegraNegocioException("Pedido de compra não encontrado.");
-        Validador.Garantir(!string.IsNullOrWhiteSpace(motivo), "Informe o motivo do estorno.");
+        var ids = input.Recebimentos.Distinct().ToList();
+        var recebimentos = await db.RecebimentosCompra
+            .Include(r => r.PedidoCompra)
+            .Include(r => r.Itens)
+            .Where(r => ids.Contains(r.Id))
+            .OrderBy(r => r.Id)
+            .ToListAsync(ct);
+        Validador.Garantir(recebimentos.Count == ids.Count, "Um dos recebimentos não foi encontrado.");
 
-        var agora = Agora;
-        foreach (var entrada in pedido.Itens.Select(i => i.Entrada).OfType<MovimentacaoEstoque>().Where(e => !e.Estornada))
-            db.MovimentacoesEstoque.Add(entrada.Produto!.EstornarEntrada(entrada, agora, $"{pedido.Codigo}: {motivo.Trim()}", permitirPedido: true));
-        pedido.EstornarRecebimento();
+        var numero = input.Numero?.Trim() ?? "";
+        var serie = string.IsNullOrWhiteSpace(input.Serie) ? null : input.Serie.Trim();
+        var repetida = await db.NotasFiscaisEntrada.AnyAsync(n => n.FornecedorId == input.FornecedorId && n.Numero == numero &&
+                                                                  n.Serie == serie && n.Status == StatusNotaEntrada.Lancada, ct);
+        Validador.Garantir(!repetida, $"A nota {numero} deste fornecedor já foi lançada.");
+
+        var fornecedor = await db.Fornecedores.AsNoTracking().FirstOrDefaultAsync(f => f.Id == input.FornecedorId, ct);
+        var nota = new NotaFiscalEntrada(input.FornecedorId, numero, serie, input.DataEmissao, input.Categoria, recebimentos,
+            input.ValorTotal, input.Observacoes, Hoje);
+        var (conta, parcelamento) = nota.LancarContas(input.Vencimentos.Select(v => (v.Vencimento, v.Valor)).ToList(), fornecedor?.NomeExibicao);
+        if (conta is not null)
+            db.ContasPagar.Add(conta);
+        if (parcelamento is not null)
+            db.ParcelamentosPagar.Add(parcelamento);
+        db.NotasFiscaisEntrada.Add(nota);
+        await db.SaveChangesAsync(ct);
+        return nota.Id;
+    }
+
+    /// <summary>
+    /// Cancela a nota lançada errada: as contas são canceladas e os recebimentos voltam a aguardar nota (a mercadoria
+    /// continua no estoque). Recusado se algo já foi pago.
+    /// </summary>
+    public async Task CancelarNotaAsync(int notaId, string motivo, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var nota = await db.NotasFiscaisEntrada
+                       .Include(n => n.ContaPagar)
+                       .Include(n => n.ParcelamentoPagar!).ThenInclude(p => p.Parcelas)
+                       .Include(n => n.Recebimentos)
+                       .FirstOrDefaultAsync(n => n.Id == notaId, ct)
+                   ?? throw new RegraNegocioException("Nota fiscal de entrada não encontrada.");
+        nota.Cancelar(motivo, Agora);
         await db.SaveChangesAsync(ct);
     }
 

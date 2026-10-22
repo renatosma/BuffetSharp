@@ -176,9 +176,13 @@ internal sealed class FormPrincipal : FormBase
 
             new("ESTOQUE", "Produtos", Icones.Carrinho, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Produtos)),
             new("ESTOQUE", "Movimentações", Icones.Historico, [Adm, Ope], () => n.Abrir<FormMovimentacoes>()),
-            new("ESTOQUE", "Lista de compras", Icones.Carrinho, [Adm, Ope], () => n.Abrir<FormListaCompras>()),
-            new("ESTOQUE", "Pedidos de compra", Icones.Documento, [Adm, Ope, Fin], () => n.Abrir<FormPedidosCompra>()),
             new("ESTOQUE", "Materiais e enxoval", Icones.Pacote, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Materiais)),
+
+            new("COMPRAS", "Lista de compras", Icones.Carrinho, [Adm, Ope], () => n.Abrir<FormListaCompras>()),
+            new("COMPRAS", "Cotações", Icones.Calculadora, [Adm, Ope, Fin], () => n.Abrir<FormCotacoes>()),
+            new("COMPRAS", "Pedidos de compra", Icones.Documento, [Adm, Ope, Fin], () => n.Abrir<FormPedidosCompra>()),
+            new("COMPRAS", "Recebimentos", Icones.Pacote, [Adm, Ope, Fin], () => n.Abrir<FormRecebimentos>()),
+            new("COMPRAS", "Notas fiscais de entrada", Icones.Pagina, [Adm, Fin], () => n.Abrir<FormNotasEntrada>()),
 
             new("FINANCEIRO", "Contas a receber", Icones.Cartao, [Adm, Fin], () => n.Abrir<FormContasReceber>()),
             new("FINANCEIRO", "Contas a pagar", Icones.Banco, [Adm, Fin], () => n.Abrir<FormContasPagar>()),

@@ -104,35 +104,3 @@ internal sealed class PacoteItemConfig : IEntityTypeConfiguration<PacoteItem>
         b.HasOne(x => x.ItemCardapio).WithMany().HasForeignKey(x => x.ItemCardapioId).OnDelete(DeleteBehavior.Restrict);
     }
 }
-
-internal sealed class PedidoCompraConfig : IEntityTypeConfiguration<PedidoCompra>
-{
-    public void Configure(EntityTypeBuilder<PedidoCompra> b)
-    {
-        b.ToTable("PedidosCompra");
-        b.Property(x => x.Observacoes).HasMaxLength(1000);
-        b.Property(x => x.NotaFiscal).HasMaxLength(PedidoCompra.TamanhoNotaFiscal);
-        b.Property(x => x.MotivoCancelamento).HasMaxLength(500);
-        b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
-
-        // Conta da nota. Excluir a conta ou desfazer o parcelamento desfaz o vínculo antes (serviço financeiro).
-        b.HasOne(x => x.ContaPagar).WithMany().HasForeignKey(x => x.ContaPagarId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne(x => x.ParcelamentoPagar).WithMany().HasForeignKey(x => x.ParcelamentoPagarId).OnDelete(DeleteBehavior.Restrict);
-        b.HasMany(x => x.Itens).WithOne().HasForeignKey(x => x.PedidoCompraId).OnDelete(DeleteBehavior.Cascade);
-        b.HasIndex(x => new { x.Status, x.Data });
-        b.HasIndex(x => x.NotaFiscal);
-    }
-}
-
-internal sealed class PedidoCompraItemConfig : IEntityTypeConfiguration<PedidoCompraItem>
-{
-    public void Configure(EntityTypeBuilder<PedidoCompraItem> b)
-    {
-        b.ToTable("PedidoCompraItens");
-        b.Property(x => x.Quantidade).HasPrecision(18, 3);
-        b.Property(x => x.CustoUnitario).HasPrecision(18, 4);
-        b.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne(x => x.Embalagem).WithMany().HasForeignKey(x => x.ProdutoEmbalagemId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne(x => x.Entrada).WithMany().HasForeignKey(x => x.MovimentacaoEstoqueId).OnDelete(DeleteBehavior.Restrict);
-    }
-}

@@ -6,22 +6,27 @@ namespace BuffetSharp.Domain.Estoque;
 
 public enum StatusPedidoCompra
 {
-    /// <summary>Pedido feito ao fornecedor; os itens ainda podem mudar.</summary>
+    /// <summary>Pedido feito ao fornecedor; nada recebido ainda (os itens podem mudar).</summary>
     Aberto,
 
-    /// <summary>Mercadoria recebida com a nota fiscal: os itens entraram no estoque e a conta a pagar foi gerada.</summary>
+    /// <summary>Parte dos itens já chegou; o saldo ainda é esperado.</summary>
+    ParcialmenteRecebido,
+
+    /// <summary>Tudo recebido.</summary>
     Recebido,
+
+    /// <summary>Recebido em parte e o saldo foi dispensado (não vem mais).</summary>
+    Encerrado,
 
     Cancelado
 }
 
 /// <summary>
-/// Pedido de compra a um fornecedor, com vários produtos. No recebimento informa-se a nota fiscal, a data da compra e os
-/// vencimentos: todos os itens entram no estoque de uma vez e a nota vira uma conta a pagar (ou parcelas), ligada ao pedido.
+/// Pedido de compra a um fornecedor, com vários produtos. A mercadoria chega em um ou mais recebimentos (que dão entrada no
+/// estoque) e depois é faturada pela nota fiscal de entrada, que gera as contas a pagar.
 /// </summary>
 public class PedidoCompra : Entidade
 {
-    public const int TamanhoNotaFiscal = ContaPagar.TamanhoDocumento;
     private readonly List<PedidoCompraItem> _itens = [];
 
     private PedidoCompra()
@@ -40,35 +45,26 @@ public class PedidoCompra : Entidade
     public DateOnly Data { get; private set; }
     public DateOnly? PrevisaoEntrega { get; private set; }
 
-    /// <summary>Categoria da despesa lançada em contas a pagar.</summary>
+    /// <summary>Categoria da despesa lançada em contas a pagar pela nota de entrada.</summary>
     public CategoriaDespesa Categoria { get; private set; } = CategoriaDespesa.Insumos;
 
     public string? Observacoes { get; private set; }
     public StatusPedidoCompra Status { get; private set; } = StatusPedidoCompra.Aberto;
-
-    public string? NotaFiscal { get; private set; }
-
-    /// <summary>Data da compra (emissão da nota).</summary>
-    public DateOnly? DataCompra { get; private set; }
-
-    public DateTime? RecebidoEm { get; private set; }
     public string? MotivoCancelamento { get; private set; }
 
-    /// <summary>Conta a pagar da nota (vencimento único).</summary>
-    public int? ContaPagarId { get; private set; }
-    public ContaPagar? ContaPagar { get; private set; }
-
-    /// <summary>Parcelas da nota (mais de um vencimento).</summary>
-    public int? ParcelamentoPagarId { get; private set; }
-    public ParcelamentoPagar? ParcelamentoPagar { get; private set; }
+    /// <summary>Cotação que originou o pedido (quando houver).</summary>
+    public int? CotacaoCompraId { get; private set; }
+    public CotacaoCompra? CotacaoCompra { get; private set; }
 
     public IReadOnlyCollection<PedidoCompraItem> Itens => _itens;
 
     public decimal Total => _itens.Sum(i => i.Total);
 
+    public bool PodeReceber => Status is StatusPedidoCompra.Aberto or StatusPedidoCompra.ParcialmenteRecebido;
+
     public void Alterar(int fornecedorId, DateOnly data, DateOnly? previsaoEntrega, CategoriaDespesa categoria, string? observacoes)
     {
-        GarantirAberto();
+        GarantirEditavel();
         Validador.Garantir(fornecedorId > 0, "Selecione o fornecedor.");
         Validador.Garantir(categoria != CategoriaDespesa.FaturaCartao, "Escolha a categoria da despesa da compra.");
         Validador.Garantir(previsaoEntrega is null || previsaoEntrega >= data, "A previsão de entrega não pode ser antes do pedido.");
@@ -80,12 +76,10 @@ public class PedidoCompra : Entidade
         Observacoes = string.IsNullOrWhiteSpace(observacoes) ? null : observacoes.Trim();
     }
 
-    /// <summary>
-    /// Substitui os itens do pedido. A embalagem, quando informada, deve ser do produto e deste fornecedor (ou valer para qualquer um).
-    /// </summary>
+    /// <summary>Substitui os itens. A embalagem, quando informada, deve ser do produto e deste fornecedor (ou valer para qualquer um).</summary>
     public void DefinirItens(IEnumerable<(Produto Produto, ProdutoEmbalagem? Embalagem, decimal Quantidade, decimal CustoUnitario)> itens)
     {
-        GarantirAberto();
+        GarantirEditavel();
         var novos = itens.ToList();
         Validador.Garantir(novos.Count > 0, "Inclua ao menos um produto no pedido.");
         foreach (var (produto, embalagem, quantidade, custo) in novos)
@@ -102,98 +96,88 @@ public class PedidoCompra : Entidade
             _itens.Add(new PedidoCompraItem(produto, embalagem, quantidade, custo));
     }
 
-    /// <summary>
-    /// Registra o recebimento: confere a nota e os vencimentos. As entradas no estoque e a conta a pagar são criadas pelo serviço,
-    /// que as liga ao pedido com <see cref="VincularRecebimento"/>.
-    /// </summary>
-    public void ConferirRecebimento(string notaFiscal, DateOnly dataCompra, IReadOnlyList<(DateOnly Vencimento, decimal Valor)> vencimentos,
-        DateOnly hoje)
+    internal void VincularCotacao(CotacaoCompra cotacao)
     {
-        GarantirAberto();
-        Validador.Garantir(_itens.Count > 0, "O pedido não tem itens.");
-        Validador.Garantir(!string.IsNullOrWhiteSpace(notaFiscal), "Informe o número da nota fiscal.");
-        Validador.Garantir(notaFiscal.Trim().Length <= TamanhoNotaFiscal, $"A nota fiscal pode ter no máximo {TamanhoNotaFiscal} caracteres.");
-        Validador.Garantir(dataCompra <= hoje, "A data da compra não pode ser futura.");
-        Validador.Garantir(Total > 0, "O pedido está sem valor: informe o custo dos itens.");
-        Validador.Garantir(vencimentos.Count is >= 1 and <= PlanoParcelas.MaximoParcelas,
-            $"Informe de 1 a {PlanoParcelas.MaximoParcelas} vencimentos.");
-        Validador.Garantir(vencimentos.All(v => v.Valor > 0), "Cada vencimento precisa de um valor maior que zero.");
-        Validador.Garantir(vencimentos.All(v => v.Vencimento >= dataCompra), "Nenhum vencimento pode ser antes da data da compra.");
-        Validador.Garantir(vencimentos.Sum(v => v.Valor) == Total,
-            $"A soma dos vencimentos ({vencimentos.Sum(v => v.Valor):C}) deve ser igual ao total do pedido ({Total:C}).");
+        CotacaoCompra = cotacao;
+        CotacaoCompraId = cotacao.EhNovo ? null : cotacao.Id;
     }
 
-    public void VincularRecebimento(string notaFiscal, DateOnly dataCompra, ContaPagar? conta, ParcelamentoPagar? parcelamento,
-        IReadOnlyList<MovimentacaoEstoque> entradas, DateTime agora)
+    /// <summary>
+    /// Registra o que chegou (quantidades na unidade de compra, por item). A entrada no estoque é feita pelo serviço, que liga
+    /// cada movimentação ao item do recebimento.
+    /// </summary>
+    public RecebimentoCompra Receber(DateOnly data, IReadOnlyDictionary<PedidoCompraItem, decimal> quantidades, string? observacoes,
+        string? usuario, DateTime agora)
     {
-        GarantirAberto();
-        Validador.Garantir(conta is null ^ parcelamento is null, "Informe a conta única ou as parcelas da nota.");
-        Validador.Garantir(entradas.Count == _itens.Count, "Cada item precisa da sua entrada no estoque.");
-        var itens = _itens.OrderBy(i => i.Id).ToList();
-        for (var i = 0; i < itens.Count; i++)
+        Validador.Garantir(PodeReceber, Status switch
         {
-            itens[i].DefinirEntrada(entradas[i]);
-            entradas[i].MarcarDePedido();
+            StatusPedidoCompra.Cancelado => "Pedido cancelado não pode ser recebido.",
+            _ => "Este pedido já foi todo recebido (ou teve o saldo encerrado)."
+        });
+        Validador.Garantir(data <= DateOnly.FromDateTime(agora), "A data do recebimento não pode ser futura.");
+        var recebidos = quantidades.Where(q => q.Value > 0).ToList();
+        Validador.Garantir(recebidos.Count > 0, "Informe a quantidade recebida de ao menos um produto.");
+        foreach (var (item, quantidade) in recebidos)
+        {
+            Validador.Garantir(_itens.Contains(item), "Um dos itens não é deste pedido.");
+            Validador.Garantir(quantidade <= item.Saldo,
+                $"'{item.Produto?.Nome}': chegaram {quantidade:0.###}, mas o saldo do pedido é {item.Saldo:0.###}.");
         }
 
-        NotaFiscal = notaFiscal.Trim();
-        DataCompra = dataCompra;
-        ContaPagar = conta;
-        ParcelamentoPagar = parcelamento;
-        RecebidoEm = agora;
-        Status = StatusPedidoCompra.Recebido;
+        var recebimento = new RecebimentoCompra(this, data, observacoes, usuario, agora);
+        foreach (var (item, quantidade) in recebidos)
+        {
+            item.QuantidadeRecebida += quantidade;
+            recebimento.AdicionarItem(item, quantidade);
+        }
+        AtualizarStatus();
+        return recebimento;
     }
 
-    /// <summary>Contas a pagar geradas pela nota (a única ou as parcelas).</summary>
-    public IReadOnlyList<ContaPagar> ContasDaNota() =>
-        ContaPagar is not null ? [ContaPagar] : ParcelamentoPagar?.Parcelas.ToList() ?? [];
-
-    /// <summary>
-    /// Desfaz o recebimento (nota lançada errada): o pedido volta a ficar aberto. O serviço estorna as entradas e cancela as
-    /// contas antes; se alguma conta já foi paga, o estorno é recusado.
-    /// </summary>
-    public void EstornarRecebimento()
+    /// <summary>Recebimento estornado: as quantidades voltam ao saldo do pedido.</summary>
+    internal void DesfazerRecebimento(RecebimentoCompra recebimento)
     {
-        Validador.Garantir(Status == StatusPedidoCompra.Recebido, "Somente pedidos recebidos podem ter o recebimento estornado.");
-        Validador.Garantir(ContasDaNota().All(c => c.Status != StatusTitulo.Pago),
-            "A nota deste pedido já foi paga (total ou parcialmente). Estorne o pagamento em contas a pagar antes.");
-        foreach (var conta in ContasDaNota().Where(c => c.Status == StatusTitulo.Aberto))
-            conta.Cancelar();
-        foreach (var item in _itens)
-            item.DefinirEntrada(null);
-
-        NotaFiscal = null;
-        DataCompra = null;
-        RecebidoEm = null;
-        ContaPagar = null;
-        ContaPagarId = null;
-        ParcelamentoPagar = null;
-        ParcelamentoPagarId = null;
-        Status = StatusPedidoCompra.Aberto;
+        foreach (var item in recebimento.Itens)
+            item.PedidoCompraItem!.QuantidadeRecebida -= item.Quantidade;
+        if (Status == StatusPedidoCompra.Encerrado)
+            Status = StatusPedidoCompra.ParcialmenteRecebido;
+        AtualizarStatus();
     }
 
-    /// <summary>A conta foi excluída ou o parcelamento desfeito em contas a pagar: o pedido continua recebido, sem o vínculo.</summary>
-    public void DesvincularConta()
+    /// <summary>Dispensa o saldo que não veio: o pedido fica encerrado com o que foi recebido.</summary>
+    public void EncerrarSaldo(string motivo)
     {
-        ContaPagar = null;
-        ContaPagarId = null;
-        ParcelamentoPagar = null;
-        ParcelamentoPagarId = null;
+        Validador.Garantir(Status == StatusPedidoCompra.ParcialmenteRecebido,
+            "Só é possível encerrar o saldo de um pedido recebido em parte. Para um pedido sem recebimento, cancele-o.");
+        Validador.Garantir(!string.IsNullOrWhiteSpace(motivo), "Informe o motivo (ex.: fornecedor sem estoque).");
+        Status = StatusPedidoCompra.Encerrado;
+        MotivoCancelamento = motivo.Trim();
     }
 
     public void Cancelar(string motivo)
     {
-        GarantirAberto();
+        Validador.Garantir(Status == StatusPedidoCompra.Aberto,
+            Status == StatusPedidoCompra.Cancelado ? "O pedido já está cancelado."
+                : "O pedido já teve recebimento: estorne os recebimentos ou encerre o saldo.");
         Validador.Garantir(!string.IsNullOrWhiteSpace(motivo), "Informe o motivo do cancelamento.");
         Status = StatusPedidoCompra.Cancelado;
         MotivoCancelamento = motivo.Trim();
     }
 
-    private void GarantirAberto() =>
+    private void AtualizarStatus()
+    {
+        if (Status is StatusPedidoCompra.Cancelado or StatusPedidoCompra.Encerrado)
+            return;
+        Status = _itens.All(i => i.QuantidadeRecebida == 0) ? StatusPedidoCompra.Aberto
+            : _itens.All(i => i.Saldo <= 0) ? StatusPedidoCompra.Recebido
+            : StatusPedidoCompra.ParcialmenteRecebido;
+    }
+
+    private void GarantirEditavel() =>
         Validador.Garantir(Status == StatusPedidoCompra.Aberto,
-            Status == StatusPedidoCompra.Recebido
-                ? "Pedido já recebido. Para corrigir, estorne o recebimento."
-                : "Pedido cancelado não pode ser alterado.");
+            Status == StatusPedidoCompra.Cancelado
+                ? "Pedido cancelado não pode ser alterado."
+                : "O pedido já teve recebimento e não pode mais ser alterado. Para corrigir, estorne os recebimentos.");
 }
 
 /// <summary>Produto do pedido, na unidade de compra (embalagem do fornecedor) ou na unidade do estoque.</summary>
@@ -222,23 +206,15 @@ public class PedidoCompraItem
     public int? ProdutoEmbalagemId { get; private set; }
     public ProdutoEmbalagem? Embalagem { get; private set; }
 
-    /// <summary>Quantidade na unidade de compra.</summary>
+    /// <summary>Quantidade pedida, na unidade de compra.</summary>
     public decimal Quantidade { get; private set; }
 
     /// <summary>Custo de uma unidade de compra.</summary>
     public decimal CustoUnitario { get; private set; }
 
+    /// <summary>Quanto já chegou (soma dos recebimentos não estornados), na unidade de compra.</summary>
+    public decimal QuantidadeRecebida { get; internal set; }
+
+    public decimal Saldo => Quantidade - QuantidadeRecebida;
     public decimal Total => Math.Round(Quantidade * CustoUnitario, 2);
-
-    /// <summary>Entrada no estoque feita no recebimento.</summary>
-    public int? MovimentacaoEstoqueId { get; private set; }
-
-    public MovimentacaoEstoque? Entrada { get; private set; }
-
-    internal void DefinirEntrada(MovimentacaoEstoque? entrada)
-    {
-        Entrada = entrada;
-        if (entrada is null)
-            MovimentacaoEstoqueId = null;
-    }
 }

@@ -4,12 +4,11 @@ using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
-using BuffetSharp.Domain.Financeiro;
 using BuffetSharp.WinForms.Infra;
 
 namespace BuffetSharp.WinForms.Formularios.Estoque;
 
-/// <summary>Edição do pedido de compra (cabeçalho e itens) e recebimento da nota fiscal com os vencimentos.</summary>
+/// <summary>Edição do pedido de compra (cabeçalho e itens) e recebimento da mercadoria (inteira ou em partes).</summary>
 internal static class DialogosPedidoCompra
 {
     /// <summary>Linha da grade de itens. A unidade de compra depende do produto (cada linha tem a sua lista).</summary>
@@ -30,7 +29,7 @@ internal static class DialogosPedidoCompra
     {
         var input = pedidoId == 0 ? servico.Novo() : await servico.ObterAsync(pedidoId);
         Validador.Garantir(input.Status == StatusPedidoCompra.Aberto,
-            input.Status == StatusPedidoCompra.Recebido ? "Pedido já recebido. Para corrigir, estorne o recebimento." : "Pedido cancelado.");
+            input.Status == StatusPedidoCompra.Cancelado ? "Pedido cancelado." : "O pedido já teve recebimento e não pode mais ser alterado.");
         var fornecedores = await lookups.ListarAsync(TipoLookup.Fornecedores);
         if (input.FornecedorId == 0 && fornecedores.Count > 0)
             input.FornecedorId = fornecedores[0].Id;
@@ -102,7 +101,7 @@ internal static class DialogosPedidoCompra
 
         int? salvo = null;
         using var dialogo = new FormEdicao(pedidoId == 0 ? "Novo pedido de compra" : $"Editar pedido {input.Codigo}",
-            "Os itens entram no estoque só no recebimento, quando você informa a nota fiscal e os vencimentos.", e,
+            "Os itens entram no estoque no recebimento (pode ser em partes); a nota fiscal gera as contas a pagar.", e,
             async () => salvo = await servico.SalvarAsync(input), 920);
         dialogo.Shown += (_, _) => AjustarUnidades(grade, linhas, produtos);
         return dialogo.ShowDialog(dono) == DialogResult.OK ? salvo : null;
@@ -198,93 +197,110 @@ internal static class DialogosPedidoCompra
 
     // =========================== Recebimento ===========================
 
-    private sealed class LinhaVencimento
+    /// <summary>Item do pedido na grade do recebimento: o que falta chegar e o que chegou agora.</summary>
+    private sealed class LinhaRecebimento
     {
-        public DateTime Vencimento { get; set; }
-        public decimal Valor { get; set; }
+        public int ItemId { get; init; }
+        public string Produto { get; init; } = "";
+        public string Unidade { get; init; } = "";
+        public decimal Pedido { get; init; }
+        public decimal JaRecebido { get; init; }
+        public decimal Saldo => Pedido - JaRecebido;
+        public decimal Custo { get; init; }
+        public decimal Chegou { get; set; }
     }
 
-    /// <summary>Recebe o pedido: nota fiscal, data da compra e vencimentos (gerados pelas parcelas e editáveis).</summary>
-    public static bool Receber(IWin32Window dono, CompraService servico, PedidoCompraResumo pedido)
+    /// <summary>
+    /// Recebe o pedido, inteiro ou em partes: as quantidades que chegaram entram no estoque agora. A nota fiscal (e as
+    /// contas a pagar) vem depois. Retorna o Id do recebimento, ou nulo se cancelar.
+    /// </summary>
+    public static async Task<int?> ReceberAsync(IWin32Window dono, CompraService servico, IConsultasCompras consultas, PedidoCompraResumo pedido)
     {
         var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var input = new RecebimentoPedidoInput { PedidoId = pedido.Id, DataCompra = hoje };
-        var parcelas = 1;
-        var intervalo = 0;
-        var primeiro = hoje.AddDays(28);
-        var vencimentos = new BindingList<LinhaVencimento>();
+        var itens = await consultas.ItensAsync(pedido.Id);
+        var linhas = new BindingList<LinhaRecebimento>(itens.Where(i => i.Saldo > 0).Select(i => new LinhaRecebimento
+        {
+            ItemId = i.Id, Produto = i.Produto, Unidade = i.Unidade, Pedido = i.Quantidade, JaRecebido = i.QuantidadeRecebida,
+            Custo = i.CustoUnitario, Chegou = i.Saldo
+        }).ToList());
+        var input = new RecebimentoInput { PedidoId = pedido.Id, Data = hoje };
 
         var e = new EditorCampos();
         e.Informacao("Pedido", () => $"{pedido.Codigo} - {pedido.Fornecedor}", span: 2);
-        e.Informacao("Total da nota", () => Textos.Moeda(pedido.Total));
-        e.Informacao("Itens", () => $"{pedido.Itens} produto(s) entram no estoque");
-        e.Texto("Nota fiscal", () => input.NotaFiscal, v => input.NotaFiscal = v ?? "", nameof(input.NotaFiscal), PedidoCompra.TamanhoNotaFiscal,
-            dica: "Número da NF");
-        e.Data("Data da compra", () => input.DataCompra, v => input.DataCompra = v ?? hoje, nameof(input.DataCompra));
+        e.Data("Data do recebimento", () => input.Data, v => input.Data = v ?? hoje, nameof(input.Data));
+        e.Texto("Observações", () => input.Observacoes, v => input.Observacoes = v, nameof(input.Observacoes), RecebimentoCompra.TamanhoObservacoes,
+            dica: "Ex.: faltou um fardo, entregam amanhã");
 
-        e.Secao("Vencimentos");
-        var campoParcelas = e.Inteiro("Parcelas", () => parcelas, v => parcelas = v, minimo: 1, maximo: PlanoParcelas.MaximoParcelas);
-        var campoPrimeiro = e.Data("1º vencimento", () => primeiro, v => primeiro = v ?? primeiro);
-        var campoIntervalo = e.Inteiro("Dias entre parcelas (0 = mensal)", () => intervalo, v => intervalo = v, maximo: 365, span: 2);
-
-        var grade = new DataGridView { AutoGenerateColumns = false, Height = 170, Dock = DockStyle.Top };
+        e.Secao("O que chegou (na unidade do pedido)");
+        var grade = new DataGridView { AutoGenerateColumns = false };
         Tema.EstilizarGrade(grade);
         grade.ReadOnly = false;
         grade.AllowUserToAddRows = false;
+        grade.EditMode = DataGridViewEditMode.EditOnEnter;
+        DataGridViewTextBoxColumn Numero(string titulo, string propriedade, float peso, bool somenteLeitura = true) => new()
+        {
+            HeaderText = titulo, DataPropertyName = propriedade, FillWeight = peso, ReadOnly = somenteLeitura,
+            DefaultCellStyle = { Format = "N3", FormatProvider = Textos.PtBr, Alignment = DataGridViewContentAlignment.MiddleRight }
+        };
         grade.Columns.AddRange(
-            new DataGridViewTextBoxColumn
-            {
-                HeaderText = "Vencimento", DataPropertyName = nameof(LinhaVencimento.Vencimento),
-                DefaultCellStyle = { Format = "dd/MM/yyyy", FormatProvider = Textos.PtBr }
-            },
-            new DataGridViewTextBoxColumn
-            {
-                HeaderText = "Valor", DataPropertyName = nameof(LinhaVencimento.Valor),
-                DefaultCellStyle = { Format = "N2", FormatProvider = Textos.PtBr, Alignment = DataGridViewContentAlignment.MiddleRight }
-            });
-        grade.DataSource = vencimentos;
+            new DataGridViewTextBoxColumn { HeaderText = "Produto", DataPropertyName = nameof(LinhaRecebimento.Produto), FillWeight = 40, ReadOnly = true },
+            new DataGridViewTextBoxColumn { HeaderText = "Un.", DataPropertyName = nameof(LinhaRecebimento.Unidade), FillWeight = 8, ReadOnly = true },
+            Numero("Pedido", nameof(LinhaRecebimento.Pedido), 13),
+            Numero("Já recebido", nameof(LinhaRecebimento.JaRecebido), 13),
+            Numero("Falta", nameof(LinhaRecebimento.Saldo), 13),
+            Numero("Chegou agora", nameof(LinhaRecebimento.Chegou), 15, somenteLeitura: false));
+        grade.Columns[^1].DefaultCellStyle.BackColor = Tema.Fundo;
+        grade.Columns[^1].DefaultCellStyle.Font = Tema.FonteNegrito;
+        grade.DataSource = linhas;
         grade.DataError += (_, ev) => ev.ThrowException = false;
-        var conferencia = new Label { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(0, 6, 0, 0) };
-        void Conferir()
-        {
-            var soma = vencimentos.Sum(v => v.Valor);
-            conferencia.Text = soma == pedido.Total
-                ? $"Soma dos vencimentos: {Textos.Moeda(soma)} (confere com a nota)"
-                : $"Soma dos vencimentos: {Textos.Moeda(soma)}  •  diferença: {Textos.Moeda(pedido.Total - soma)}";
-            conferencia.ForeColor = soma == pedido.Total ? Tema.Sucesso : Tema.Perigo;
-        }
-        void Gerar()
-        {
-            if (pedido.Total <= 0)
-                return;
-            var plano = PlanoParcelas.Calcular(pedido.Total, (int)campoParcelas.Value, DateOnly.FromDateTime(campoPrimeiro.Value),
-                intervaloDias: campoIntervalo.Value > 0 ? (int)campoIntervalo.Value : null);
-            vencimentos.Clear();
-            foreach (var p in plano)
-                vencimentos.Add(new LinhaVencimento { Vencimento = p.Vencimento.ToDateTime(TimeOnly.MinValue), Valor = p.Valor });
-            Conferir();
-        }
-        campoParcelas.ValueChanged += (_, _) => Gerar();
-        campoPrimeiro.ValueChanged += (_, _) => Gerar();
-        campoIntervalo.ValueChanged += (_, _) => Gerar();
-        grade.CellEndEdit += (_, _) => Conferir();
-        e.AoCarregar(Gerar);
 
-        var painel = new Panel { Height = 210, Dock = DockStyle.Top };
+        var resumo = new Label { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(8, 8, 0, 0) };
+        void Atualizar()
+        {
+            var parcial = linhas.Any(l => l.Chegou < l.Saldo);
+            resumo.Text = $"Valor recebido: {Textos.Moeda(linhas.Sum(l => Math.Round(l.Chegou * l.Custo, 2)))}" +
+                          (parcial ? "  •  recebimento parcial: o saldo continua no pedido" : "  •  pedido completo");
+            resumo.ForeColor = parcial ? Tema.Alerta : Tema.Sucesso;
+        }
+        grade.CellEndEdit += (_, _) => Atualizar();
+        var tudo = Tema.BotaoSecundario("Chegou tudo", Icones.Confirmar);
+        tudo.Click += (_, _) =>
+        {
+            grade.EndEdit();
+            foreach (var linha in linhas)
+                linha.Chegou = linha.Saldo;
+            grade.Refresh();
+            Atualizar();
+        };
+        var nada = Tema.BotaoSecundario("Zerar", Icones.Desfazer);
+        nada.Click += (_, _) =>
+        {
+            grade.EndEdit();
+            foreach (var linha in linhas)
+                linha.Chegou = 0;
+            grade.Refresh();
+            Atualizar();
+        };
+        var barra = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = false };
+        barra.Controls.AddRange([tudo, nada, resumo]);
+        var painel = new Panel { Height = 280, Dock = DockStyle.Top };
+        grade.Dock = DockStyle.Fill;
         painel.Controls.Add(grade);
-        painel.Controls.Add(conferencia);
-        conferencia.Dock = DockStyle.Bottom;
+        painel.Controls.Add(barra);
         e.Livre(painel);
+        e.Associar(nameof(input.Itens), grade);
+        e.AoCarregar(Atualizar);
         e.AoAplicar(() =>
         {
             grade.EndEdit();
-            input.Vencimentos = vencimentos.Select(v => new VencimentoInput { Vencimento = DateOnly.FromDateTime(v.Vencimento), Valor = v.Valor })
-                .ToList();
+            input.Itens = linhas.Select(l => new RecebimentoItemInput(l.ItemId, l.Chegou)).ToList();
         });
 
+        int? recebido = null;
         using var dialogo = new FormEdicao($"Receber pedido {pedido.Codigo}",
-            "Todos os itens entram no estoque e a nota vira uma conta a pagar (ou parcelas). Ajuste as datas e os valores dos " +
-            "vencimentos conforme os boletos.", e, () => servico.ReceberAsync(input), 620);
-        return dialogo.ShowDialog(dono) == DialogResult.OK;
+            "Informe o que chegou: entra no estoque agora. O que faltar continua no pedido para o próximo recebimento. " +
+            "A nota fiscal e as contas a pagar são lançadas depois (uma nota pode juntar vários recebimentos).", e,
+            async () => recebido = await servico.ReceberAsync(input), 820);
+        return dialogo.ShowDialog(dono) == DialogResult.OK ? recebido : null;
     }
 }

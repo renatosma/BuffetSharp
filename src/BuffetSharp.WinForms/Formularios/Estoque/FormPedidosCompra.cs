@@ -10,8 +10,8 @@ using BuffetSharp.WinForms.Infra;
 namespace BuffetSharp.WinForms.Formularios.Estoque;
 
 /// <summary>
-/// Pedidos de compra aos fornecedores. No recebimento, informa-se só a nota fiscal, a data da compra e os vencimentos: todos
-/// os itens entram no estoque e a nota vira uma conta a pagar (ou parcelas).
+/// Pedidos de compra aos fornecedores (feitos à mão, pela lista de compras ou pela cotação). A mercadoria chega em um ou
+/// mais recebimentos, que dão entrada no estoque; a nota fiscal de entrada fatura os recebimentos e gera as contas a pagar.
 /// </summary>
 internal sealed class FormPedidosCompra : FormListagem<PedidoCompraResumo>
 {
@@ -21,10 +21,10 @@ internal sealed class FormPedidosCompra : FormListagem<PedidoCompraResumo>
     private readonly BuffetOptions _opcoes;
     private readonly DateTimePicker _de;
     private readonly DateTimePicker _ate;
-    private readonly ComboBox _status = new() { Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox _status = new() { Width = 170, DropDownStyle = ComboBoxStyle.DropDownList };
 
     public FormPedidosCompra(IConsultasCompras consultas, IConsultasLookup lookups, CompraService servico, BuffetOptions opcoes)
-        : base("Pedidos de compra", "Vários produtos de um fornecedor numa nota só. Ao receber, informe a nota fiscal, a data e os vencimentos: tudo entra no estoque e em contas a pagar de uma vez.")
+        : base("Pedidos de compra", "O que foi pedido a cada fornecedor. Ao chegar a mercadoria (inteira ou em partes), registre o recebimento: entra no estoque na hora. A nota fiscal vem depois, em Notas fiscais de entrada.")
     {
         _consultas = consultas;
         _lookups = lookups;
@@ -42,25 +42,26 @@ internal sealed class FormPedidosCompra : FormListagem<PedidoCompraResumo>
         Botao("Novo pedido", Icones.Adicionar, () => EditarAsync(0), destaque: true);
         Botao("Editar", Icones.Editar, () => Selecionado() is { } p ? EditarAsync(p.Id) : Task.CompletedTask);
         Separador();
-        Botao("Receber (nota fiscal)", Icones.Confirmar, ReceberAsync, "Dá entrada de todos os itens e lança a nota em contas a pagar");
-        Botao("Estornar recebimento", Icones.Desfazer, EstornarAsync, "Nota lançada errada: tira os itens do estoque e cancela as contas");
+        Botao("Receber mercadoria", Icones.Confirmar, ReceberAsync, "Registra o que chegou (tudo ou parte): entra no estoque agora");
+        Botao("Encerrar saldo", Icones.Desfazer, EncerrarSaldoAsync, "O que falta não vem mais: encerra o pedido com o que foi recebido");
         Botao("Cancelar pedido", Icones.Cancelar, CancelarAsync);
         Separador();
         Botao("Imprimir", Icones.Imprimir, ImprimirAsync);
         Botao("WhatsApp", Icones.Mensagem, WhatsAppAsync, "Envia o pedido ao fornecedor");
 
-        Grade.Texto("Código", p => p.Codigo, 18)
-            .Data("Data", p => p.Data, peso: 18)
-            .Texto("Fornecedor", p => p.Fornecedor, 40)
-            .Numero("Itens", p => p.Itens, peso: 13)
-            .Moeda("Total", p => p.Total, 20)
-            .Status("Situação", p => p.Status, 18)
-            .Data("Previsão", p => p.PrevisaoEntrega, peso: 18)
-            .Texto("Nota fiscal", p => p.NotaFiscal, 18)
-            .Data("Data da NF", p => p.DataCompra, peso: 20)
-            .Texto("Pagamento", p => p.Pagamento, 20, p => p.Pagamento == "Pago" ? Tema.Sucesso : Tema.Info)
+        Grade.Texto("Código", p => p.Codigo, 16)
+            .Data("Data", p => p.Data, peso: 16)
+            .Texto("Fornecedor", p => p.Fornecedor, 36)
+            .Numero("Itens", p => p.Itens, peso: 10)
+            .Moeda("Total", p => p.Total, 18)
+            .Status("Situação", p => p.Status, 22)
+            .Numero("Recebido %", p => p.PercentualRecebido, "N0", 14,
+                p => p.PercentualRecebido >= 100 ? Tema.Sucesso : p.PercentualRecebido > 0 ? Tema.Alerta : null)
+            .Texto("Sem nota", p => p.AFaturar > 0 ? $"{p.AFaturar} receb." : "", 14, _ => Tema.Alerta)
+            .Data("Previsão", p => p.PrevisaoEntrega, peso: 16)
+            .Texto("Cotação", p => p.Cotacao, 14)
             .Texto("Observações", p => p.MotivoCancelamento ?? p.Observacoes, 40)
-            .Busca(p => $"{p.Codigo} {p.Fornecedor} {p.NotaFiscal} {p.Observacoes}");
+            .Busca(p => $"{p.Codigo} {p.Fornecedor} {p.Cotacao} {p.Observacoes}");
     }
 
     protected override async Task CarregarAsync() =>
@@ -71,10 +72,12 @@ internal sealed class FormPedidosCompra : FormListagem<PedidoCompraResumo>
             Status = (_status.SelectedItem as OpcaoEnum<StatusPedidoCompra>)?.Valor
         }));
 
-    protected override string TextoRodape(IReadOnlyList<PedidoCompraResumo> visiveis) =>
-        $"{visiveis.Count} pedido(s)  •  em aberto: {visiveis.Count(p => p.Status == StatusPedidoCompra.Aberto)} " +
-        $"({Textos.Moeda(visiveis.Where(p => p.Status == StatusPedidoCompra.Aberto).Sum(p => p.Total))})  •  " +
-        $"recebidos: {Textos.Moeda(visiveis.Where(p => p.Status == StatusPedidoCompra.Recebido).Sum(p => p.Total))}";
+    protected override string TextoRodape(IReadOnlyList<PedidoCompraResumo> visiveis)
+    {
+        var pendentes = visiveis.Where(p => p.Status is StatusPedidoCompra.Aberto or StatusPedidoCompra.ParcialmenteRecebido).ToList();
+        return $"{visiveis.Count} pedido(s)  •  a receber: {pendentes.Count} ({Textos.Moeda(pendentes.Sum(p => p.Total - p.Recebido))})  •  " +
+               $"recebido: {Textos.Moeda(visiveis.Where(p => p.Status != StatusPedidoCompra.Cancelado).Sum(p => p.Recebido))}";
+    }
 
     protected override Task AoAbrirAsync(PedidoCompraResumo item) =>
         item.Status == StatusPedidoCompra.Aberto ? EditarAsync(item.Id) : ImprimirAsync(item);
@@ -92,31 +95,35 @@ internal sealed class FormPedidosCompra : FormListagem<PedidoCompraResumo>
     {
         if (Selecionado() is not { } pedido)
             return;
-        if (pedido.Status != StatusPedidoCompra.Aberto)
+        if (pedido.Status is not (StatusPedidoCompra.Aberto or StatusPedidoCompra.ParcialmenteRecebido))
         {
-            Mensagens.Aviso(this, "Selecione um pedido em aberto.");
+            Mensagens.Aviso(this, "Selecione um pedido em aberto ou recebido em parte.");
             return;
         }
-        if (!DialogosPedidoCompra.Receber(this, _servico, pedido))
+        if (await DialogosPedidoCompra.ReceberAsync(this, _servico, _consultas, pedido) is not { } recebimento)
             return;
         await CarregarAsync();
         Grade.Selecionar(p => p.Id == pedido.Id);
+        if (Mensagens.Confirmar(this, "Mercadoria no estoque. A nota fiscal já chegou? Você pode lançá-la agora ou depois, em " +
+                                      "Compras › Notas fiscais de entrada (uma nota pode juntar vários recebimentos).", "Lançar a nota fiscal agora?") &&
+            await DialogosNotaEntrada.LancarAsync(this, _servico, _consultas, pedido.FornecedorId, [recebimento]) is not null)
+            await CarregarAsync();
     }
 
-    private async Task EstornarAsync()
+    private async Task EncerrarSaldoAsync()
     {
         if (Selecionado() is not { } pedido)
             return;
-        if (pedido.Status != StatusPedidoCompra.Recebido)
+        if (pedido.Status != StatusPedidoCompra.ParcialmenteRecebido)
         {
-            Mensagens.Aviso(this, "Selecione um pedido recebido.");
+            Mensagens.Aviso(this, "Selecione um pedido recebido em parte. Um pedido sem recebimento é cancelado.");
             return;
         }
-        var motivo = Dialogos.PedirTexto(this, "Estornar recebimento", "Motivo",
-            subtitulo: $"{pedido.Codigo} - NF {pedido.NotaFiscal}: os itens saem do estoque, as contas da nota são canceladas e o pedido volta a ficar aberto.");
+        var motivo = Dialogos.PedirTexto(this, "Encerrar saldo", "Motivo",
+            subtitulo: $"{pedido.Codigo} - {pedido.Fornecedor}: o que falta ({Textos.Moeda(pedido.Total - pedido.Recebido)}) não será mais entregue.");
         if (motivo is null)
             return;
-        await _servico.EstornarRecebimentoAsync(pedido.Id, motivo);
+        await _servico.EncerrarSaldoAsync(pedido.Id, motivo);
         await CarregarAsync();
     }
 
@@ -142,11 +149,15 @@ internal sealed class FormPedidosCompra : FormListagem<PedidoCompraResumo>
             ("Data", pedido.Data.ToString("dd/MM/yyyy")),
             ("Previsão de entrega", pedido.PrevisaoEntrega?.ToString("dd/MM/yyyy") ?? "-"),
             ("Situação", Textos.Exibir(pedido.Status)),
-            ("Nota fiscal", pedido.NotaFiscal ?? "-"),
+            ("Cotação", pedido.Cotacao ?? "-"),
             ("Telefone", pedido.TelefoneFornecedor ?? "-"));
-        doc.Tabela(["Produto", "Quantidade", "Un.", "Custo unitário", "Total"],
-            itens.Select(i => new[] { i.Produto, i.Quantidade.ToString("N3"), i.Unidade, i.CustoUnitario.ToString("C4"), Textos.Moeda(i.Total) }).ToList(),
-            [4, 1.3f, 0.8f, 1.5f, 1.5f], [false, true, false, true, true]);
+        doc.Tabela(["Produto", "Quantidade", "Un.", "Recebido", "Custo unitário", "Total"],
+            itens.Select(i => new[]
+            {
+                i.Produto, i.Quantidade.ToString("N3"), i.Unidade, i.QuantidadeRecebida.ToString("N3"), i.CustoUnitario.ToString("C4"),
+                Textos.Moeda(i.Total)
+            }).ToList(),
+            [4, 1.3f, 0.8f, 1.3f, 1.5f, 1.5f], [false, true, false, true, true, true]);
         doc.Total("Total do pedido", Textos.Moeda(itens.Sum(i => i.Total)));
         if (!string.IsNullOrWhiteSpace(pedido.Observacoes))
             doc.Paragrafo(pedido.Observacoes);

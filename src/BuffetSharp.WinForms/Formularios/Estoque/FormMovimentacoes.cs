@@ -89,10 +89,10 @@ internal sealed class FormMovimentacoes : FormListagem<MovimentacaoResumo>
             Mensagens.Aviso(this, "Selecione uma entrada que ainda não foi estornada.");
             return;
         }
-        if (entrada.PedidoCompraId is { } pedido)
+        if (entrada.RecebimentoCompraId is { } recebimento)
         {
-            Mensagens.Aviso(this, $"Esta entrada veio do recebimento do pedido PC-{pedido:D5}. Estorne o recebimento em Estoque › Pedidos de compra: " +
-                                  "todos os itens da nota saem juntos e as contas são canceladas.");
+            Mensagens.Aviso(this, $"Esta entrada veio do recebimento REC-{recebimento:D5} (pedido PC-{entrada.PedidoCompraId:D5}). " +
+                                  "Estorne o recebimento em Compras › Recebimentos: os itens saem juntos e voltam ao saldo do pedido.");
             return;
         }
         var conta = entrada.ContaPagar.Length > 0 ? " A conta a pagar da compra será cancelada." : "";

@@ -244,11 +244,12 @@ public sealed record MovimentacaoResumo
     public int ParcelasConta { get; init; }
     public int ParcelasPagas { get; init; }
 
-    /// <summary>Pedido de compra cujo recebimento gerou a entrada.</summary>
+    /// <summary>Recebimento de pedido de compra que gerou a entrada (a conta vem depois, pela nota fiscal de entrada).</summary>
+    public int? RecebimentoCompraId { get; init; }
     public int? PedidoCompraId { get; init; }
 
-    public string ContaPagar => PedidoCompraId is { } pedido
-        ? $"Pedido PC-{pedido:D5}"
+    public string ContaPagar => RecebimentoCompraId is { } recebimento
+        ? $"REC-{recebimento:D5} (PC-{PedidoCompraId:D5})"
         : ContaPagarId is not null
         ? SituacaoConta switch { StatusTitulo.Pago => "Conta paga", StatusTitulo.Cancelado => "Conta cancelada", _ => "Conta em aberto" }
         : ParcelamentoPagarId is { } parcelamento

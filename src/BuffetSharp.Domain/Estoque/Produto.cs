@@ -103,14 +103,14 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
     /// Desfaz uma entrada lançada por engano: o saldo volta e o custo médio é recalculado sem o custo dela. Se o produto já
     /// foi usado e o saldo não cobre a entrada, o estorno é recusado (corrija pelo inventário).
     /// </summary>
-    /// <param name="permitirPedido">Verdadeiro só no estorno do recebimento do pedido (que estorna todas as entradas da nota).</param>
+    /// <param name="permitirPedido">Verdadeiro só no estorno do recebimento do pedido (que estorna todas as entradas dele).</param>
     public MovimentacaoEstoque EstornarEntrada(MovimentacaoEstoque entrada, DateTime data, string motivo, bool permitirPedido = false)
     {
         Validador.Garantir(entrada.ProdutoId == Id, "A entrada não é deste produto.");
         Validador.Garantir(entrada.Tipo == TipoMovimentacao.Entrada, "Somente entradas podem ser estornadas.");
         Validador.Garantir(!entrada.Estornada, "Esta entrada já foi estornada.");
         Validador.Garantir(!entrada.DePedidoCompra || permitirPedido,
-            "Esta entrada veio do recebimento de um pedido de compra. Estorne o recebimento pelo pedido (Estoque › Pedidos de compra).");
+            "Esta entrada veio do recebimento de um pedido de compra. Estorne o recebimento (Compras › Recebimentos).");
         Validador.Garantir(!string.IsNullOrWhiteSpace(motivo), "Informe o motivo do estorno.");
         Validador.Garantir(entrada.Quantidade <= EstoqueAtual,
             $"O saldo de '{Nome}' ({EstoqueAtual:N3}) é menor que a entrada ({entrada.Quantidade:N3}): o produto já foi usado. " +

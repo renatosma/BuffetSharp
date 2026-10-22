@@ -31,7 +31,10 @@ public interface IBuffetDbContext : IDisposable, IAsyncDisposable
     DbSet<ServicoAdicional> ServicosAdicionais { get; }
     DbSet<Produto> Produtos { get; }
     DbSet<MovimentacaoEstoque> MovimentacoesEstoque { get; }
+    DbSet<CotacaoCompra> CotacoesCompra { get; }
     DbSet<PedidoCompra> PedidosCompra { get; }
+    DbSet<RecebimentoCompra> RecebimentosCompra { get; }
+    DbSet<NotaFiscalEntrada> NotasFiscaisEntrada { get; }
     DbSet<ProdutoEmbalagem> ProdutoEmbalagens { get; }
     DbSet<ItemCardapio> ItensCardapio { get; }
     DbSet<Pacote> Pacotes { get; }

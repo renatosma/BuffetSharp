@@ -3,7 +3,7 @@ using BuffetSharp.Domain.Financeiro;
 
 namespace BuffetSharp.Application.Modelos;
 
-// Pedido de compra: vários produtos de um fornecedor, recebidos de uma vez com a nota fiscal.
+// Compras: cotação -> pedido de compra -> recebimento (estoque) -> nota fiscal de entrada (contas a pagar).
 
 public sealed class PedidoCompraInput
 {
@@ -21,8 +21,6 @@ public sealed class PedidoCompraInput
     // Somente leitura
     public string Codigo { get; set; } = "(novo)";
     public StatusPedidoCompra Status { get; set; } = StatusPedidoCompra.Aberto;
-    public string? NotaFiscal { get; set; }
-    public DateOnly? DataCompra { get; set; }
     public decimal Total => Itens.Sum(i => i.Total);
 }
 
@@ -41,12 +39,29 @@ public sealed class PedidoCompraItemInput
     public decimal Total => Math.Round(Quantidade * CustoUnitario, 2);
 }
 
-/// <summary>Recebimento da nota: número, data da compra e os vencimentos (um ou vários boletos).</summary>
-public sealed class RecebimentoPedidoInput
+/// <summary>O que chegou de um pedido (pode ser só parte dele).</summary>
+public sealed class RecebimentoInput
 {
     public int PedidoId { get; set; }
-    public string NotaFiscal { get; set; } = string.Empty;
-    public DateOnly DataCompra { get; set; }
+    public DateOnly Data { get; set; }
+    public string? Observacoes { get; set; }
+    public List<RecebimentoItemInput> Itens { get; set; } = [];
+}
+
+/// <param name="Quantidade">Na unidade de compra do pedido; zero = não veio.</param>
+public sealed record RecebimentoItemInput(int PedidoCompraItemId, decimal Quantidade);
+
+/// <summary>Nota fiscal de entrada: fatura recebimentos de um fornecedor e gera as contas a pagar.</summary>
+public sealed class NotaEntradaInput
+{
+    public int FornecedorId { get; set; }
+    public string Numero { get; set; } = string.Empty;
+    public string? Serie { get; set; }
+    public DateOnly DataEmissao { get; set; }
+    public CategoriaDespesa Categoria { get; set; } = CategoriaDespesa.Insumos;
+    public decimal ValorTotal { get; set; }
+    public string? Observacoes { get; set; }
+    public List<int> Recebimentos { get; set; } = [];
     public List<VencimentoInput> Vencimentos { get; set; } = [];
 }
 
@@ -63,3 +78,106 @@ public sealed record ProdutoCompra(int Id, string Nome, string Unidade, decimal 
 /// <param name="Id">0 = unidade do estoque.</param>
 /// <param name="Fator">Unidades do estoque em uma unidade de compra.</param>
 public sealed record UnidadeCompra(int Id, string Nome, decimal Fator);
+
+// ------------------------------- Cotação -------------------------------
+
+public sealed class CotacaoInput
+{
+    public int Id { get; set; }
+    public int? Versao { get; set; }
+    public string Descricao { get; set; } = string.Empty;
+    public DateOnly Data { get; set; }
+    public DateOnly? PrazoResposta { get; set; }
+    public int? EventoId { get; set; }
+    public string? Observacoes { get; set; }
+    public List<CotacaoItemInput> Itens { get; set; } = [];
+    public List<CotacaoParticipanteInput> Participantes { get; set; } = [];
+
+    // Somente leitura
+    public string Codigo { get; set; } = "(nova)";
+    public StatusCotacao Status { get; set; } = StatusCotacao.Aberta;
+}
+
+public sealed class CotacaoItemInput
+{
+    public int ProdutoId { get; set; }
+
+    /// <summary>Na unidade do estoque.</summary>
+    public decimal Quantidade { get; set; }
+    public string? Especificacao { get; set; }
+}
+
+public sealed class CotacaoParticipanteInput
+{
+    /// <summary>0 = novo participante.</summary>
+    public int Id { get; set; }
+    public string Nome { get; set; } = string.Empty;
+
+    /// <summary>Fornecedor cadastrado (opcional na cotação; obrigatório para virar pedido).</summary>
+    public int? FornecedorId { get; set; }
+    public string? Contato { get; set; }
+    public string? Telefone { get; set; }
+    public string? Email { get; set; }
+    public DateOnly? PrevisaoEntrega { get; set; }
+    public string? CondicaoPagamento { get; set; }
+    public string? Observacoes { get; set; }
+}
+
+/// <summary>Mapa de cotação: os preços de cada participante por produto e o vencedor de cada produto.</summary>
+public sealed class MapaCotacao
+{
+    public int CotacaoId { get; set; }
+    public int? Versao { get; set; }
+    public string Codigo { get; set; } = string.Empty;
+    public string Descricao { get; set; } = string.Empty;
+    public StatusCotacao Status { get; set; }
+    public List<MapaCotacaoItem> Itens { get; set; } = [];
+    public List<MapaCotacaoParticipante> Participantes { get; set; } = [];
+    public List<MapaCotacaoPreco> Precos { get; set; } = [];
+
+    public MapaCotacaoPreco? Preco(int itemId, int participanteId) =>
+        Precos.FirstOrDefault(p => p.ItemId == itemId && p.ParticipanteId == participanteId);
+
+    /// <summary>Menor preço do produto (empate: o participante que aparece primeiro).</summary>
+    public MapaCotacaoPreco? MenorPreco(int itemId) =>
+        Precos.Where(p => p.ItemId == itemId && p.PrecoUnitario > 0)
+            .OrderBy(p => p.PrecoUnitario)
+            .ThenBy(p => Participantes.FindIndex(x => x.Id == p.ParticipanteId))
+            .FirstOrDefault();
+
+    /// <summary>Quem vence o produto: o escolhido ou, sem escolha, o menor preço.</summary>
+    public int? Vencedor(MapaCotacaoItem item) =>
+        item.Escolhido is { } escolhido && Preco(item.ItemId, escolhido) is { PrecoUnitario: > 0 } ? escolhido : MenorPreco(item.ItemId)?.ParticipanteId;
+}
+
+public sealed class MapaCotacaoItem
+{
+    public int ItemId { get; set; }
+    public string Produto { get; set; } = string.Empty;
+    public string Unidade { get; set; } = string.Empty;
+    public decimal Quantidade { get; set; }
+    public string? Especificacao { get; set; }
+
+    /// <summary>Participante escolhido à mão (nulo = menor preço).</summary>
+    public int? Escolhido { get; set; }
+    public string? Motivo { get; set; }
+}
+
+public sealed class MapaCotacaoParticipante
+{
+    public int Id { get; set; }
+    public string Nome { get; set; } = string.Empty;
+    public int? FornecedorId { get; set; }
+    public DateOnly? PrevisaoEntrega { get; set; }
+    public string? CondicaoPagamento { get; set; }
+}
+
+public sealed class MapaCotacaoPreco
+{
+    public int ItemId { get; set; }
+    public int ParticipanteId { get; set; }
+
+    /// <summary>Preço de uma unidade do estoque; zero = não cotou.</summary>
+    public decimal PrecoUnitario { get; set; }
+    public string? Observacao { get; set; }
+}

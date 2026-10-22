@@ -19,8 +19,8 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
                 ?? throw new RegraNegocioException("Conta não encontrada.");
         var entrada = await db.MovimentacoesEstoque.AsNoTracking().Include(m => m.Produto!).ThenInclude(p => p.UnidadeMedida)
             .FirstOrDefaultAsync(m => m.ContaPagarId == id || (c.ParcelamentoId != null && m.ParcelamentoPagarId == c.ParcelamentoId), ct);
-        var pedido = await db.PedidosCompra.AsNoTracking().Include(p => p.Itens)
-            .FirstOrDefaultAsync(p => p.ContaPagarId == id || (c.ParcelamentoId != null && p.ParcelamentoPagarId == c.ParcelamentoId), ct);
+        var nota = await db.NotasFiscaisEntrada.AsNoTracking().Include(n => n.Recebimentos).ThenInclude(r => r.PedidoCompra)
+            .FirstOrDefaultAsync(n => n.ContaPagarId == id || (c.ParcelamentoId != null && n.ParcelamentoPagarId == c.ParcelamentoId), ct);
         return new ContaPagarInput
         {
             Id = c.Id,
@@ -39,8 +39,9 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
             FormaPagamento = c.FormaPagamento?.Nome,
             TipoFormaPagamento = c.FormaPagamento?.Tipo,
             Parcelamento = c.ParcelamentoId is { } p ? $"PAR-{p:D5}" : c.AgrupadaEmId is { } a ? $"juntada em PAR-{a:D5}" : null,
-            OrigemEstoque = pedido is not null
-                ? $"Recebimento do pedido de compra {pedido.Codigo} (NF {pedido.NotaFiscal}, {pedido.Itens.Count} item(ns))"
+            OrigemEstoque = nota is not null
+                ? $"Nota fiscal de entrada {nota.Descricao} ({nota.Recebimentos.Count} recebimento(s) do(s) pedido(s) " +
+                  $"{string.Join(", ", nota.Recebimentos.Select(r => r.PedidoCompra?.Codigo).Distinct())})"
                 : entrada is null
                 ? null
                 : $"Entrada de {entrada.Quantidade:N3} {entrada.Produto?.UnidadeMedida?.Sigla} de {entrada.Produto?.Nome} em {entrada.Data:dd/MM/yyyy HH:mm}"
@@ -89,8 +90,8 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
             $"Esta conta faz parte do parcelamento PAR-{conta.ParcelamentoId ?? conta.AgrupadaEmId:D5}. Use \"Desfazer parcelamento\" ou cancele a parcela.");
         foreach (var entrada in await db.MovimentacoesEstoque.Where(m => m.ContaPagarId == contaId).ToListAsync(ct))
             entrada.DesvincularConta();
-        foreach (var pedido in await db.PedidosCompra.Where(p => p.ContaPagarId == contaId).ToListAsync(ct))
-            pedido.DesvincularConta();
+        foreach (var nota in await db.NotasFiscaisEntrada.Where(n => n.ContaPagarId == contaId).ToListAsync(ct))
+            nota.DesvincularConta();
         db.ContasPagar.Remove(conta);
         await db.SaveChangesAsync(ct);
     }
@@ -163,8 +164,8 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
         var parcelamento = await CarregarParcelamentoAsync(db, parcelamentoId, ct);
         foreach (var entrada in await db.MovimentacoesEstoque.Where(m => m.ParcelamentoPagarId == parcelamentoId).ToListAsync(ct))
             entrada.DesvincularConta();
-        foreach (var pedido in await db.PedidosCompra.Where(p => p.ParcelamentoPagarId == parcelamentoId).ToListAsync(ct))
-            pedido.DesvincularConta();
+        foreach (var nota in await db.NotasFiscaisEntrada.Where(n => n.ParcelamentoPagarId == parcelamentoId).ToListAsync(ct))
+            nota.DesvincularConta();
         foreach (var item in parcelamento.Desfazer())
         {
             switch (item)

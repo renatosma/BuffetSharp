@@ -2119,6 +2119,244 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.ToTable("REAJUSTESPRECO", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CotacaoCompra", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<DateTime?>("ConcluidaEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CONCLUIDAEM");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<DateTime>("Data")
+                        .HasColumnType("DATE")
+                        .HasColumnName("DATA");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("DESCRICAO");
+
+                    b.Property<int?>("EventoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("EVENTOID");
+
+                    b.Property<string>("MotivoCancelamento")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("MOTIVOCANCELAMENTO");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("NVARCHAR2(1000)")
+                        .HasColumnName("OBSERVACOES");
+
+                    b.Property<DateTime?>("PrazoResposta")
+                        .HasColumnType("DATE")
+                        .HasColumnName("PRAZORESPOSTA");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("STATUS");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_COTACOESCOMPRA");
+
+                    b.HasIndex("EventoId")
+                        .HasDatabaseName("IX_COTACOESCOMPRA_EVENTOID");
+
+                    b.HasIndex("Status", "Data")
+                        .HasDatabaseName("IX_COTACOESCOMPRA_STATUS_DATA");
+
+                    b.ToTable("COTACOESCOMPRA", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CotacaoItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CotacaoCompraId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("COTACAOCOMPRAID");
+
+                    b.Property<bool>("EscolhaManual")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("ESCOLHAMANUAL");
+
+                    b.Property<string>("Especificacao")
+                        .HasMaxLength(200)
+                        .HasColumnType("NVARCHAR2(200)")
+                        .HasColumnName("ESPECIFICACAO");
+
+                    b.Property<string>("MotivoEscolha")
+                        .HasMaxLength(300)
+                        .HasColumnType("NVARCHAR2(300)")
+                        .HasColumnName("MOTIVOESCOLHA");
+
+                    b.Property<int>("ProdutoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("PRODUTOID");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("DECIMAL(18,3)")
+                        .HasColumnName("QUANTIDADE");
+
+                    b.Property<int?>("VencedorId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VENCEDORID");
+
+                    b.HasKey("Id")
+                        .HasName("PK_COTACAOITENS");
+
+                    b.HasIndex("CotacaoCompraId")
+                        .HasDatabaseName("IX_COTACAOITENS_COTACAOCOMPRAID");
+
+                    b.HasIndex("ProdutoId")
+                        .HasDatabaseName("IX_COTACAOITENS_PRODUTOID");
+
+                    b.HasIndex("VencedorId")
+                        .HasDatabaseName("IX_COTACAOITENS_VENCEDORID");
+
+                    b.ToTable("COTACAOITENS", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CotacaoParticipante", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CondicaoPagamento")
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("CONDICAOPAGAMENTO");
+
+                    b.Property<string>("Contato")
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("CONTATO");
+
+                    b.Property<int>("CotacaoCompraId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("COTACAOCOMPRAID");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("EMAIL");
+
+                    b.Property<int?>("FornecedorId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("FORNECEDORID");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("NOME");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("OBSERVACOES");
+
+                    b.Property<DateTime?>("PrevisaoEntrega")
+                        .HasColumnType("DATE")
+                        .HasColumnName("PREVISAOENTREGA");
+
+                    b.Property<string>("Telefone")
+                        .HasMaxLength(20)
+                        .HasColumnType("NVARCHAR2(20)")
+                        .HasColumnName("TELEFONE");
+
+                    b.HasKey("Id")
+                        .HasName("PK_COTACAOPARTICIPANTES");
+
+                    b.HasIndex("CotacaoCompraId")
+                        .HasDatabaseName("IX_COTACAOPARTICIPANTES_COTACAOCOMPRAID");
+
+                    b.HasIndex("FornecedorId")
+                        .HasDatabaseName("IX_COTACAOPARTICIPANTES_FORNECEDORID");
+
+                    b.ToTable("COTACAOPARTICIPANTES", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CotacaoPreco", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CotacaoCompraId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("COTACAOCOMPRAID");
+
+                    b.Property<int>("CotacaoItemId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("COTACAOITEMID");
+
+                    b.Property<int>("CotacaoParticipanteId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("COTACAOPARTICIPANTEID");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(200)
+                        .HasColumnType("NVARCHAR2(200)")
+                        .HasColumnName("OBSERVACAO");
+
+                    b.Property<decimal>("PrecoUnitario")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("DECIMAL(18,4)")
+                        .HasColumnName("PRECOUNITARIO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_COTACAOPRECOS");
+
+                    b.HasIndex("CotacaoCompraId")
+                        .HasDatabaseName("IX_COTACAOPRECOS_COTACAOCOMPRAID");
+
+                    b.HasIndex("CotacaoParticipanteId")
+                        .HasDatabaseName("IX_COTACAOPRECOS_COTACAOPARTICIPANTEID");
+
+                    b.HasIndex("CotacaoItemId", "CotacaoParticipanteId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_COTACAOPRECOS_COTACAOITEMID_COTACAOPARTICIPANTEID");
+
+                    b.ToTable("COTACAOPRECOS", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.Material", b =>
                 {
                     b.Property<int>("Id")
@@ -2324,6 +2562,109 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.ToTable("MOVIMENTACOESESTOQUE", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<DateTime?>("CanceladaEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CANCELADAEM");
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("CATEGORIA");
+
+                    b.Property<int?>("ContaPagarId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("CONTAPAGARID");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<DateTime>("DataEmissao")
+                        .HasColumnType("DATE")
+                        .HasColumnName("DATAEMISSAO");
+
+                    b.Property<int>("FornecedorId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("FORNECEDORID");
+
+                    b.Property<string>("MotivoCancelamento")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("MOTIVOCANCELAMENTO");
+
+                    b.Property<string>("Numero")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("NUMERO");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("OBSERVACOES");
+
+                    b.Property<int?>("ParcelamentoPagarId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("PARCELAMENTOPAGARID");
+
+                    b.Property<string>("Serie")
+                        .HasMaxLength(5)
+                        .HasColumnType("NVARCHAR2(5)")
+                        .HasColumnName("SERIE");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("STATUS");
+
+                    b.Property<decimal>("ValorProdutos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("VALORPRODUTOS");
+
+                    b.Property<decimal>("ValorTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("VALORTOTAL");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_NOTASFISCAISENTRADA");
+
+                    b.HasIndex("ContaPagarId")
+                        .HasDatabaseName("IX_NOTASFISCAISENTRADA_CONTAPAGARID");
+
+                    b.HasIndex("DataEmissao")
+                        .HasDatabaseName("IX_NOTASFISCAISENTRADA_DATAEMISSAO");
+
+                    b.HasIndex("ParcelamentoPagarId")
+                        .HasDatabaseName("IX_NOTASFISCAISENTRADA_PARCELAMENTOPAGARID");
+
+                    b.HasIndex("FornecedorId", "Numero")
+                        .HasDatabaseName("IX_NOTASFISCAISENTRADA_FORNECEDORID_NUMERO");
+
+                    b.ToTable("NOTASFISCAISENTRADA", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.PedidoCompra", b =>
                 {
                     b.Property<int>("Id")
@@ -2343,9 +2684,9 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(30)")
                         .HasColumnName("CATEGORIA");
 
-                    b.Property<int?>("ContaPagarId")
+                    b.Property<int?>("CotacaoCompraId")
                         .HasColumnType("NUMBER(10)")
-                        .HasColumnName("CONTAPAGARID");
+                        .HasColumnName("COTACAOCOMPRAID");
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("TIMESTAMP(7)")
@@ -2354,10 +2695,6 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<DateTime>("Data")
                         .HasColumnType("DATE")
                         .HasColumnName("DATA");
-
-                    b.Property<DateTime?>("DataCompra")
-                        .HasColumnType("DATE")
-                        .HasColumnName("DATACOMPRA");
 
                     b.Property<int>("FornecedorId")
                         .HasColumnType("NUMBER(10)")
@@ -2368,27 +2705,14 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NVARCHAR2(500)")
                         .HasColumnName("MOTIVOCANCELAMENTO");
 
-                    b.Property<string>("NotaFiscal")
-                        .HasMaxLength(60)
-                        .HasColumnType("NVARCHAR2(60)")
-                        .HasColumnName("NOTAFISCAL");
-
                     b.Property<string>("Observacoes")
                         .HasMaxLength(1000)
                         .HasColumnType("NVARCHAR2(1000)")
                         .HasColumnName("OBSERVACOES");
 
-                    b.Property<int?>("ParcelamentoPagarId")
-                        .HasColumnType("NUMBER(10)")
-                        .HasColumnName("PARCELAMENTOPAGARID");
-
                     b.Property<DateTime?>("PrevisaoEntrega")
                         .HasColumnType("DATE")
                         .HasColumnName("PREVISAOENTREGA");
-
-                    b.Property<DateTime?>("RecebidoEm")
-                        .HasColumnType("TIMESTAMP(7)")
-                        .HasColumnName("RECEBIDOEM");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -2404,17 +2728,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.HasKey("Id")
                         .HasName("PK_PEDIDOSCOMPRA");
 
-                    b.HasIndex("ContaPagarId")
-                        .HasDatabaseName("IX_PEDIDOSCOMPRA_CONTAPAGARID");
+                    b.HasIndex("CotacaoCompraId")
+                        .HasDatabaseName("IX_PEDIDOSCOMPRA_COTACAOCOMPRAID");
 
                     b.HasIndex("FornecedorId")
                         .HasDatabaseName("IX_PEDIDOSCOMPRA_FORNECEDORID");
-
-                    b.HasIndex("NotaFiscal")
-                        .HasDatabaseName("IX_PEDIDOSCOMPRA_NOTAFISCAL");
-
-                    b.HasIndex("ParcelamentoPagarId")
-                        .HasDatabaseName("IX_PEDIDOSCOMPRA_PARCELAMENTOPAGARID");
 
                     b.HasIndex("Status", "Data")
                         .HasDatabaseName("IX_PEDIDOSCOMPRA_STATUS_DATA");
@@ -2436,10 +2754,6 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DECIMAL(18,4)")
                         .HasColumnName("CUSTOUNITARIO");
 
-                    b.Property<int?>("MovimentacaoEstoqueId")
-                        .HasColumnType("NUMBER(10)")
-                        .HasColumnName("MOVIMENTACAOESTOQUEID");
-
                     b.Property<int>("PedidoCompraId")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("PEDIDOCOMPRAID");
@@ -2457,11 +2771,13 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DECIMAL(18,3)")
                         .HasColumnName("QUANTIDADE");
 
+                    b.Property<decimal>("QuantidadeRecebida")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("DECIMAL(18,3)")
+                        .HasColumnName("QUANTIDADERECEBIDA");
+
                     b.HasKey("Id")
                         .HasName("PK_PEDIDOCOMPRAITENS");
-
-                    b.HasIndex("MovimentacaoEstoqueId")
-                        .HasDatabaseName("IX_PEDIDOCOMPRAITENS_MOVIMENTACAOESTOQUEID");
 
                     b.HasIndex("PedidoCompraId")
                         .HasDatabaseName("IX_PEDIDOCOMPRAITENS_PEDIDOCOMPRAID");
@@ -2623,6 +2939,137 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasDatabaseName("IX_PRODUTOEMBALAGENS_UNIDADEMEDIDAID");
 
                     b.ToTable("PRODUTOEMBALAGENS", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.RecebimentoCompra", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<DateTime>("Data")
+                        .HasColumnType("DATE")
+                        .HasColumnName("DATA");
+
+                    b.Property<DateTime?>("EstornadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ESTORNADOEM");
+
+                    b.Property<int>("FornecedorId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("FORNECEDORID");
+
+                    b.Property<string>("MotivoEstorno")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("MOTIVOESTORNO");
+
+                    b.Property<int?>("NotaFiscalEntradaId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("NOTAFISCALENTRADAID");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("OBSERVACOES");
+
+                    b.Property<int>("PedidoCompraId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("PEDIDOCOMPRAID");
+
+                    b.Property<DateTime>("RegistradoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("REGISTRADOEM");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("STATUS");
+
+                    b.Property<string>("Usuario")
+                        .HasMaxLength(50)
+                        .HasColumnType("NVARCHAR2(50)")
+                        .HasColumnName("USUARIO");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_RECEBIMENTOSCOMPRA");
+
+                    b.HasIndex("NotaFiscalEntradaId")
+                        .HasDatabaseName("IX_RECEBIMENTOSCOMPRA_NOTAFISCALENTRADAID");
+
+                    b.HasIndex("PedidoCompraId")
+                        .HasDatabaseName("IX_RECEBIMENTOSCOMPRA_PEDIDOCOMPRAID");
+
+                    b.HasIndex("FornecedorId", "Status")
+                        .HasDatabaseName("IX_RECEBIMENTOSCOMPRA_FORNECEDORID_STATUS");
+
+                    b.HasIndex("Status", "Data")
+                        .HasDatabaseName("IX_RECEBIMENTOSCOMPRA_STATUS_DATA");
+
+                    b.ToTable("RECEBIMENTOSCOMPRA", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.RecebimentoItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("CustoUnitario")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("DECIMAL(18,4)")
+                        .HasColumnName("CUSTOUNITARIO");
+
+                    b.Property<int?>("MovimentacaoEstoqueId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("MOVIMENTACAOESTOQUEID");
+
+                    b.Property<int>("PedidoCompraItemId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("PEDIDOCOMPRAITEMID");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("DECIMAL(18,3)")
+                        .HasColumnName("QUANTIDADE");
+
+                    b.Property<int>("RecebimentoCompraId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("RECEBIMENTOCOMPRAID");
+
+                    b.HasKey("Id")
+                        .HasName("PK_RECEBIMENTOITENS");
+
+                    b.HasIndex("MovimentacaoEstoqueId")
+                        .HasDatabaseName("IX_RECEBIMENTOITENS_MOVIMENTACAOESTOQUEID");
+
+                    b.HasIndex("PedidoCompraItemId")
+                        .HasDatabaseName("IX_RECEBIMENTOITENS_PEDIDOCOMPRAITEMID");
+
+                    b.HasIndex("RecebimentoCompraId")
+                        .HasDatabaseName("IX_RECEBIMENTOITENS_RECEBIMENTOCOMPRAID");
+
+                    b.ToTable("RECEBIMENTOITENS", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.Convidado", b =>
@@ -4386,6 +4833,90 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasConstraintName("FK_REAJUSTEITENS_REAJUSTESPRECO_REAJUSTEPRECOID");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CotacaoCompra", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", "Evento")
+                        .WithMany()
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_COTACOESCOMPRA_EVENTOS_EVENTOID");
+
+                    b.Navigation("Evento");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CotacaoItem", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Estoque.CotacaoCompra", null)
+                        .WithMany("Itens")
+                        .HasForeignKey("CotacaoCompraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_COTACAOITENS_COTACOESCOMPRA_COTACAOCOMPRAID");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.Produto", "Produto")
+                        .WithMany()
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_COTACAOITENS_PRODUTOS_PRODUTOID");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.CotacaoParticipante", "Vencedor")
+                        .WithMany()
+                        .HasForeignKey("VencedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_COTACAOITENS_COTACAOPARTICIPANTES_VENCEDORID");
+
+                    b.Navigation("Produto");
+
+                    b.Navigation("Vencedor");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CotacaoParticipante", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Estoque.CotacaoCompra", null)
+                        .WithMany("Participantes")
+                        .HasForeignKey("CotacaoCompraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_COTACAOPARTICIPANTES_COTACOESCOMPRA_COTACAOCOMPRAID");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_COTACAOPARTICIPANTES_FORNECEDORES_FORNECEDORID");
+
+                    b.Navigation("Fornecedor");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CotacaoPreco", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Estoque.CotacaoCompra", null)
+                        .WithMany("Precos")
+                        .HasForeignKey("CotacaoCompraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_COTACAOPRECOS_COTACOESCOMPRA_COTACAOCOMPRAID");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.CotacaoItem", "Item")
+                        .WithMany()
+                        .HasForeignKey("CotacaoItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_COTACAOPRECOS_COTACAOITENS_COTACAOITEMID");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.CotacaoParticipante", "Participante")
+                        .WithMany()
+                        .HasForeignKey("CotacaoParticipanteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_COTACAOPRECOS_COTACAOPARTICIPANTES_COTACAOPARTICIPANTEID");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Participante");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.Material", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
@@ -4445,26 +4976,26 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("Produto");
                 });
 
-            modelBuilder.Entity("BuffetSharp.Domain.Estoque.PedidoCompra", b =>
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Financeiro.ContaPagar", "ContaPagar")
                         .WithMany()
                         .HasForeignKey("ContaPagarId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("FK_PEDIDOSCOMPRA_CONTASPAGAR_CONTAPAGARID");
+                        .HasConstraintName("FK_NOTASFISCAISENTRADA_CONTASPAGAR_CONTAPAGARID");
 
                     b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
                         .WithMany()
                         .HasForeignKey("FornecedorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("FK_PEDIDOSCOMPRA_FORNECEDORES_FORNECEDORID");
+                        .HasConstraintName("FK_NOTASFISCAISENTRADA_FORNECEDORES_FORNECEDORID");
 
                     b.HasOne("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", "ParcelamentoPagar")
                         .WithMany()
                         .HasForeignKey("ParcelamentoPagarId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("FK_PEDIDOSCOMPRA_PARCELAMENTOSPAGAR_PARCELAMENTOPAGARID");
+                        .HasConstraintName("FK_NOTASFISCAISENTRADA_PARCELAMENTOSPAGAR_PARCELAMENTOPAGARID");
 
                     b.Navigation("ContaPagar");
 
@@ -4473,14 +5004,28 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("ParcelamentoPagar");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.PedidoCompra", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Estoque.CotacaoCompra", "CotacaoCompra")
+                        .WithMany()
+                        .HasForeignKey("CotacaoCompraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_PEDIDOSCOMPRA_COTACOESCOMPRA_COTACAOCOMPRAID");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_PEDIDOSCOMPRA_FORNECEDORES_FORNECEDORID");
+
+                    b.Navigation("CotacaoCompra");
+
+                    b.Navigation("Fornecedor");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.PedidoCompraItem", b =>
                 {
-                    b.HasOne("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", "Entrada")
-                        .WithMany()
-                        .HasForeignKey("MovimentacaoEstoqueId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("FK_PEDIDOCOMPRAITENS_MOVIMENTACOESESTOQUE_MOVIMENTACAOESTOQUEID");
-
                     b.HasOne("BuffetSharp.Domain.Estoque.PedidoCompra", null)
                         .WithMany("Itens")
                         .HasForeignKey("PedidoCompraId")
@@ -4502,8 +5047,6 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasConstraintName("FK_PEDIDOCOMPRAITENS_PRODUTOS_PRODUTOID");
 
                     b.Navigation("Embalagem");
-
-                    b.Navigation("Entrada");
 
                     b.Navigation("Produto");
                 });
@@ -4562,6 +5105,60 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("Fornecedor");
 
                     b.Navigation("UnidadeMedida");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.RecebimentoCompra", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", null)
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_RECEBIMENTOSCOMPRA_FORNECEDORES_FORNECEDORID");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", "NotaFiscalEntrada")
+                        .WithMany("Recebimentos")
+                        .HasForeignKey("NotaFiscalEntradaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_RECEBIMENTOSCOMPRA_NOTASFISCAISENTRADA_NOTAFISCALENTRADAID");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.PedidoCompra", "PedidoCompra")
+                        .WithMany()
+                        .HasForeignKey("PedidoCompraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_RECEBIMENTOSCOMPRA_PEDIDOSCOMPRA_PEDIDOCOMPRAID");
+
+                    b.Navigation("NotaFiscalEntrada");
+
+                    b.Navigation("PedidoCompra");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.RecebimentoItem", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", "Entrada")
+                        .WithMany()
+                        .HasForeignKey("MovimentacaoEstoqueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_RECEBIMENTOITENS_MOVIMENTACOESESTOQUE_MOVIMENTACAOESTOQUEID");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.PedidoCompraItem", "PedidoCompraItem")
+                        .WithMany()
+                        .HasForeignKey("PedidoCompraItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_RECEBIMENTOITENS_PEDIDOCOMPRAITENS_PEDIDOCOMPRAITEMID");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.RecebimentoCompra", null)
+                        .WithMany("Itens")
+                        .HasForeignKey("RecebimentoCompraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_RECEBIMENTOITENS_RECEBIMENTOSCOMPRA_RECEBIMENTOCOMPRAID");
+
+                    b.Navigation("Entrada");
+
+                    b.Navigation("PedidoCompraItem");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.Convidado", b =>
@@ -5042,6 +5639,20 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("Itens");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CotacaoCompra", b =>
+                {
+                    b.Navigation("Itens");
+
+                    b.Navigation("Participantes");
+
+                    b.Navigation("Precos");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", b =>
+                {
+                    b.Navigation("Recebimentos");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.PedidoCompra", b =>
                 {
                     b.Navigation("Itens");
@@ -5050,6 +5661,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.Produto", b =>
                 {
                     b.Navigation("Embalagens");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.RecebimentoCompra", b =>
+                {
+                    b.Navigation("Itens");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.Evento", b =>
