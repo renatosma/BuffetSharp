@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddTransient(typeof(ICadastroService<>), typeof(CadastroService<>));
         services.AddTransient<DisponibilidadeService>();
         services.AddTransient<EstoqueService>();
+        services.AddTransient<CompraService>();
         services.AddTransient<CardapioService>();
         services.AddTransient<OrcamentoService>();
         services.AddTransient<EventoService>();

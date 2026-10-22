@@ -244,7 +244,12 @@ public sealed record MovimentacaoResumo
     public int ParcelasConta { get; init; }
     public int ParcelasPagas { get; init; }
 
-    public string ContaPagar => ContaPagarId is not null
+    /// <summary>Pedido de compra cujo recebimento gerou a entrada.</summary>
+    public int? PedidoCompraId { get; init; }
+
+    public string ContaPagar => PedidoCompraId is { } pedido
+        ? $"Pedido PC-{pedido:D5}"
+        : ContaPagarId is not null
         ? SituacaoConta switch { StatusTitulo.Pago => "Conta paga", StatusTitulo.Cancelado => "Conta cancelada", _ => "Conta em aberto" }
         : ParcelamentoPagarId is { } parcelamento
             ? $"PAR-{parcelamento:D5}: {ParcelasPagas} de {ParcelasConta} paga(s)"

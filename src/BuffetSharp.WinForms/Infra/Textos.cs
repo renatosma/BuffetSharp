@@ -38,6 +38,9 @@ internal static class Textos
         TipoMovimentacao.Saida => "Saída",
         TipoMovimentacao.Ajuste => "Ajuste",
         TipoMovimentacao.Estorno => "Estorno de entrada",
+        StatusPedidoCompra.Aberto => "Aberto",
+        StatusPedidoCompra.Recebido => "Recebido",
+        StatusPedidoCompra.Cancelado => "Cancelado",
         CategoriaDespesa.Manutencao => "Manutenção",
         CategoriaDespesa.Servicos => "Serviços",
         CategoriaDespesa.Comissoes => "Comissões",
@@ -130,6 +133,9 @@ internal static class Textos
         TipoMovimentacao.Saida => Tema.Perigo,
         TipoMovimentacao.Ajuste => Tema.Alerta,
         TipoMovimentacao.Estorno => Tema.Perigo,
+        StatusPedidoCompra.Aberto => Tema.Info,
+        StatusPedidoCompra.Recebido => Tema.Sucesso,
+        StatusPedidoCompra.Cancelado => Tema.Neutro,
         StatusContrato.AguardandoAssinatura => Tema.Alerta,
         StatusContrato.Assinado => Tema.Sucesso,
         StatusContrato.Cancelado => Tema.Neutro,
@@ -174,7 +180,8 @@ internal static class Textos
         ["Lead"] = "Lead (interessado)", ["LeadInteracao"] = "Contato com lead", ["LembreteTratado"] = "Lembrete tratado",
         ["ReajustePreco"] = "Reajuste de preços", ["ReajusteItem"] = "Item do reajuste",
         ["ModeloChecklist"] = "Modelo de checklist", ["ModeloChecklistItem"] = "Tarefa do modelo de checklist",
-        ["EventoTarefa"] = "Tarefa do evento", ["FechamentoEquipe"] = "Pagamento da equipe"
+        ["EventoTarefa"] = "Tarefa do evento", ["FechamentoEquipe"] = "Pagamento da equipe",
+        ["PedidoCompra"] = "Pedido de compra", ["PedidoCompraItem"] = "Item do pedido de compra"
     };
 
     /// <summary>Nome amigável da entidade gravado na auditoria.</summary>

@@ -2,16 +2,18 @@ using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Comercial;
+using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Tests.Telas.Infra;
 using BuffetSharp.WinForms.Formularios;
 using BuffetSharp.WinForms.Formularios.Comercial;
+using BuffetSharp.WinForms.Formularios.Estoque;
 using BuffetSharp.WinForms.Formularios.Eventos;
 using BuffetSharp.WinForms.Infra;
 
 namespace BuffetSharp.Tests.Telas.Testes;
 
-/// <summary>Funil de leads, lembretes do dia e checklist do evento operados pelas telas.</summary>
+/// <summary>Funil de leads, lembretes do dia, checklist do evento e pedido de compra operados pelas telas.</summary>
 public class MelhoriasTelasTests(AmbienteTelas ambiente)
 {
     private static readonly DateOnly Hoje = DateOnly.FromDateTime(DateTime.Today);
@@ -91,5 +93,41 @@ public class MelhoriasTelasTests(AmbienteTelas ambiente)
             tarefas.Selecionar(t => t.Id == primeira.Id);
             robo.Clicar(evento, "Concluir / reabrir");
             robo.Esperar(() => tarefas.Itens.Single(t => t.Id == primeira.Id).Concluida, "tarefa concluída");
+        });
+
+    [Fact]
+    public void Pedido_de_compra_aberto_na_tela_e_recebido_com_a_nota() =>
+        Robo.Executar(ambiente, robo =>
+        {
+            var compras = robo.Servico<CompraService>();
+            var lookups = robo.Servico<IConsultasLookup>();
+            var refrigerante = robo.Rodar(() => lookups.ListarAsync(TipoLookup.Produtos)).First(p => p.Nome == "Refrigerante 2L").Id;
+            var fardo = robo.Rodar(() => robo.Servico<EstoqueService>().ListarEmbalagensAsync(refrigerante)).Single(e => e.Fator == 6);
+            var pedido = compras.Novo(fardo.FornecedorId!.Value);
+            pedido.Itens = [new PedidoCompraItemInput { ProdutoId = refrigerante, ProdutoEmbalagemId = fardo.Id, Quantidade = 2, CustoUnitario = 51m }];
+            var id = robo.Rodar(() => compras.SalvarAsync(pedido));
+
+            var principal = robo.Entrar();
+            var tela = robo.AbrirMenu<FormPedidosCompra>(principal, "Pedidos de compra");
+            robo.Esperar(() => Robo.Linhas<PedidoCompraResumo>(Robo.Grade(tela)).Any(p => p.Id == id), "pedido na lista");
+            robo.SelecionarLinha<PedidoCompraResumo>(Robo.Grade(tela), p => p.Id == id);
+
+            // O editor mostra o item na embalagem do fornecedor (a lista de unidades é de cada linha).
+            robo.Dialogo<FormEdicao>(() => robo.Clicar(tela, "Editar"), dialogo =>
+            {
+                var itens = Robo.Descendentes(dialogo).OfType<DataGridView>().Single();
+                robo.Esperar(() => itens.Rows.Count == 1 && itens.Rows[0].Cells[1].FormattedValue?.ToString()?.StartsWith("PCT com 6") == true,
+                    "unidade de compra do item");
+                Assert.Equal("Refrigerante 2L", itens.Rows[0].Cells[0].FormattedValue);
+                robo.Clicar(dialogo, "Cancelar");
+            }, "editar pedido");
+
+            robo.Dialogo<FormEdicao>(() => robo.Clicar(tela, "Receber (nota fiscal)"), dialogo =>
+            {
+                robo.Preencher(dialogo, "Nota fiscal", "NF TELA 1");
+                robo.Clicar(dialogo, "Salvar");
+            }, "receber pedido");
+            robo.Esperar(() => Robo.Linhas<PedidoCompraResumo>(Robo.Grade(tela)).Single(p => p.Id == id).Status == StatusPedidoCompra.Recebido,
+                "pedido recebido");
         });
 }

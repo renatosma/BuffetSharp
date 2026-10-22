@@ -55,6 +55,7 @@ public sealed class PlanejamentoService(IBuffetDbContextFactory fabrica)
             var aComprar = Math.Round(necessidade + (reporMinimo ? produto.EstoqueMinimo : 0) - Math.Max(produto.EstoqueAtual, 0), 3);
             if (aComprar <= 0)
                 continue;
+            var embalagem = EscolherEmbalagem(produto, aComprar);
             itens.Add(new ItemListaCompras
             {
                 ProdutoId = produto.Id,
@@ -71,6 +72,9 @@ public sealed class PlanejamentoService(IBuffetDbContextFactory fabrica)
                 AComprar = aComprar,
                 CustoUnitario = produto.CustoMedio,
                 Embalagem = SugerirEmbalagem(produto, aComprar),
+                EmbalagemId = embalagem?.Id,
+                QuantidadeEmbalagens = embalagem is null ? null : Math.Ceiling(aComprar / embalagem.Fator),
+                FatorEmbalagem = embalagem?.Fator,
                 Eventos = porProduto.GetValueOrDefault(produto.Id) ?? []
             });
         }
@@ -86,15 +90,20 @@ public sealed class PlanejamentoService(IBuffetDbContextFactory fabrica)
     /// </summary>
     internal static string? SugerirEmbalagem(Produto produto, decimal aComprar)
     {
+        if (EscolherEmbalagem(produto, aComprar) is not { } embalagem)
+            return null;
+        var quantidade = Math.Ceiling(aComprar / embalagem.Fator);
+        return $"{quantidade:0} {embalagem.UnidadeMedida?.Sigla ?? "emb."} de {embalagem.Fator:0.###} {produto.UnidadeMedida?.Sigla}".TrimEnd();
+    }
+
+    private static ProdutoEmbalagem? EscolherEmbalagem(Produto produto, decimal aComprar)
+    {
         var candidatas = produto.Embalagens.Where(e => e.FornecedorId == produto.FornecedorId && e.Fator > 1).ToList();
         if (candidatas.Count == 0)
             candidatas = produto.Embalagens.Where(e => e.FornecedorId is null && e.Fator > 1).ToList();
         if (candidatas.Count == 0)
             return null;
-
-        var embalagem = candidatas.Where(e => e.Fator <= aComprar).MaxBy(e => e.Fator) ?? candidatas.MinBy(e => e.Fator)!;
-        var quantidade = Math.Ceiling(aComprar / embalagem.Fator);
-        return $"{quantidade:0} {embalagem.UnidadeMedida?.Sigla ?? "emb."} de {embalagem.Fator:0.###} {produto.UnidadeMedida?.Sigla}".TrimEnd();
+        return candidatas.Where(e => e.Fator <= aComprar).MaxBy(e => e.Fator) ?? candidatas.MinBy(e => e.Fator)!;
     }
 
     // ------------------------- Ordem de produção -------------------------

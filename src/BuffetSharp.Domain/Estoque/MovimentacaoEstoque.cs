@@ -78,6 +78,11 @@ public class MovimentacaoEstoque : Entidade
 
     public bool Estornada => EstornadaEm is not null;
 
+    /// <summary>Entrada feita pelo recebimento de um pedido de compra (marcada pelo serviço ao receber).</summary>
+    public bool DePedidoCompra { get; private set; }
+
+    internal void MarcarDePedido() => DePedidoCompra = true;
+
     public decimal ValorTotal => Math.Round(Math.Abs(Quantidade) * CustoUnitario, 2);
 
     internal void MarcarEstornada(MovimentacaoEstoque estorno, DateTime agora)

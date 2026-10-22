@@ -109,6 +109,21 @@ public class ParcelamentoPagar : Entidade
         return _parcelas;
     }
 
+    /// <summary>Parcelas com os vencimentos e valores informados (ex.: os boletos de uma nota fiscal).</summary>
+    public IReadOnlyList<ContaPagar> GerarParcelas(IReadOnlyList<(DateOnly Vencimento, decimal Valor)> vencimentos, int? formaPagamentoId = null)
+    {
+        Validador.Garantir(_parcelas.Count == 0, "As parcelas já foram geradas. Desfaça o parcelamento para refazê-lo.");
+        Validador.Garantir(vencimentos.Count is >= 1 and <= PlanoParcelas.MaximoParcelas,
+            $"Informe de 1 a {PlanoParcelas.MaximoParcelas} vencimentos.");
+        Validador.Garantir(vencimentos.All(v => v.Valor > 0), "Cada parcela precisa de um valor maior que zero.");
+        Validador.Garantir(vencimentos.Sum(v => v.Valor) == ValorTotal,
+            $"A soma das parcelas ({vencimentos.Sum(v => v.Valor):C}) deve ser igual ao valor total ({ValorTotal:C}).");
+        var ordenados = vencimentos.OrderBy(v => v.Vencimento).ToList();
+        _parcelas.AddRange(ordenados.Select((v, i) =>
+            new ContaPagar(this, new ParcelaPlanejada(i + 1, ordenados.Count, v.Valor, v.Vencimento), formaPagamentoId)));
+        return _parcelas;
+    }
+
     /// <summary>
     /// Desfaz o parcelamento: as contas juntadas voltam a ficar em aberto e as parcelas deixam de existir.
     /// </summary>

@@ -15,16 +15,18 @@ internal sealed class FormListaCompras : FormListagem<ItemListaCompras>
 {
     private readonly PlanejamentoService _servico;
     private readonly BuffetOptions _opcoes;
+    private readonly Navegador _navegador;
     private readonly DateTimePicker _de;
     private readonly DateTimePicker _ate;
     private readonly CheckBox _reporMinimo = new() { Text = "Repor o estoque mínimo", AutoSize = true, Margin = new Padding(0, 6, 12, 0) };
     private ListaCompras? _lista;
 
-    public FormListaCompras(PlanejamentoService servico, BuffetOptions opcoes)
+    public FormListaCompras(PlanejamentoService servico, BuffetOptions opcoes, Navegador navegador)
         : base("Lista de compras", "O que comprar para os eventos confirmados do período: ficha técnica × pessoas, menos o que já há em estoque. O estoque só é baixado quando o evento é realizado.")
     {
         _servico = servico;
         _opcoes = opcoes;
+        _navegador = navegador;
 
         _de = FiltroData("Eventos de", DateTime.Today, opcional: false);
         _ate = FiltroData("até", DateTime.Today.AddDays(7), opcional: false);
@@ -34,6 +36,7 @@ internal sealed class FormListaCompras : FormListagem<ItemListaCompras>
         _reporMinimo.CheckedChanged += async (_, _) => await RecarregarAsync();
 
         Botao("Imprimir por fornecedor", Icones.Imprimir, ImprimirAsync, "Lista agrupada por fornecedor", destaque: true);
+        Botao("Gerar pedido de compra", Icones.Documento, GerarPedidoAsync, "Cria o pedido de compra com os itens do fornecedor selecionado");
         Botao("Pedido por WhatsApp", Icones.Mensagem, PedidoWhatsAppAsync, "Envia ao fornecedor do item selecionado os itens dele");
         Botao("Eventos considerados", Icones.Bandeira, EventosAsync);
 
@@ -76,6 +79,26 @@ internal sealed class FormListaCompras : FormListagem<ItemListaCompras>
         else
             ImpressaoOperacao.PedidoCompra(this, _lista, Grade.Visiveis.ToList(), _opcoes.NomeEmpresa);
         return Task.CompletedTask;
+    }
+
+    private async Task GerarPedidoAsync()
+    {
+        if (Selecionado() is not { } item)
+            return;
+        if (item.FornecedorId is not { } fornecedorId)
+        {
+            Mensagens.Aviso(this, "Este produto não tem fornecedor padrão. Cadastre o fornecedor no produto ou faça o pedido em Estoque › Pedidos de compra.");
+            return;
+        }
+        var itens = Grade.Visiveis.Where(i => i.FornecedorId == fornecedorId).ToList();
+        if (!Mensagens.Confirmar(this, $"Criar um pedido de compra para {item.Fornecedor} com {itens.Count} item(ns) da lista " +
+                                       $"(cerca de {Textos.Moeda(itens.Sum(i => i.CustoEstimado))})? Você poderá revisar quantidades e custos.",
+                "Gerar pedido de compra"))
+            return;
+        var compras = _navegador.Servico<CompraService>();
+        var id = await compras.GerarDaListaAsync(fornecedorId, itens);
+        await DialogosPedidoCompra.EditarAsync(this, compras, _navegador.Servico<Application.Consultas.IConsultasLookup>(), id);
+        _navegador.Abrir<FormPedidosCompra>();
     }
 
     private Task PedidoWhatsAppAsync()

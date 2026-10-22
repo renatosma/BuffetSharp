@@ -187,6 +187,11 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   depois de tratado, o lembrete some. O painel mostra quantos há. Opcionalmente, os e-mails saem sozinhos.
 - **Reajuste de preços**: percentual sobre os pacotes, serviços e espaços, com arredondamento (centavos, real inteiro ou
   múltiplo de R$ 5), simulação antes de aplicar e vigência futura (aplicado sozinho na data). Pode ser desfeito.
+- **Pedidos de compra**: vários produtos de um fornecedor numa nota só, cada um na unidade de compra (embalagem) do
+  fornecedor. No recebimento informa-se só o número da nota fiscal, a data da compra e os vencimentos (gerados pelas
+  parcelas e editáveis conforme os boletos): todos os itens entram no estoque e a nota vira uma conta a pagar ou parcelas,
+  na mesma gravação. O recebimento pode ser estornado (os itens saem do estoque e as contas são canceladas, se nada foi
+  pago) e o pedido sai impresso ou pelo WhatsApp para o fornecedor. A lista de compras gera o pedido de cada fornecedor.
 - **Lista de compras**: o que comprar para os eventos confirmados de um período (ficha técnica × pessoas, menos o
   estoque, opcionalmente repondo o mínimo), na embalagem do fornecedor, impressa por fornecedor ou enviada como pedido
   pelo WhatsApp.
@@ -274,7 +279,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **255 testes** (xUnit v3): 236 de domínio, integração e bancos, e 19 das telas.
+São **262 testes** (xUnit v3): 242 de domínio, integração e bancos, e 20 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

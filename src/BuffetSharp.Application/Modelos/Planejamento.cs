@@ -34,6 +34,11 @@ public sealed record ItemListaCompras
     /// <summary>Sugestão na embalagem do fornecedor (ex.: "3 CX de 12"), quando houver.</summary>
     public string? Embalagem { get; init; }
 
+    /// <summary>Embalagem sugerida, quantas comprar e quantas unidades do estoque há em cada uma (para gerar o pedido).</summary>
+    public int? EmbalagemId { get; init; }
+    public decimal? QuantidadeEmbalagens { get; init; }
+    public decimal? FatorEmbalagem { get; init; }
+
     public IReadOnlyList<string> Eventos { get; init; } = [];
 
     public decimal CustoEstimado => Math.Round(AComprar * CustoUnitario, 2);

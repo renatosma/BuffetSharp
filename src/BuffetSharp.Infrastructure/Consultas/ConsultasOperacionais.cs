@@ -283,6 +283,7 @@ internal sealed class ConsultasEstoqueCardapio(FabricaConexao conexoes) : IConsu
                    m.CustoUnitario, m.SaldoApos, m.Observacao, m.EventoId,
                    COALESCE(f.NomeFantasia, f.RazaoSocial) AS Fornecedor, m.UnidadeCompra, m.QuantidadeCompra,
                    m.EstornadaEm, m.ContaPagarId, cp.Status AS SituacaoConta, m.ParcelamentoPagarId,
+                   (SELECT MIN(pi.PedidoCompraId) FROM PedidoCompraItens pi WHERE pi.MovimentacaoEstoqueId = m.Id) AS PedidoCompraId,
                    (SELECT COUNT(*) FROM ContasPagar x WHERE x.ParcelamentoId = m.ParcelamentoPagarId) AS ParcelasConta,
                    (SELECT COUNT(*) FROM ContasPagar x WHERE x.ParcelamentoId = m.ParcelamentoPagarId AND x.Status = 'Pago') AS ParcelasPagas
               FROM MovimentacoesEstoque m

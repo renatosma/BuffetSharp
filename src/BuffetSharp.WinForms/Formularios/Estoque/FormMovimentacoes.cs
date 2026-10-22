@@ -89,6 +89,12 @@ internal sealed class FormMovimentacoes : FormListagem<MovimentacaoResumo>
             Mensagens.Aviso(this, "Selecione uma entrada que ainda não foi estornada.");
             return;
         }
+        if (entrada.PedidoCompraId is { } pedido)
+        {
+            Mensagens.Aviso(this, $"Esta entrada veio do recebimento do pedido PC-{pedido:D5}. Estorne o recebimento em Estoque › Pedidos de compra: " +
+                                  "todos os itens da nota saem juntos e as contas são canceladas.");
+            return;
+        }
         var conta = entrada.ContaPagar.Length > 0 ? " A conta a pagar da compra será cancelada." : "";
         var motivo = Dialogos.PedirTexto(this, "Estornar entrada", "Motivo do estorno",
             subtitulo: $"{entrada.Quantidade:N3} {entrada.Unidade} de {entrada.Produto} em {entrada.Data:dd/MM/yyyy} " +
