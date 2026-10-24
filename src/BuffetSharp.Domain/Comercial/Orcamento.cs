@@ -61,6 +61,10 @@ public class Orcamento : Entidade
     public int? CondicaoPagamentoId { get; private set; }
     public CondicaoPagamento? CondicaoPagamento { get; private set; }
 
+    /// <summary>Meio de pagamento combinado (PIX, cartão, boleto...); a condição diz quando e em quantas vezes.</summary>
+    public int? FormaPagamentoId { get; private set; }
+    public FormaPagamento? FormaPagamento { get; private set; }
+
     public DateTime Inicio { get; private set; }
     public DateTime Fim { get; private set; }
 
@@ -206,6 +210,13 @@ public class Orcamento : Entidade
         CondicaoPagamentoId = condicaoPagamentoId;
     }
 
+    public void DefinirFormaPagamento(int? formaPagamentoId)
+    {
+        GarantirEditavel();
+        Validador.Garantir(formaPagamentoId is null or > 0, "Forma de pagamento inválida.");
+        FormaPagamentoId = formaPagamentoId;
+    }
+
     public void AplicarDesconto(decimal percentual)
     {
         GarantirEditavel();
@@ -290,6 +301,7 @@ public class Orcamento : Entidade
             EspacoId = EspacoId,
             VendedorId = VendedorId,
             CondicaoPagamentoId = CondicaoPagamentoId,
+            FormaPagamentoId = FormaPagamentoId,
             ValorPorPessoa = ValorPorPessoa,
             ValorEspaco = ValorEspaco,
             PercentualDesconto = PercentualDesconto,

@@ -1,5 +1,6 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Modelos;
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,8 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
             Data = p.Data,
             PrevisaoEntrega = p.PrevisaoEntrega,
             Categoria = p.Categoria,
+            CondicaoPagamentoId = p.CondicaoPagamentoId,
+            FormaPagamentoId = p.FormaPagamentoId,
             Observacoes = p.Observacoes,
             Codigo = p.Codigo,
             Status = p.Status,
@@ -86,6 +89,11 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
 
         pedido.Alterar(input.FornecedorId, input.Data, input.PrevisaoEntrega, input.Categoria, input.Observacoes);
         pedido.DefinirItens(await ItensAsync(db, input.Itens, ct));
+        if (pedido.CondicaoPagamentoId != input.CondicaoPagamentoId || pedido.FormaPagamentoId != input.FormaPagamentoId)
+        {
+            await OrcamentoService.GarantirFormaAtivaAsync(db, input.FormaPagamentoId, ct);
+            pedido.DefinirPagamento(input.CondicaoPagamentoId, input.FormaPagamentoId);
+        }
         await db.SaveChangesAsync(ct);
         input.Versao = pedido.Versao;
         return pedido.Id;
@@ -176,7 +184,8 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
         var nota = new NotaFiscalEntrada(input.FornecedorId, numero, serie, input.DataEmissao, input.Categoria, recebimentos,
             input.ValorTotal, input.Observacoes, Hoje);
         nota.DefinirChaveAcesso(chave);
-        var (conta, parcelamento) = nota.LancarContas(input.Vencimentos.Select(v => (v.Vencimento, v.Valor)).ToList(), fornecedor?.NomeExibicao);
+        var (conta, parcelamento) = nota.LancarContas(input.Vencimentos.Select(v => v.ParaPlanejado()).ToList(), fornecedor?.NomeExibicao,
+            formaPagamentoId: input.FormaPagamentoId);
         if (conta is not null)
             db.ContasPagar.Add(conta);
         if (parcelamento is not null)
@@ -201,6 +210,38 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
                    ?? throw new RegraNegocioException("Nota fiscal de entrada não encontrada.");
         nota.Cancelar(motivo, Agora);
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Vencimentos que a condição de pagamento dá para o valor, contando os prazos a partir de <paramref name="dataBase"/>
+    /// (a emissão da nota): a entrada, se houver, e as parcelas.
+    /// </summary>
+    public async Task<IReadOnlyList<VencimentoInput>> VencimentosAsync(int condicaoPagamentoId, decimal valor, DateOnly dataBase,
+        CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var condicao = await db.CondicoesPagamento.AsNoTracking().Include(c => c.Parcelas).FirstOrDefaultAsync(c => c.Id == condicaoPagamentoId, ct)
+                       ?? throw new RegraNegocioException("Condição de pagamento não encontrada.");
+        return Vencimentos(condicao, valor, dataBase);
+    }
+
+    /// <inheritdoc cref="VencimentosAsync"/>
+    public static IReadOnlyList<VencimentoInput> Vencimentos(CondicaoPagamento condicao, decimal valor, DateOnly dataBase)
+    {
+        if (valor <= 0)
+            return [];
+        return condicao.Vencimentos(valor, dataBase)
+            .Select(p => new VencimentoInput { Vencimento = p.Vencimento, Valor = p.Valor, FormaPagamentoId = p.FormaPagamentoId }).ToList();
+    }
+
+    /// <summary>Condições e formas de pagamento ativas, para a nota de entrada.</summary>
+    public async Task<(IReadOnlyList<CondicaoPagamento> Condicoes, IReadOnlyList<FormaPagamento> Formas)> OpcoesPagamentoAsync(
+        CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var condicoes = await db.CondicoesPagamento.AsNoTracking().Include(c => c.Parcelas).Where(c => c.Ativo).OrderBy(c => c.Nome).ToListAsync(ct);
+        var formas = await db.FormasPagamento.AsNoTracking().Where(f => f.Ativo).OrderBy(f => f.Nome).ToListAsync(ct);
+        return (condicoes, formas);
     }
 
     public async Task CancelarAsync(int pedidoId, string motivo, CancellationToken ct = default)

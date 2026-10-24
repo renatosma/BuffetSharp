@@ -41,8 +41,9 @@ public class ImportacaoNfeIntegracaoTests(BancoFixture banco)
         ], frete: 15m, duplicatas: [(Hoje.AddDays(14), 130m), (Hoje.AddDays(28), 134m)]);
         var analise = await importacao.AnalisarAsync(LeitorNfe.Ler(xml), Ct);
 
-        // Fornecedor novo; o arroz é reconhecido pelo nome, o óleo e a sacola não.
+        // Fornecedor novo; o arroz é reconhecido pelo nome, o óleo e a sacola não. Os boletos da nota sugerem a forma "boleto".
         Assert.Null(analise.FornecedorId);
+        Assert.Equal((await Lookup(TipoLookup.FormasPagamento, f => f.Nome == "Boleto Bancário")).Id, analise.FormaPagamentoId);
         Assert.Empty(analise.RecebimentosAFaturar);
         Assert.Equal((arroz, OrigemVinculo.Nome), (analise.Itens[0].ProdutoId, analise.Itens[0].Origem));
         Assert.Null(analise.Itens[1].ProdutoId);

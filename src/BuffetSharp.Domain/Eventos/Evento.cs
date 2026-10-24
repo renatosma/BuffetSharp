@@ -75,6 +75,10 @@ public class Evento : Entidade
     public int? CondicaoPagamentoId { get; private set; }
     public CondicaoPagamento? CondicaoPagamento { get; private set; }
 
+    /// <summary>Meio de pagamento combinado (vem do orçamento); sugerido nas parcelas do plano de pagamento.</summary>
+    public int? FormaPagamentoId { get; private set; }
+    public FormaPagamento? FormaPagamento { get; private set; }
+
     public DateTime Inicio { get; private set; }
     public DateTime Fim { get; private set; }
 
@@ -150,6 +154,7 @@ public class Evento : Entidade
             VendedorId = orcamento.VendedorId,
             PercentualComissao = orcamento.VendedorId is null ? 0 : percentualComissao,
             CondicaoPagamentoId = orcamento.CondicaoPagamentoId,
+            FormaPagamentoId = orcamento.FormaPagamentoId,
             IdadeMaximaIsento = orcamento.IdadeMaximaIsento,
             IdadeMaximaMeia = orcamento.IdadeMaximaMeia,
             PercentualMeia = orcamento.PercentualMeia
@@ -206,6 +211,13 @@ public class Evento : Entidade
         GarantirConfirmado();
         Validador.Garantir(condicaoPagamentoId is null or > 0, "Condição de pagamento inválida.");
         CondicaoPagamentoId = condicaoPagamentoId;
+    }
+
+    public void DefinirFormaPagamento(int? formaPagamentoId)
+    {
+        GarantirConfirmado();
+        Validador.Garantir(formaPagamentoId is null or > 0, "Forma de pagamento inválida.");
+        FormaPagamentoId = formaPagamentoId;
     }
 
     // ---------------- Equipe ----------------
@@ -408,6 +420,38 @@ public class Evento : Entidade
         Validador.Garantir(geradas.Max(p => p.Vencimento) <= DataEvento.AddDays(60),
             "O plano de pagamento não pode terminar mais de 60 dias após o evento.");
 
+        _parcelas.AddRange(geradas);
+        return geradas;
+    }
+
+    /// <summary>
+    /// Plano com os vencimentos e valores informados (ex.: as parcelas definidas da condição de pagamento, com percentuais
+    /// diferentes). Substitui as parcelas em aberto; a soma precisa ser o saldo a parcelar.
+    /// </summary>
+    public IReadOnlyList<Parcela> GerarParcelas(IReadOnlyList<(DateOnly Vencimento, decimal Valor)> vencimentos, int? formaPagamentoId = null) =>
+        GerarParcelas(vencimentos.Select(v => new VencimentoPlanejado(v.Vencimento, v.Valor)).ToList(), formaPagamentoId);
+
+    /// <inheritdoc cref="GerarParcelas(IReadOnlyList{ValueTuple{DateOnly, decimal}}, int?)"/>
+    /// <param name="formaPagamentoId">Forma das parcelas que não têm a sua (ex.: entrada no PIX, demais no cartão).</param>
+    public IReadOnlyList<Parcela> GerarParcelas(IReadOnlyList<VencimentoPlanejado> vencimentos, int? formaPagamentoId = null)
+    {
+        GarantirConfirmado();
+        var restantes = _parcelas.Where(p => p.Status != StatusTitulo.Aberto).ToList();
+        var saldo = ValorTotal - restantes.Where(p => p.Status != StatusTitulo.Cancelado).Sum(p => p.Valor);
+        Validador.Garantir(saldo > 0, "Não há saldo a parcelar para este evento.");
+        Validador.Garantir(vencimentos.Count is >= 1 and <= PlanoParcelas.MaximoParcelas,
+            $"Informe de 1 a {PlanoParcelas.MaximoParcelas} vencimentos.");
+        Validador.Garantir(vencimentos.All(v => v.Valor > 0), "Cada parcela precisa de um valor maior que zero.");
+        Validador.Garantir(vencimentos.Sum(v => v.Valor) == saldo,
+            $"A soma das parcelas ({vencimentos.Sum(v => v.Valor):C}) deve ser igual ao saldo a parcelar ({saldo:C}).");
+        Validador.Garantir(vencimentos.Max(v => v.Vencimento) <= DataEvento.AddDays(60),
+            "O plano de pagamento não pode terminar mais de 60 dias após o evento.");
+
+        _parcelas.RemoveAll(p => p.Status == StatusTitulo.Aberto);
+        var numero = _parcelas.Count == 0 ? 0 : _parcelas.Max(p => p.Numero);
+        var ordenados = vencimentos.OrderBy(v => v.Vencimento).ToList();
+        var geradas = ordenados.Select((v, i) => new Parcela(this, ++numero, v.Valor, v.Vencimento, v.FormaPagamentoId ?? formaPagamentoId,
+            $"Parcela {i + 1}/{ordenados.Count}")).ToList();
         _parcelas.AddRange(geradas);
         return geradas;
     }

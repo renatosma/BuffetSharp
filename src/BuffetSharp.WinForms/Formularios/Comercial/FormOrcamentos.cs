@@ -6,6 +6,7 @@ using BuffetSharp.Domain.Comercial;
 using BuffetSharp.WinForms.Formularios.Eventos;
 using BuffetSharp.WinForms.Impressao;
 using BuffetSharp.WinForms.Infra;
+using Microsoft.EntityFrameworkCore;
 
 namespace BuffetSharp.WinForms.Formularios.Comercial;
 
@@ -202,6 +203,7 @@ internal sealed class FormOrcamentos : FormListagem<OrcamentoResumo>
 
     private async Task<Domain.Cadastros.CondicaoPagamento?> CondicaoAsync(OrcamentoInput orcamento) =>
         orcamento.CondicaoPagamentoId is { } id
-            ? await _navegador.Servico<ICadastroService<Domain.Cadastros.CondicaoPagamento>>().ObterAsync(id)
-            : null;
+            ? (await _navegador.Servico<ICadastroService<Domain.Cadastros.CondicaoPagamento>>()
+                .ListarAsync(q => q.Include(c => c.Parcelas).ThenInclude(p => p.FormaPagamento).Where(c => c.Id == id))).FirstOrDefault()
+            : null; // com a forma de cada parcela para a simulação
 }

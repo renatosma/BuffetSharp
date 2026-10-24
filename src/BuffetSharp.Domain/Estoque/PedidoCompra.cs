@@ -49,6 +49,15 @@ public class PedidoCompra : Entidade
     public CategoriaDespesa Categoria { get; private set; } = CategoriaDespesa.Insumos;
 
     public string? Observacoes { get; private set; }
+
+    /// <summary>Prazo combinado com o fornecedor: sugere os vencimentos da nota de entrada.</summary>
+    public int? CondicaoPagamentoId { get; private set; }
+    public CondicaoPagamento? CondicaoPagamento { get; private set; }
+
+    /// <summary>Meio de pagamento combinado (boleto, PIX...): vai para as contas a pagar da nota.</summary>
+    public int? FormaPagamentoId { get; private set; }
+    public FormaPagamento? FormaPagamento { get; private set; }
+
     public StatusPedidoCompra Status { get; private set; } = StatusPedidoCompra.Aberto;
     public string? MotivoCancelamento { get; private set; }
 
@@ -94,6 +103,14 @@ public class PedidoCompra : Entidade
         _itens.Clear();
         foreach (var (produto, embalagem, quantidade, custo) in novos)
             _itens.Add(new PedidoCompraItem(produto, embalagem, quantidade, custo));
+    }
+
+    public void DefinirPagamento(int? condicaoPagamentoId, int? formaPagamentoId)
+    {
+        GarantirEditavel();
+        Validador.Garantir(condicaoPagamentoId is null or > 0 && formaPagamentoId is null or > 0, "Condição ou forma de pagamento inválida.");
+        CondicaoPagamentoId = condicaoPagamentoId;
+        FormaPagamentoId = formaPagamentoId;
     }
 
     internal void VincularCotacao(CotacaoCompra cotacao)

@@ -43,7 +43,7 @@ public static class GeradorContrato
         {{SERVICOS}}
 
         CLÁUSULA {{N}}ª - DO PREÇO E DA FORMA DE PAGAMENTO
-        Pelos serviços contratados, a CONTRATANTE pagará à CONTRATADA o valor total de {{VALOR_TOTAL}} ({{VALOR_TOTAL_EXTENSO}}). Condição de pagamento: {{CONDICAO_PAGAMENTO}}.
+        Pelos serviços contratados, a CONTRATANTE pagará à CONTRATADA o valor total de {{VALOR_TOTAL}} ({{VALOR_TOTAL_EXTENSO}}). Condição de pagamento: {{CONDICAO_PAGAMENTO}}. Forma de pagamento: {{FORMA_PAGAMENTO}}.
         {{PARCELAS}}
         O atraso no pagamento sujeitará a CONTRATANTE à multa de 2% e juros de mora de 1% ao mês sobre o valor em atraso.
 
@@ -160,6 +160,7 @@ public static class GeradorContrato
             ["VALOR_TOTAL_EXTENSO"] = Extenso.Moeda(evento.ValorTotal),
             ["CONDICAO_PAGAMENTO"] = evento.CondicaoPagamento?.Texto
                                      ?? (parcelas.Count > 0 ? "conforme as parcelas abaixo" : "a combinar entre as partes"),
+            ["FORMA_PAGAMENTO"] = evento.FormaPagamento?.Nome ?? "a combinar entre as partes",
             ["PARCELAS"] = parcelas.Count == 0
                 ? "As datas e os valores das parcelas serão acordados entre as partes antes do evento."
                 : "O pagamento será feito da seguinte forma:\n" + string.Join("\n", parcelas.Select(p =>

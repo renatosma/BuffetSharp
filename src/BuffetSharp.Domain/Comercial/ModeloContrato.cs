@@ -89,6 +89,7 @@ public static partial class CamposContrato
         ("VALOR_TOTAL", "Valor total do evento"),
         ("VALOR_TOTAL_EXTENSO", "Valor total por extenso"),
         ("CONDICAO_PAGAMENTO", "Condição de pagamento (ex.: 30% de entrada + 5x mensais)"),
+        ("FORMA_PAGAMENTO", "Forma de pagamento combinada (ex.: PIX, boleto)"),
         ("PARCELAS", "Lista das parcelas com valores e vencimentos"),
         ("FORO", "Comarca do foro"),
         ("CIDADE", "Cidade da empresa (local da assinatura)"),

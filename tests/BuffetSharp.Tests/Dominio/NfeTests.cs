@@ -1,5 +1,6 @@
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
 
@@ -26,6 +27,7 @@ public class NfeTests
         Assert.Equal(("São Paulo", "SP", "01001-000"), (nota.Emitente.Endereco.Cidade, nota.Emitente.Endereco.Uf, nota.Emitente.Endereco.Cep));
         Assert.Equal((175.50m, 30m, 2.90m, 202.60m), (nota.ValorProdutos, nota.ValorFrete, nota.ValorDesconto, nota.ValorTotal));
         Assert.Equal("11222333000181", nota.DestinatarioDocumento);
+        Assert.Equal(TipoFormaPagamento.Boleto, nota.MeioPagamento); // tPag 15
 
         Assert.Equal(2, nota.Itens.Count);
         var acucar = nota.Itens[1];
@@ -54,6 +56,7 @@ public class NfeTests
         Assert.Equal((new DateOnly(2026, 9, 30), "12345678909", "UN"), (nota.DataEmissao, nota.Emitente.Documento, nota.Itens[0].Unidade));
         Assert.Equal(45m, nota.ValorTotal); // sem o grupo de totais, soma os itens
         Assert.Empty(nota.Duplicatas);
+        Assert.Null(nota.MeioPagamento); // sem o grupo de pagamento
     }
 
     [Theory]

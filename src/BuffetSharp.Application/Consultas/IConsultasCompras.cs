@@ -66,9 +66,14 @@ public sealed record PedidoCompraResumo
     public int AFaturar { get; init; }
 
     public int? CotacaoCompraId { get; init; }
+    public string? CondicaoPagamento { get; init; }
+    public string? FormaPagamento { get; init; }
     public string? Observacoes { get; init; }
     public string? MotivoCancelamento { get; init; }
     public string Codigo => $"PC-{Id:D5}";
+
+    /// <summary>"28 dias • Boleto", só a condição, só a forma ou vazio.</summary>
+    public string Pagamento => string.Join(" • ", new[] { CondicaoPagamento, FormaPagamento }.Where(t => !string.IsNullOrWhiteSpace(t)));
     public string? Cotacao => CotacaoCompraId is { } id ? $"COT-{id:D5}" : null;
     public decimal PercentualRecebido => Total == 0 ? 0 : Math.Min(100, Math.Round(Recebido / Total * 100, 0));
 }
@@ -101,6 +106,11 @@ public sealed record RecebimentoResumo
     public int PedidoCompraId { get; init; }
     public int FornecedorId { get; init; }
     public string Fornecedor { get; init; } = string.Empty;
+
+    /// <summary>Condição e forma de pagamento do pedido (sugerem os vencimentos e a forma da nota).</summary>
+    public int? CondicaoPagamentoId { get; init; }
+    public int? FormaPagamentoId { get; init; }
+
     public StatusRecebimento Status { get; init; }
     public int Itens { get; init; }
     public decimal Total { get; init; }

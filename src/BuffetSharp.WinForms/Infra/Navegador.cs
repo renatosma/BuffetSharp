@@ -10,8 +10,20 @@ internal sealed class Navegador(IServiceProvider servicos)
 {
     private readonly Dictionary<string, TabPage> _abas = [];
     private TabControl? _area;
+    private TabPage? _abrindo;
 
-    public void Configurar(TabControl area) => _area = area;
+    public void Configurar(TabControl area)
+    {
+        _area = area;
+
+        // Voltar para uma lista aberta antes (pelo menu ou clicando na aba) traz os dados de agora: o que foi feito em
+        // outra tela (ex.: o recebimento de um pedido) aparece sem precisar apertar F5.
+        area.Selected += async (_, e) =>
+        {
+            if (e.TabPage is { } aba && aba != _abrindo && aba.Tag is FormListagem lista)
+                await lista.AtualizarAoVoltarAsync();
+        };
+    }
 
     /// <summary>Resolve um serviço da aplicação (para telas auxiliares sem construtor injetado).</summary>
     public T Servico<T>() where T : notnull => servicos.GetRequiredService<T>();
@@ -46,7 +58,9 @@ internal sealed class Navegador(IServiceProvider servicos)
         formulario.TextChanged += (_, _) => aba.Text = formulario.Text + "      ";
         formulario.FormClosed += (_, _) => Fechar(aba);
         formulario.Show();
+        _abrindo = aba; // acabou de carregar: não recarrega ao selecionar
         _area.SelectedTab = aba;
+        _abrindo = null;
     }
 
     public void Fechar(TabPage aba)

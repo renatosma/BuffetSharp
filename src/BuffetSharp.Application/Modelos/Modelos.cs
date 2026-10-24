@@ -95,6 +95,7 @@ public sealed class OrcamentoInput
 
     public decimal PercentualDesconto { get; set; }
     public int? CondicaoPagamentoId { get; set; }
+    public int? FormaPagamentoId { get; set; }
     public string? Observacoes { get; set; }
     public List<ServicoItemInput> Servicos { get; set; } = [];
 
@@ -130,6 +131,7 @@ public sealed class EventoInput
     public QuantidadesConvidados QuantidadesPorFaixa => new(Convidados, ConvidadosMeia, ConvidadosIsentos);
     public decimal ValorTotal { get; set; }
     public int? CondicaoPagamentoId { get; set; }
+    public int? FormaPagamentoId { get; set; }
     public string? Observacoes { get; set; }
 }
 
@@ -146,6 +148,32 @@ public sealed class PlanoPagamentoInput
 
     /// <summary>Condição usada para montar o plano (fica registrada no evento).</summary>
     public int? CondicaoPagamentoId { get; set; }
+
+    /// <summary>
+    /// Vencimentos e valores prontos (parcelas definidas na condição, com percentuais próprios). Preenchido, substitui
+    /// entrada, quantidade e intervalo.
+    /// </summary>
+    public List<VencimentoInput>? Vencimentos { get; set; }
+
+    /// <summary>Preenche o plano com os vencimentos dados pela condição de pagamento.</summary>
+    public static PlanoPagamentoInput DaCondicao(CondicaoPagamento condicao, IReadOnlyList<ParcelaPlanejada> parcelas, int? formaPagamentoId)
+    {
+        var entrada = parcelas.FirstOrDefault(p => p.Entrada);
+        var demais = parcelas.Where(p => !p.Entrada).ToList();
+        return new PlanoPagamentoInput
+        {
+            Quantidade = Math.Max(1, demais.Count),
+            PrimeiroVencimento = (demais.FirstOrDefault() ?? parcelas[0]).Vencimento,
+            ValorEntrada = entrada?.Valor ?? 0,
+            VencimentoEntrada = entrada?.Vencimento ?? parcelas[0].Vencimento,
+            IntervaloDias = demais.Count > 1 ? demais[1].Vencimento.DayNumber - demais[0].Vencimento.DayNumber : 0,
+            FormaPagamentoId = formaPagamentoId,
+            CondicaoPagamentoId = condicao.Id,
+            Vencimentos = condicao.ParcelasDefinidas
+                ? parcelas.Select(p => new VencimentoInput { Vencimento = p.Vencimento, Valor = p.Valor, FormaPagamentoId = p.FormaPagamentoId }).ToList()
+                : null
+        };
+    }
 }
 
 /// <summary>Entrada de estoque de uma compra, na unidade do fornecedor (embalagem) ou na unidade do estoque.</summary>

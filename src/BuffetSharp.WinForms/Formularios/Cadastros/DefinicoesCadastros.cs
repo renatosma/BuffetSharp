@@ -194,39 +194,17 @@ internal static class DefinicoesCadastros
     {
         Titulo = "Condições de pagamento",
         Singular = "condição de pagamento",
-        Descricao = "Prazos de pagamento (entrada, parcelas, quitação antes do evento). Usadas no orçamento, na proposta, no plano de pagamento e no contrato.",
-        Consulta = q => q.Include(x => x.FormaPagamento).OrderBy(x => x.Nome),
+        Descricao = "Prazos de pagamento: cada parcela com o seu prazo e percentual, ou a regra de entrada + parcelas. Usadas no orçamento, na proposta, no plano de pagamento, no contrato e nas compras.",
+        Consulta = q => q.Include(x => x.FormaPagamento).Include(x => x.Parcelas).OrderBy(x => x.Nome),
         Colunas = g => g.Texto("Nome", x => x.Nome, 40)
             .Texto("Regra", x => x.Resumo, 60)
             .Texto("Forma sugerida", x => x.FormaPagamento?.Nome, 25)
             .SimNao("Ativo", x => x.Ativo, 15),
         TextoBusca = x => $"{x.Nome} {x.Descricao} {x.Resumo}",
         Nome = x => x.Nome,
-        LarguraEditor = 640,
+        LarguraEditor = 680,
         Campos = async (e, x, contexto) =>
-        {
-            var formas = await contexto.Lookups.ListarAsync(TipoLookup.FormasPagamento, somenteAtivos: false);
-            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 80, span: 2, dica: "Ex.: 30% de entrada + 5x");
-            e.Texto("Texto na proposta e no contrato (opcional)", () => x.Descricao, v => x.Descricao = v, nameof(x.Descricao), 300,
-                span: 2, linhas: 2, dica: "Vazio: usa o resumo calculado pelas regras abaixo");
-            e.Secao("Entrada");
-            e.Decimal("Entrada (% do valor)", () => x.PercentualEntrada, v => x.PercentualEntrada = v, nameof(x.PercentualEntrada), 2, 0, 100);
-            e.Inteiro("Vencimento da entrada (dias após o fechamento)", () => x.DiasEntrada, v => x.DiasEntrada = v, nameof(x.DiasEntrada), 0, 365);
-            e.Secao("Parcelas");
-            e.Inteiro("Quantidade de parcelas (0 = à vista)", () => x.QuantidadeParcelas, v => x.QuantidadeParcelas = v,
-                nameof(x.QuantidadeParcelas), 0, 48);
-            e.Inteiro("Primeira parcela (dias após o fechamento)", () => x.DiasPrimeiraParcela, v => x.DiasPrimeiraParcela = v,
-                nameof(x.DiasPrimeiraParcela), 0, 730);
-            e.Marcador("Parcelas mensais (mesmo dia de cada mês)", () => x.Mensal, v => x.Mensal = v, nameof(x.Mensal));
-            e.Inteiro("Intervalo entre parcelas (dias, se não forem mensais)", () => x.IntervaloDias, v => x.IntervaloDias = v,
-                nameof(x.IntervaloDias), 1, 365);
-            e.Inteiro("Quitar até quantos dias antes do evento (0 = sem limite)", () => x.QuitarDiasAntesEvento ?? 0,
-                v => x.QuitarDiasAntesEvento = v == 0 ? null : v, nameof(x.QuitarDiasAntesEvento), 0, 365, span: 2);
-            e.Secao("Outros");
-            e.Lista("Forma de pagamento sugerida", formas, () => x.FormaPagamentoId, v => x.FormaPagamentoId = v, nameof(x.FormaPagamentoId),
-                permitirVazio: true);
-            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
-        }
+            EditorCondicaoPagamento.Montar(e, x, await contexto.Lookups.ListarAsync(TipoLookup.FormasPagamento, somenteAtivos: false))
     };
 
     public static readonly DefinicaoCadastro<ModeloContrato> ModelosContrato = new()

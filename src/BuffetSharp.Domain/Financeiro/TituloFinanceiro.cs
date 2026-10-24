@@ -221,6 +221,13 @@ public class ContaPagar : TituloFinanceiro
     public bool EhParcela => ParcelamentoId is not null || Parcelamento is not null;
     public bool FoiAgrupada => AgrupadaEmId is not null || AgrupadaEm is not null;
 
+    /// <summary>Meio previsto para pagar a conta (o pagamento pode usar outro).</summary>
+    public void DefinirFormaPagamento(int? formaPagamentoId)
+    {
+        Validador.Garantir(Status == StatusTitulo.Aberto, "Somente contas em aberto podem ser alteradas.");
+        FormaPagamentoId = formaPagamentoId is > 0 ? formaPagamentoId : null;
+    }
+
     public void DefinirDocumento(string? documento)
     {
         Validador.Garantir(documento is null || documento.Trim().Length <= TamanhoDocumento,

@@ -688,7 +688,7 @@ internal sealed class FormEventoDetalhe : FormBase
     {
         var saldo = Evento.ValorTotal - Evento.Parcelas.Where(p => p.Status == StatusTitulo.Pago).Sum(p => p.Valor);
         if (await DialogosEvento.PlanoPagamentoAsync(this, _eventos, _lookups, _eventoId, saldo, Evento.DataEvento,
-                Evento.CondicaoPagamentoId))
+                Evento.CondicaoPagamentoId, Evento.FormaPagamentoId))
             await CarregarAsync();
     }
 

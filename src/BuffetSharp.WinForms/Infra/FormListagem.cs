@@ -120,6 +120,9 @@ internal abstract class FormListagem : FormBase
         await RecarregarAsync();
     }
 
+    /// <summary>A aba voltou a ser exibida: recarrega com os filtros atuais (a seleção é mantida).</summary>
+    internal Task AtualizarAoVoltarAsync() => IsHandleCreated && !IsDisposed ? RecarregarAsync() : Task.CompletedTask;
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);

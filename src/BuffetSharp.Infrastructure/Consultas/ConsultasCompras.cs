@@ -38,7 +38,7 @@ internal sealed class ConsultasCompras(FabricaConexao conexoes) : IConsultasComp
         const string sql = """
             SELECT p.Id, p.Data, p.PrevisaoEntrega, p.FornecedorId, COALESCE(f.NomeFantasia, f.RazaoSocial) AS Fornecedor,
                    f.Telefone AS TelefoneFornecedor, f.Email AS EmailFornecedor, p.Status, p.CotacaoCompraId,
-                   p.Observacoes, p.MotivoCancelamento,
+                   cp.Nome AS CondicaoPagamento, fp.Nome AS FormaPagamento, p.Observacoes, p.MotivoCancelamento,
                    (SELECT COUNT(*) FROM PedidoCompraItens i WHERE i.PedidoCompraId = p.Id) AS Itens,
                    COALESCE((SELECT SUM(ROUND(i.Quantidade * i.CustoUnitario, 2)) FROM PedidoCompraItens i
                               WHERE i.PedidoCompraId = p.Id), 0) AS Total,
@@ -47,6 +47,8 @@ internal sealed class ConsultasCompras(FabricaConexao conexoes) : IConsultasComp
                    (SELECT COUNT(*) FROM RecebimentosCompra r WHERE r.PedidoCompraId = p.Id AND r.Status = 'AFaturar') AS AFaturar
               FROM PedidosCompra p
               JOIN Fornecedores f ON f.Id = p.FornecedorId
+              LEFT JOIN CondicoesPagamento cp ON cp.Id = p.CondicaoPagamentoId
+              LEFT JOIN FormasPagamento fp ON fp.Id = p.FormaPagamentoId
              WHERE (@De IS NULL OR p.Data >= @De)
                AND (@AteExclusivo IS NULL OR p.Data < @AteExclusivo)
                AND (@Status IS NULL OR p.Status = @Status)
@@ -76,11 +78,13 @@ internal sealed class ConsultasCompras(FabricaConexao conexoes) : IConsultasComp
     {
         const string sql = """
             SELECT r.Id, r.Data, r.PedidoCompraId, r.FornecedorId, COALESCE(f.NomeFantasia, f.RazaoSocial) AS Fornecedor, r.Status,
+                   pc.CondicaoPagamentoId, pc.FormaPagamentoId,
                    r.NotaFiscalEntradaId, n.Numero AS NotaFiscal, r.Usuario, r.Observacoes, r.MotivoEstorno,
                    (SELECT COUNT(*) FROM RecebimentoItens i WHERE i.RecebimentoCompraId = r.Id) AS Itens,
                    COALESCE((SELECT SUM(ROUND(i.Quantidade * i.CustoUnitario, 2)) FROM RecebimentoItens i
                               WHERE i.RecebimentoCompraId = r.Id), 0) AS Total
               FROM RecebimentosCompra r
+              JOIN PedidosCompra pc ON pc.Id = r.PedidoCompraId
               JOIN Fornecedores f ON f.Id = r.FornecedorId
               LEFT JOIN NotasFiscaisEntrada n ON n.Id = r.NotaFiscalEntradaId
              WHERE (@De IS NULL OR r.Data >= @De)

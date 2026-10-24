@@ -61,9 +61,21 @@ internal sealed class CondicaoPagamentoConfig : IEntityTypeConfiguration<Condica
         b.HasIndex(x => x.Nome).IsUnique();
         b.Property(x => x.PercentualEntrada).HasPrecision(5, 2);
         b.HasOne(x => x.FormaPagamento).WithMany().HasForeignKey(x => x.FormaPagamentoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Parcelas).WithOne().HasForeignKey(x => x.CondicaoPagamentoId).OnDelete(DeleteBehavior.Cascade);
         b.Ignore(x => x.AVista);
+        b.Ignore(x => x.ParcelasDefinidas);
         b.Ignore(x => x.Resumo);
         b.Ignore(x => x.Texto);
+    }
+}
+
+internal sealed class CondicaoPagamentoParcelaConfig : IEntityTypeConfiguration<CondicaoPagamentoParcela>
+{
+    public void Configure(EntityTypeBuilder<CondicaoPagamentoParcela> b)
+    {
+        b.ToTable("CondicaoPagamentoParcelas");
+        b.Property(x => x.Percentual).HasPrecision(5, 2);
+        b.HasOne(x => x.FormaPagamento).WithMany().HasForeignKey(x => x.FormaPagamentoId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

@@ -134,7 +134,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   conversão, estoque a repor, gráfico contratado × recebido, próximos eventos.
 - **Agenda**: calendário mensal por espaço, com as pré-reservas (orçamentos enviados) tracejadas.
 - **Orçamentos**: pacote e espaço com valor negociável, serviços adicionais (fixos ou por pessoa),
-  desconto, condição de pagamento com a simulação das parcelas e resumo em tempo real. A disponibilidade do espaço é verificada durante a edição.
+  desconto, condição de pagamento com a simulação das parcelas, forma de pagamento (PIX, cartão, boleto...) e resumo em tempo real. A disponibilidade do espaço é verificada durante a edição.
   Ciclo Rascunho → Enviado → Aprovado/Recusado, duplicação e **proposta impressa**.
 - **Faixas etárias**: cada pacote define até que idade a criança é isenta, até que idade paga meia e o percentual da
   meia (padrão: até 5 anos isenta, de 6 a 10 anos meia de 50%). No orçamento e no evento informam-se o total de
@@ -163,8 +163,15 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 - **Contatos e endereços**: clientes, fornecedores e funcionários têm, além do telefone, e-mail e endereço principais,
   quantos telefones, WhatsApps, e-mails e endereços adicionais forem precisos (com observação: "mãe da noiva",
   "financeiro", "cobrança"...). A pesquisa de clientes e fornecedores encontra também os contatos adicionais.
-- **Condições de pagamento**: regras de prazo (entrada, número de parcelas, intervalo, quitação até N dias antes do
-  evento), separadas das formas de pagamento (PIX, cartão...). Aparecem na proposta, no plano de pagamento e no contrato.
+- **Condições de pagamento**: cada parcela definida com o seu prazo em dias e o seu percentual (ex.: 28 dias 50% + 42
+  dias 50%, ou 30% à vista + 35% em 30 dias + 35% em 60 dias), ou a regra de entrada + parcelas iguais; com quitação
+  até N dias antes do evento. As parcelas ficam numa grade, com o vencimento e o valor de exemplo ao lado, o total dos
+  percentuais e um preenchimento rápido (N parcelas, a 1ª em X dias, a cada Y dias, com entrada). Cada parcela pode ter a
+  sua forma (ex.: entrada no PIX, demais no boleto); sem ela, vale a forma geral do pedido, da nota ou do evento, e cada
+  conta a pagar ou parcela do evento nasce com a sua forma. Ficam separadas das
+  formas de pagamento (PIX, cartão...). A condição e a forma escolhidas no orçamento aparecem na
+  proposta (impressa, e-mail e WhatsApp), passam ao evento e ao contrato (`{{CONDICAO_PAGAMENTO}}` e `{{FORMA_PAGAMENTO}}`)
+  e preenchem o plano de pagamento.
 - **Financeiro**: contas a receber e a pagar, com pagamento (juros ou desconto pelo valor pago),
   estorno e despesas recorrentes. Despesas podem ser vinculadas a um evento.
 - **Parcelamento de contas a pagar**: como o plano de pagamento do evento. A **compra parcelada** divide o valor total
@@ -194,7 +201,9 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
     de preços sai pelo WhatsApp para cada participante e o mapa sai impresso. Ao concluir, gera um pedido de compra por
     vencedor, já na embalagem do fornecedor (ou na que vale para qualquer um), em embalagens inteiras; quem ainda não tem cadastro é cadastrado como fornecedor nessa hora (com confirmação).
   - **Pedido de compra**: vários produtos de um fornecedor, cada um na unidade de compra (embalagem) do fornecedor.
-    Feito à mão, pela lista de compras ou pela cotação; sai impresso ou pelo WhatsApp.
+    Feito à mão, pela lista de compras ou pela cotação; sai impresso ou pelo WhatsApp. Tem a condição e a forma de
+    pagamento combinadas com o fornecedor: na nota de entrada, a condição preenche os vencimentos (contados da emissão,
+    sem digitar prazos; a grade só ajusta datas e valores aos boletos) e a forma vai para as contas a pagar.
   - **Recebimento**: o que chegou do pedido, inteiro ou em partes. Entra no estoque na hora; o saldo continua no pedido
     (que fica "recebido em parte") até chegar ou ser encerrado. Pode ser estornado enquanto não tiver nota.
   - **Nota fiscal de entrada**: junta um ou mais recebimentos do mesmo fornecedor, com o valor da nota (frete, desconto)
@@ -294,7 +303,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **284 testes** (xUnit v3): 262 de domínio, integração e bancos, e 22 das telas.
+São **302 testes** (xUnit v3): 277 de domínio, integração e bancos, e 25 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

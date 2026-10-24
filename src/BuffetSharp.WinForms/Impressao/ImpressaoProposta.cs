@@ -83,6 +83,9 @@ internal static class ImpressaoProposta
             if (simulacao.Length > 0)
                 doc.Paragrafo(simulacao + ".");
         }
+        if (o.FormaPagamentoId is { } formaId &&
+            (await lookups.ListarAsync(TipoLookup.FormasPagamento, somenteAtivos: false)).FirstOrDefault(f => f.Id == formaId) is { } forma)
+            doc.Paragrafo($"Forma de pagamento: {forma.Nome}", negrito: true);
         if (o.PacoteId is not null)
             doc.Paragrafo(o.RegraFaixas.Descricao);
         doc.Paragrafo($"Proposta válida até {o.ValidoAte:dd/MM/yyyy}. A reserva da data é confirmada mediante assinatura do contrato " +

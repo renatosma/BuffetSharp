@@ -15,6 +15,8 @@ public sealed class PedidoCompraInput
     public DateOnly Data { get; set; }
     public DateOnly? PrevisaoEntrega { get; set; }
     public CategoriaDespesa Categoria { get; set; } = CategoriaDespesa.Insumos;
+    public int? CondicaoPagamentoId { get; set; }
+    public int? FormaPagamentoId { get; set; }
     public string? Observacoes { get; set; }
     public List<PedidoCompraItemInput> Itens { get; set; } = [];
 
@@ -65,6 +67,9 @@ public sealed class NotaEntradaInput
     /// <summary>Chave de acesso da NF-e, quando os dados vieram do XML.</summary>
     public string? ChaveAcesso { get; set; }
 
+    /// <summary>Meio previsto para pagar as contas da nota (vem do pedido).</summary>
+    public int? FormaPagamentoId { get; set; }
+
     public List<int> Recebimentos { get; set; } = [];
     public List<VencimentoInput> Vencimentos { get; set; } = [];
 }
@@ -73,6 +78,11 @@ public sealed class VencimentoInput
 {
     public DateOnly Vencimento { get; set; }
     public decimal Valor { get; set; }
+
+    /// <summary>Forma desta parcela (nula = a forma geral).</summary>
+    public int? FormaPagamentoId { get; set; }
+
+    public VencimentoPlanejado ParaPlanejado() => new(Vencimento, Valor, FormaPagamentoId);
 }
 
 /// <summary>Produto que pode ser comprado, com as unidades de compra (embalagens) que valem para o fornecedor.</summary>

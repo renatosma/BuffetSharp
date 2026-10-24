@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Financeiro;
 
@@ -31,6 +32,9 @@ public sealed record NotaFiscalEletronica
 
     /// <summary>Boletos da nota (cobrança); vazio em compra à vista.</summary>
     public IReadOnlyList<DuplicataNfe> Duplicatas { get; init; } = [];
+
+    /// <summary>Meio de pagamento informado na nota (detPag/tPag), quando reconhecido.</summary>
+    public TipoFormaPagamento? MeioPagamento { get; init; }
 
     public string Descricao => string.IsNullOrWhiteSpace(Serie) ? $"NF {Numero}" : $"NF {Numero}/{Serie}";
 }
@@ -85,6 +89,9 @@ public sealed record AnaliseNfe
     /// <summary>Fornecedor cadastrado com o CNPJ/CPF do emitente (nulo = será cadastrado).</summary>
     public int? FornecedorId { get; init; }
     public string Fornecedor { get; init; } = string.Empty;
+
+    /// <summary>Forma de pagamento cadastrada do mesmo tipo do meio da nota (boleto, PIX...).</summary>
+    public int? FormaPagamentoId { get; init; }
 
     /// <summary>Recebimentos do fornecedor aguardando nota.</summary>
     public IReadOnlyList<int> RecebimentosAFaturar { get; init; } = [];
@@ -152,6 +159,10 @@ public sealed class NotaSemPedidoInput
 
     public DateOnly DataRecebimento { get; set; }
     public CategoriaDespesa Categoria { get; set; } = CategoriaDespesa.Insumos;
+
+    /// <summary>Meio previsto para pagar as contas (sugerido pelo meio de pagamento da NF-e).</summary>
+    public int? FormaPagamentoId { get; set; }
+
     public string? Observacoes { get; set; }
     public List<ItemSemPedidoInput> Itens { get; set; } = [];
     public List<VencimentoInput> Vencimentos { get; set; } = [];

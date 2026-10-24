@@ -67,7 +67,7 @@ internal static class DialogosCotacao
         gradeItens.ReadOnly = false;
         gradeItens.AllowUserToAddRows = false;
         gradeItens.EditMode = DataGridViewEditMode.EditOnEnter;
-        var colunaProduto = new DataGridViewComboBoxColumn
+        var colunaProduto = new ColunaLista
         {
             HeaderText = "Produto", DataPropertyName = nameof(LinhaItem.ProdutoId), FillWeight = 40, DataSource = produtos.ToList(),
             ValueMember = nameof(ItemLookup.Id), DisplayMember = nameof(ItemLookup.Nome),
@@ -122,7 +122,7 @@ internal static class DialogosCotacao
         gradeParticipantes.ReadOnly = false;
         gradeParticipantes.AllowUserToAddRows = false;
         gradeParticipantes.EditMode = DataGridViewEditMode.EditOnEnter;
-        var colunaFornecedor = new DataGridViewComboBoxColumn
+        var colunaFornecedor = new ColunaLista
         {
             HeaderText = "Fornecedor cadastrado", DataPropertyName = nameof(LinhaParticipante.FornecedorId), FillWeight = 24,
             DataSource = fornecedores, ValueMember = nameof(ItemLookup.Id), DisplayMember = nameof(ItemLookup.Nome),
@@ -292,7 +292,7 @@ internal static class DialogosCotacao
 
         var opcoes = new List<OpcaoVencedor> { new(0, "Menor preço") };
         opcoes.AddRange(mapa.Participantes.Select(p => new OpcaoVencedor(p.Id, p.Nome)));
-        var colunaEscolha = new DataGridViewComboBoxColumn
+        var colunaEscolha = new ColunaLista
         {
             HeaderText = "Escolha", Width = 130, DataSource = opcoes, ValueMember = nameof(OpcaoVencedor.Id),
             DisplayMember = nameof(OpcaoVencedor.Nome), ValueType = typeof(int), ReadOnly = somenteLeitura,

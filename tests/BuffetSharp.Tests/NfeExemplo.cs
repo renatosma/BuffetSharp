@@ -42,6 +42,7 @@ internal static class NfeExemplo
                 <total><ICMSTot><vBC>0.00</vBC><vICMS>0.00</vICMS><vProd>{V(produtos)}</vProd><vFrete>{V(frete)}</vFrete><vSeg>0.00</vSeg>
                   <vDesc>{V(desconto)}</vDesc><vIPI>0.00</vIPI><vST>0.00</vST><vOutro>0.00</vOutro><vNF>{V(total)}</vNF></ICMSTot></total>
                 {cobr}
+                <pag><detPag><tPag>{(duplicatas is { Count: > 0 } ? "15" : "17")}</tPag><vPag>{V(total)}</vPag></detPag></pag>
               </infNFe></NFe>
               <protNFe versao="4.00"><infProt><chNFe>{chave}</chNFe><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo></infProt></protNFe>
             </nfeProc>

@@ -334,6 +334,44 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.ToTable("CondicoesPagamento", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.CondicaoPagamentoParcela", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CondicaoPagamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Dias")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FormaPagamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Percentual")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CondicaoPagamentoId");
+
+                    b.HasIndex("FormaPagamentoId");
+
+                    b.ToTable("CondicaoPagamentoParcelas", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.ContatoAdicional", b =>
                 {
                     b.Property<int>("Id")
@@ -1422,6 +1460,9 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<DateTime>("Fim")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("FormaPagamentoId")
+                        .HasColumnType("int");
+
                     b.Property<int>("IdadeMaximaIsento")
                         .HasColumnType("int");
 
@@ -1490,6 +1531,8 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.HasIndex("CondicaoPagamentoId");
 
                     b.HasIndex("EspacoId");
+
+                    b.HasIndex("FormaPagamentoId");
 
                     b.HasIndex("Inicio");
 
@@ -2117,6 +2160,9 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
 
+                    b.Property<int?>("CondicaoPagamentoId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("CotacaoCompraId")
                         .HasColumnType("int");
 
@@ -2125,6 +2171,9 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
 
                     b.Property<DateTime>("Data")
                         .HasColumnType("date");
+
+                    b.Property<int?>("FormaPagamentoId")
+                        .HasColumnType("int");
 
                     b.Property<int>("FornecedorId")
                         .HasColumnType("int");
@@ -2151,7 +2200,11 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CondicaoPagamentoId");
+
                     b.HasIndex("CotacaoCompraId");
+
+                    b.HasIndex("FormaPagamentoId");
 
                     b.HasIndex("FornecedorId");
 
@@ -2486,6 +2539,9 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<DateTime>("Fim")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("FormaPagamentoId")
+                        .HasColumnType("int");
+
                     b.Property<int>("IdadeMaximaIsento")
                         .HasColumnType("int");
 
@@ -2556,6 +2612,8 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.HasIndex("ClienteId");
 
                     b.HasIndex("CondicaoPagamentoId");
+
+                    b.HasIndex("FormaPagamentoId");
 
                     b.HasIndex("Inicio");
 
@@ -3529,6 +3587,22 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Navigation("FormaPagamento");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.CondicaoPagamentoParcela", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.CondicaoPagamento", null)
+                        .WithMany("Parcelas")
+                        .HasForeignKey("CondicaoPagamentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.FormaPagamento", "FormaPagamento")
+                        .WithMany()
+                        .HasForeignKey("FormaPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("FormaPagamento");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.ContatoAdicional", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Cadastros.Cliente", null)
@@ -3732,6 +3806,11 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasForeignKey("EspacoId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("BuffetSharp.Domain.Cadastros.FormaPagamento", "FormaPagamento")
+                        .WithMany()
+                        .HasForeignKey("FormaPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BuffetSharp.Domain.Cardapio.Pacote", "Pacote")
                         .WithMany()
                         .HasForeignKey("PacoteId")
@@ -3753,6 +3832,8 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Navigation("CondicaoPagamento");
 
                     b.Navigation("Espaco");
+
+                    b.Navigation("FormaPagamento");
 
                     b.Navigation("Pacote");
 
@@ -3962,9 +4043,19 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.PedidoCompra", b =>
                 {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.CondicaoPagamento", "CondicaoPagamento")
+                        .WithMany()
+                        .HasForeignKey("CondicaoPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BuffetSharp.Domain.Estoque.CotacaoCompra", "CotacaoCompra")
                         .WithMany()
                         .HasForeignKey("CotacaoCompraId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.FormaPagamento", "FormaPagamento")
+                        .WithMany()
+                        .HasForeignKey("FormaPagamentoId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
@@ -3973,7 +4064,11 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("CondicaoPagamento");
+
                     b.Navigation("CotacaoCompra");
+
+                    b.Navigation("FormaPagamento");
 
                     b.Navigation("Fornecedor");
                 });
@@ -4128,6 +4223,11 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("BuffetSharp.Domain.Cadastros.FormaPagamento", "FormaPagamento")
+                        .WithMany()
+                        .HasForeignKey("FormaPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BuffetSharp.Domain.Comercial.Orcamento", "Orcamento")
                         .WithOne("Evento")
                         .HasForeignKey("BuffetSharp.Domain.Eventos.Evento", "OrcamentoId")
@@ -4154,6 +4254,8 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Navigation("CondicaoPagamento");
 
                     b.Navigation("Espaco");
+
+                    b.Navigation("FormaPagamento");
 
                     b.Navigation("Orcamento");
 
@@ -4486,6 +4588,11 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Navigation("Contatos");
 
                     b.Navigation("Enderecos");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.CondicaoPagamento", b =>
+                {
+                    b.Navigation("Parcelas");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Fornecedor", b =>

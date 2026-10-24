@@ -8,6 +8,7 @@ using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.WinForms.Impressao;
 using BuffetSharp.WinForms.Infra;
+using Microsoft.EntityFrameworkCore;
 
 namespace BuffetSharp.WinForms.Formularios.Comercial;
 
@@ -62,7 +63,8 @@ internal sealed class FormOrcamentoEdicao : FormBase
 
     private NumericUpDown _convidados = null!, _meia = null!, _isentos = null!, _percentualMeia = null!;
     private NumericUpDown _valorPessoa = null!, _valorLocacao = null!, _percentual = null!;
-    private ComboBox _pacote = null!, _espaco = null!, _condicao = null!;
+    private ComboBox _pacote = null!, _espaco = null!, _condicao = null!, _forma = null!;
+    private IReadOnlyList<ItemLookup> _formas = [], _formasInativas = [];
     private DateTimePicker _data = null!, _inicio = null!, _fim = null!;
 
     private readonly Button _salvar = Tema.BotaoPrimario("Salvar", Icones.Salvar);
@@ -165,7 +167,9 @@ internal sealed class FormOrcamentoEdicao : FormBase
             _regrasPacotes = (await _cardapio.ListarPacotesAsync()).ToDictionary(p => p.Id);
             _espacos = await _lookups.ListarAsync(TipoLookup.Espacos);
             _catalogoServicos = await _lookups.ListarAsync(TipoLookup.ServicosAdicionais);
-            _condicoes = await _condicoesPagamento.ListarAsync(q => q.OrderBy(c => c.Nome));
+            _condicoes = await _condicoesPagamento.ListarAsync(q => q.Include(c => c.Parcelas).ThenInclude(p => p.FormaPagamento).OrderBy(c => c.Nome));
+            _formas = await _lookups.ListarAsync(TipoLookup.FormasPagamento);
+            _formasInativas = await _lookups.ListarAsync(TipoLookup.FormasPagamento, somenteAtivos: false);
 
             _input = _abertura.OrcamentoId > 0 ? await _servico.ObterAsync(_abertura.OrcamentoId) : _servico.Novo();
             if (_abertura.OrcamentoId == 0)
@@ -235,6 +239,9 @@ internal sealed class FormOrcamentoEdicao : FormBase
             .Select(c => new ItemLookup { Id = c.Id, Nome = c.Nome }).ToList();
         _condicao = e.Lista("Condição de pagamento", condicoes, () => i.CondicaoPagamentoId, v => i.CondicaoPagamentoId = v,
             nameof(i.CondicaoPagamentoId), permitirVazio: true, span: 2);
+        // Formas inativas continuam aparecendo no orçamento que já as usa.
+        _forma = e.Lista("Forma de pagamento", _formas.Concat(_formasInativas.Where(f => f.Id == i.FormaPagamentoId && _formas.All(a => a.Id != f.Id))).ToList(),
+            () => i.FormaPagamentoId, v => i.FormaPagamentoId = v, nameof(i.FormaPagamentoId), permitirVazio: true);
         e.Livre(_simulacaoPagamento);
         e.Texto("Observações (impressas na proposta)", () => i.Observacoes, v => i.Observacoes = v, nameof(i.Observacoes), 2000, span: 3, linhas: 3);
 
@@ -342,6 +349,17 @@ internal sealed class FormOrcamentoEdicao : FormBase
         foreach (var numero in new[] { _meia, _percentualMeia, _valorPessoa, _valorLocacao, _percentual })
             numero.ValueChanged += (_, _) => Recalcular();
         _condicao.SelectedIndexChanged += (_, _) => Recalcular();
+        // A condição traz a forma sugerida (ex.: "30% + 5x" no cartão); só preenche se a forma ainda estiver vazia.
+        _condicao.SelectionChangeCommitted += (_, _) =>
+        {
+            if (_forma.SelectedItem is ItemLookup { Id: > 0 } ||
+                _condicao.SelectedItem is not ItemLookup { Id: > 0 } item ||
+                _condicoes.FirstOrDefault(c => c.Id == item.Id)?.FormaPagamentoId is not { } formaId)
+                return;
+            var indice = _forma.Items.Cast<ItemLookup>().ToList().FindIndex(f => f.Id == formaId);
+            if (indice >= 0)
+                _forma.SelectedIndex = indice;
+        };
         _data.ValueChanged += (_, _) => Recalcular();
         foreach (var data in new[] { _data, _inicio, _fim })
             data.ValueChanged += (_, _) => AgendarVerificacao();

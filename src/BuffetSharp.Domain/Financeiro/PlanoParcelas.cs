@@ -3,10 +3,15 @@ using BuffetSharp.Domain.Comum;
 namespace BuffetSharp.Domain.Financeiro;
 
 /// <summary>Uma parcela calculada por <see cref="PlanoParcelas"/>: <see cref="Numero"/> 0 é a entrada.</summary>
-public sealed record ParcelaPlanejada(int Numero, int Quantidade, decimal Valor, DateOnly Vencimento)
+/// <param name="FormaPagamentoId">Forma da parcela, quando a condição a define (nula = a forma geral).</param>
+public sealed record ParcelaPlanejada(int Numero, int Quantidade, decimal Valor, DateOnly Vencimento, int? FormaPagamentoId = null)
 {
     public bool Entrada => Numero == 0;
 }
+
+/// <summary>Vencimento informado (boleto da nota, parcela da condição...), com a forma própria quando houver.</summary>
+/// <param name="FormaPagamentoId">Nula = a forma geral do plano.</param>
+public sealed record VencimentoPlanejado(DateOnly Vencimento, decimal Valor, int? FormaPagamentoId = null);
 
 /// <summary>
 /// Divide um valor em entrada + parcelas (mensais ou a cada N dias), com os centavos na última parcela. É a mesma regra

@@ -109,7 +109,7 @@ internal sealed class GradeEditavel<T> where T : class
 
     public GradeEditavel<T> Opcoes<TValor>(string titulo, string propriedade, IEnumerable<OpcaoGrade<TValor>> opcoes, float peso = 50)
     {
-        Controle.Columns.Add(new DataGridViewComboBoxColumn
+        Controle.Columns.Add(new ColunaLista
         {
             HeaderText = titulo,
             DataPropertyName = propriedade,

@@ -2,6 +2,7 @@ using System.ComponentModel;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Financeiro;
@@ -40,6 +41,14 @@ internal static class DialogosNotaEntrada
     {
         public DateTime Vencimento { get; set; }
         public decimal Valor { get; set; }
+
+        /// <summary>Forma desta parcela (0 = a forma da nota).</summary>
+        public int FormaPagamentoId { get; set; }
+
+        public VencimentoInput ParaInput() => new()
+        {
+            Vencimento = DateOnly.FromDateTime(Vencimento), Valor = Valor, FormaPagamentoId = FormaPagamentoId > 0 ? FormaPagamentoId : null
+        };
     }
 
     // =========================== Nota dos recebimentos (com pedido) ===========================
@@ -72,11 +81,13 @@ internal static class DialogosNotaEntrada
         };
         var linhas = new BindingList<LinhaRecebimento>();
         var vencimentos = new BindingList<LinhaVencimento>();
-        var parcelas = 1;
-        var intervalo = 0;
-        var primeiro = hoje.AddDays(28);
         var totalEditado = false;
         var doXml = false;
+        var (condicoes, formas) = await servico.OpcoesPagamentoAsync();
+        var itensCondicao = condicoes.Select(c => new ItemLookup { Id = c.Id, Nome = c.Nome }).ToList();
+        var itensForma = formas.Select(f => new ItemLookup { Id = f.Id, Nome = f.Nome }).ToList();
+        int? condicaoId = null;
+        var pagamentoEscolhido = false; // o usuário mexeu na condição ou na forma: não volta ao padrão do pedido
 
         var e = new EditorCampos();
         var fornecedor = e.Lista("Fornecedor", fornecedores, () => input.FornecedorId, v => input.FornecedorId = v ?? 0,
@@ -85,6 +96,10 @@ internal static class DialogosNotaEntrada
         var serie = e.Texto("Série", () => input.Serie, v => input.Serie = v, nameof(input.Serie), NotaFiscalEntrada.TamanhoSerie, dica: "Opcional");
         var emissao = e.Data("Data de emissão", () => input.DataEmissao, v => input.DataEmissao = v ?? hoje, nameof(input.DataEmissao));
         e.Opcoes("Categoria da despesa", () => input.Categoria, v => input.Categoria = v, nameof(input.Categoria));
+        var condicao = e.Lista("Condição de pagamento (preenche os vencimentos)", itensCondicao, () => condicaoId, v => condicaoId = v,
+            permitirVazio: true);
+        var forma = e.Lista("Forma de pagamento", itensForma, () => input.FormaPagamentoId, v => input.FormaPagamentoId = v,
+            nameof(input.FormaPagamentoId), permitirVazio: true);
 
         e.Secao("Recebimentos que a nota fatura");
         var grade = new DataGridView { AutoGenerateColumns = false, Height = 150, Dock = DockStyle.Top };
@@ -122,25 +137,36 @@ internal static class DialogosNotaEntrada
         e.Secao("Valor e vencimentos");
         var valorTotal = e.Decimal("Valor total da nota", () => input.ValorTotal, v => input.ValorTotal = v, nameof(input.ValorTotal));
         var mercadoria = e.Informacao("Mercadoria recebida", () => "");
-        var campoParcelas = e.Inteiro("Parcelas", () => parcelas, v => parcelas = v, minimo: 1, maximo: PlanoParcelas.MaximoParcelas);
-        var campoPrimeiro = e.Data("1º vencimento", () => primeiro, v => primeiro = v ?? primeiro);
-        var campoIntervalo = e.Inteiro("Dias entre parcelas (0 = mensal)", () => intervalo, v => intervalo = v, maximo: 365, span: 2);
-        var (painelVencimentos, gradeVencimentos, conferir) = PainelVencimentos(vencimentos, () => valorTotal.Value);
+        var (painelVencimentos, gradeVencimentos, conferir) = PainelVencimentos(vencimentos, () => valorTotal.Value, itensForma);
         e.Livre(painelVencimentos);
 
+        CondicaoPagamento? CondicaoEscolhida() =>
+            condicao.SelectedItem is ItemLookup { Id: > 0 } item ? condicoes.FirstOrDefault(c => c.Id == item.Id) : null;
         void Gerar()
         {
             if (doXml)
                 return; // os vencimentos são os boletos da NF-e
             vencimentos.Clear();
-            if (valorTotal.Value > 0)
+            if (valorTotal.Value > 0 && CondicaoEscolhida() is { } escolhida)
             {
-                var plano = PlanoParcelas.Calcular(valorTotal.Value, (int)campoParcelas.Value, DateOnly.FromDateTime(campoPrimeiro.Value),
-                    intervaloDias: campoIntervalo.Value > 0 ? (int)campoIntervalo.Value : null);
-                foreach (var p in plano)
-                    vencimentos.Add(new LinhaVencimento { Vencimento = p.Vencimento.ToDateTime(TimeOnly.MinValue), Valor = p.Valor });
+                // Prazos da condição contados a partir da emissão da nota.
+                foreach (var v in CompraService.Vencimentos(escolhida, valorTotal.Value, DateOnly.FromDateTime(emissao.Value)))
+                    vencimentos.Add(new LinhaVencimento
+                    {
+                        Vencimento = v.Vencimento.ToDateTime(TimeOnly.MinValue), Valor = v.Valor, FormaPagamentoId = v.FormaPagamentoId ?? 0
+                    });
+            }
+            else if (valorTotal.Value > 0)
+            {
+                // Sem condição: um vencimento em 28 dias (ajuste na grade ou escolha a condição).
+                vencimentos.Add(new LinhaVencimento { Vencimento = emissao.Value.Date.AddDays(28), Valor = valorTotal.Value });
             }
             conferir();
+        }
+        void Selecionar(ComboBox combo, IReadOnlyList<ItemLookup> itens, int? id)
+        {
+            var indice = id is { } valor ? itens.ToList().FindIndex(i => i.Id == valor) : -1;
+            combo.SelectedIndex = indice + 1; // a primeira opção é "(nenhum)"
         }
         void ConferirXml()
         {
@@ -180,6 +206,12 @@ internal static class DialogosNotaEntrada
                     Id = r.Id, Codigo = r.Codigo, Pedido = r.Pedido, Data = r.Data, Itens = r.Itens, Total = r.Total
                 });
             }
+            // Condição e forma do pedido do primeiro recebimento marcado.
+            if (!pagamentoEscolhido && pendentes.FirstOrDefault(r => linhas.Any(l => l.Marcado && l.Id == r.Id)) is { } origem)
+            {
+                Selecionar(condicao, itensCondicao, origem.CondicaoPagamentoId);
+                Selecionar(forma, itensForma, origem.FormaPagamentoId);
+            }
             totalEditado = doXml;
             Somar();
         }
@@ -210,6 +242,8 @@ internal static class DialogosNotaEntrada
             foreach (var (vencimento, valor) in boletos)
                 vencimentos.Add(new LinhaVencimento { Vencimento = vencimento.ToDateTime(TimeOnly.MinValue), Valor = valor });
             CarregarRecebimentos(id, null);
+            if (forma.SelectedItem is not ItemLookup { Id: > 0 } && dados.FormaPagamentoId is { } formaDaNota)
+                Selecionar(forma, itensForma, formaDaNota);
             conferir();
         }
 
@@ -228,15 +262,18 @@ internal static class DialogosNotaEntrada
             else
                 Gerar();
         };
-        // Mexer nas parcelas refaz os vencimentos (mesmo os que vieram dos boletos da NF-e).
-        void Replanejar()
+        condicao.SelectionChangeCommitted += (_, _) =>
         {
+            pagamentoEscolhido = true;
             doXml = false;
             Gerar();
-        }
-        campoParcelas.ValueChanged += (_, _) => Replanejar();
-        campoPrimeiro.ValueChanged += (_, _) => Replanejar();
-        campoIntervalo.ValueChanged += (_, _) => Replanejar();
+        };
+        forma.SelectionChangeCommitted += (_, _) => pagamentoEscolhido = true;
+        emissao.ValueChanged += (_, _) =>
+        {
+            if (CondicaoEscolhida() is not null)
+                Gerar();
+        };
         fornecedor.SelectionChangeCommitted += (_, _) =>
         {
             if (fornecedor.SelectedItem is ItemLookup { Id: > 0 } escolhido)
@@ -256,8 +293,7 @@ internal static class DialogosNotaEntrada
             grade.EndEdit();
             gradeVencimentos.EndEdit();
             input.Recebimentos = linhas.Where(l => l.Marcado).Select(l => l.Id).ToList();
-            input.Vencimentos = vencimentos.Select(v => new VencimentoInput { Vencimento = DateOnly.FromDateTime(v.Vencimento), Valor = v.Valor })
-                .ToList();
+            input.Vencimentos = vencimentos.Select(v => v.ParaInput()).ToList();
             if (analise is not null && (analise.FornecedorId != input.FornecedorId || analise.Nota.Numero != input.Numero.Trim()))
                 input.ChaveAcesso = null; // trocou o fornecedor ou o número: não é mais a NF-e importada
         });
@@ -265,7 +301,8 @@ internal static class DialogosNotaEntrada
         int? lancada = null;
         using var dialogo = new FormEdicao("Lançar nota fiscal de entrada",
             "Marque os recebimentos que vieram nesta nota. O valor total já vem com a mercadoria recebida; ajuste se a nota tiver " +
-            "frete, desconto ou impostos. Os vencimentos viram contas a pagar (ou parcelas). Com o XML da NF-e, tudo vem preenchido.", e,
+            "frete, desconto ou impostos. A condição de pagamento dá os vencimentos (ajustáveis na grade), que viram contas a pagar. " +
+            "Com o XML da NF-e, tudo vem preenchido.", e,
             async () => lancada = await servico.LancarNotaAsync(input), 760);
         var importar = dialogo.AdicionarAcao(Tema.BotaoSecundario("Importar XML da NF-e", Icones.Exportar));
         importar.Click += async (_, _) =>
@@ -346,7 +383,14 @@ internal static class DialogosNotaEntrada
         {
             Item = i.Item, ProdutoId = i.ProdutoId ?? 0, EmbalagemId = i.ProdutoEmbalagemId, Origem = i.Origem
         }).ToList());
-        var input = new NotaSemPedidoInput { Nota = nota, FornecedorId = analise.FornecedorId, DataRecebimento = hoje };
+        var input = new NotaSemPedidoInput
+        {
+            Nota = nota, FornecedorId = analise.FornecedorId, DataRecebimento = hoje, FormaPagamentoId = analise.FormaPagamentoId
+        };
+        var (condicoes, formasPagamento) = await compras.OpcoesPagamentoAsync();
+        var formas = formasPagamento.Select(f => new ItemLookup { Id = f.Id, Nome = f.Nome }).ToList();
+        var itensCondicao = condicoes.Select(c => new ItemLookup { Id = c.Id, Nome = c.Nome }).ToList();
+        int? condicaoId = null;
         var vencimentos = new BindingList<LinhaVencimento>(
             (nota.Duplicatas.Count > 0 ? nota.Duplicatas.Select(d => (d.Vencimento, d.Valor)).ToList() : [(nota.DataEmissao, nota.ValorTotal)])
             .Select(v => new LinhaVencimento { Vencimento = v.Item1.ToDateTime(TimeOnly.MinValue), Valor = v.Item2 }).ToList());
@@ -361,6 +405,8 @@ internal static class DialogosNotaEntrada
                                             (nota.ValorOutros > 0 ? $", outros {Textos.Moeda(nota.ValorOutros)}" : "") + ")", span: 2);
         e.Data("Data do recebimento", () => input.DataRecebimento, v => input.DataRecebimento = v ?? hoje, nameof(input.DataRecebimento));
         e.Opcoes("Categoria da despesa", () => input.Categoria, v => input.Categoria = v, nameof(input.Categoria));
+        e.Lista("Forma de pagamento", formas, () => input.FormaPagamentoId, v => input.FormaPagamentoId = v, nameof(input.FormaPagamentoId),
+            permitirVazio: true);
 
         e.Secao("Itens da nota e produtos do sistema");
         var grade = new DataGridView { AutoGenerateColumns = false };
@@ -375,13 +421,13 @@ internal static class DialogosNotaEntrada
                 ? new DataGridViewCellStyle()
                 : new DataGridViewCellStyle { Format = formato, FormatProvider = Textos.PtBr, Alignment = DataGridViewContentAlignment.MiddleRight }
         };
-        var colunaProduto = new DataGridViewComboBoxColumn
+        var colunaProduto = new ColunaLista
         {
             HeaderText = "Produto do sistema", DataPropertyName = nameof(LinhaItemNfe.ProdutoId), FillWeight = 30, DataSource = produtos,
             ValueMember = nameof(ProdutoCompra.Id), DisplayMember = nameof(ProdutoCompra.Nome),
             DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton, FlatStyle = FlatStyle.Flat
         };
-        var colunaUnidade = new DataGridViewComboBoxColumn
+        var colunaUnidade = new ColunaLista
         {
             HeaderText = "Vem em", DataPropertyName = nameof(LinhaItemNfe.EmbalagemId), FillWeight = 17,
             DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton, FlatStyle = FlatStyle.Flat
@@ -473,8 +519,21 @@ internal static class DialogosNotaEntrada
         e.Associar(nameof(input.Itens), grade);
 
         e.Secao("Vencimentos (boletos da nota)");
-        var (painelVencimentos, gradeVencimentos, conferir) = PainelVencimentos(vencimentos, () => nota.ValorTotal);
+        var condicao = e.Lista("Condição de pagamento (troca os vencimentos)", itensCondicao, () => condicaoId, v => condicaoId = v,
+            permitirVazio: true, span: 2);
+        var (painelVencimentos, gradeVencimentos, conferir) = PainelVencimentos(vencimentos, () => nota.ValorTotal, formas);
         e.Livre(painelVencimentos);
+        condicao.SelectionChangeCommitted += (_, _) =>
+        {
+            vencimentos.Clear();
+            var escolhida = condicao.SelectedItem is ItemLookup { Id: > 0 } item ? condicoes.FirstOrDefault(c => c.Id == item.Id) : null;
+            var novos = escolhida is null
+                ? (nota.Duplicatas.Count > 0 ? nota.Duplicatas.Select(d => (d.Vencimento, d.Valor, (int?)null)).ToList() : [(nota.DataEmissao, nota.ValorTotal, null)])
+                : CompraService.Vencimentos(escolhida, nota.ValorTotal, nota.DataEmissao).Select(v => (v.Vencimento, v.Valor, v.FormaPagamentoId)).ToList();
+            foreach (var (vencimento, valor, formaId) in novos)
+                vencimentos.Add(new LinhaVencimento { Vencimento = vencimento.ToDateTime(TimeOnly.MinValue), Valor = valor, FormaPagamentoId = formaId ?? 0 });
+            conferir();
+        };
         e.Texto("Observações", () => input.Observacoes, v => input.Observacoes = v, nameof(input.Observacoes), 500, span: 2);
         e.AoCarregar(conferir);
         e.AoAplicar(() =>
@@ -485,8 +544,7 @@ internal static class DialogosNotaEntrada
             Validador.Garantir(semProduto.Count == 0,
                 $"Escolha o produto (ou \"não entra no estoque\") dos itens {string.Join(", ", semProduto.Take(5))}{(semProduto.Count > 5 ? "..." : "")}.");
             input.Itens = linhas.Select(l => new ItemSemPedidoInput(l.Item.Numero, l.ProdutoId > 0 ? l.ProdutoId : null, l.EmbalagemId)).ToList();
-            input.Vencimentos = vencimentos.Select(v => new VencimentoInput { Vencimento = DateOnly.FromDateTime(v.Vencimento), Valor = v.Valor })
-                .ToList();
+            input.Vencimentos = vencimentos.Select(v => v.ParaInput()).ToList();
         });
 
         int? lancada = null;
@@ -504,8 +562,11 @@ internal static class DialogosNotaEntrada
 
     // =========================== Vencimentos ===========================
 
-    /// <summary>Grade editável dos vencimentos com a conferência da soma contra o total da nota.</summary>
-    private static (Panel Painel, DataGridView Grade, Action Conferir) PainelVencimentos(BindingList<LinhaVencimento> vencimentos, Func<decimal> total)
+    /// <summary>
+    /// Grade editável dos vencimentos (data, valor e forma de cada um) com a conferência da soma contra o total da nota.
+    /// </summary>
+    private static (Panel Painel, DataGridView Grade, Action Conferir) PainelVencimentos(BindingList<LinhaVencimento> vencimentos, Func<decimal> total,
+        IReadOnlyList<ItemLookup> formas)
     {
         var grade = new DataGridView { AutoGenerateColumns = false, Dock = DockStyle.Fill };
         Tema.EstilizarGrade(grade);
@@ -521,9 +582,22 @@ internal static class DialogosNotaEntrada
             {
                 HeaderText = "Valor", DataPropertyName = nameof(LinhaVencimento.Valor),
                 DefaultCellStyle = { Format = "N2", FormatProvider = Textos.PtBr, Alignment = DataGridViewContentAlignment.MiddleRight }
+            },
+            new ColunaLista
+            {
+                HeaderText = "Forma", DataPropertyName = nameof(LinhaVencimento.FormaPagamentoId), ValueMember = nameof(ItemLookup.Id),
+                DisplayMember = nameof(ItemLookup.Nome), ValueType = typeof(int),
+                DataSource = new[] { new ItemLookup { Id = 0, Nome = "(forma da nota)" } }.Concat(formas).ToList(),
+                DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton, FlatStyle = FlatStyle.Flat
             });
         grade.DataSource = vencimentos;
+        grade.EditMode = DataGridViewEditMode.EditOnEnter;
         grade.DataError += (_, ev) => ev.ThrowException = false;
+        grade.CurrentCellDirtyStateChanged += (_, _) =>
+        {
+            if (grade.IsCurrentCellDirty && grade.CurrentCell is DataGridViewComboBoxCell)
+                grade.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        };
         var conferencia = new Label { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(0, 6, 0, 0), Dock = DockStyle.Bottom };
         var painel = new Panel { Height = 190, Dock = DockStyle.Top };
         painel.Controls.Add(grade);
@@ -539,6 +613,31 @@ internal static class DialogosNotaEntrada
             conferencia.ForeColor = soma == valor ? Tema.Sucesso : Tema.Perigo;
         }
         grade.CellEndEdit += (_, _) => Conferir();
+
+        var incluir = Tema.BotaoSecundario("Incluir vencimento", Icones.Adicionar);
+        incluir.Click += (_, _) =>
+        {
+            grade.EndEdit();
+            var ultimo = vencimentos.LastOrDefault();
+            var falta = total() - vencimentos.Sum(v => v.Valor);
+            vencimentos.Add(new LinhaVencimento
+            {
+                Vencimento = (ultimo?.Vencimento ?? DateTime.Today).AddDays(ultimo is null ? 28 : 30), Valor = Math.Max(falta, 0)
+            });
+            Conferir();
+        };
+        var remover = Tema.BotaoSecundario("Remover vencimento", Icones.Excluir);
+        remover.Click += (_, _) =>
+        {
+            grade.EndEdit();
+            if (grade.CurrentRow?.DataBoundItem is LinhaVencimento linha)
+                vencimentos.Remove(linha);
+            Conferir();
+        };
+        var barra = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = false };
+        barra.Controls.AddRange([incluir, remover]);
+        painel.Height = 230;
+        painel.Controls.Add(barra);
         return (painel, grade, Conferir);
     }
 }

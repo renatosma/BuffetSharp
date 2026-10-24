@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
@@ -10,6 +12,7 @@ using BuffetSharp.WinForms.Formularios.Comercial;
 using BuffetSharp.WinForms.Formularios.Estoque;
 using BuffetSharp.WinForms.Formularios.Eventos;
 using BuffetSharp.WinForms.Infra;
+using Microsoft.EntityFrameworkCore;
 
 namespace BuffetSharp.Tests.Telas.Testes;
 
@@ -129,6 +132,17 @@ public class MelhoriasTelasTests(AmbienteTelas ambiente)
                 var itens = Robo.Descendentes(dialogo).OfType<DataGridView>().Single();
                 robo.Esperar(() => itens.Rows.Count == 1, "item a receber");
                 var linha = itens.Rows[0].DataBoundItem!;
+                Assert.Equal(2m, linha.GetType().GetProperty("Chegou")!.GetValue(linha));
+
+                // A caixa "Chegou": desmarcar zera; marcar de novo traz o que falta.
+                var caixa = (DataGridViewCheckBoxCell)itens.Rows[0].Cells[0];
+                Assert.Equal(true, caixa.FormattedValue);
+                itens.CurrentCell = caixa;
+                robo.Clicar(dialogo, "Desmarcar todos");
+                Assert.Equal(0m, linha.GetType().GetProperty("Chegou")!.GetValue(linha));
+                itens.Refresh();
+                Assert.Equal(false, caixa.FormattedValue);
+                linha.GetType().GetProperty("Marcado")!.SetValue(linha, true);
                 Assert.Equal(2m, linha.GetType().GetProperty("Chegou")!.GetValue(linha));
                 linha.GetType().GetProperty("Chegou")!.SetValue(linha, 1m);
                 robo.Clicar(dialogo, "Salvar");
@@ -259,5 +273,83 @@ public class MelhoriasTelasTests(AmbienteTelas ambiente)
                 DialogosNotaEntrada.EscolherXml = escolher;
                 File.Delete(arquivo);
             }
+        });
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr janela, int mensagem, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>
+    /// Com monitores de escalas diferentes, a lista de edição da grade recebe o aviso de mudança de escala ao ser encaixada
+    /// e o ComboBox padrão tentava se recriar ("Erro ao criar identificador de janela"). A lista do sistema ignora o aviso.
+    /// </summary>
+    [Fact]
+    public void Lista_da_grade_do_pedido_aguenta_a_mudanca_de_escala_do_monitor() =>
+        Robo.Executar(ambiente, robo =>
+        {
+            var principal = robo.Entrar();
+            var tela = robo.AbrirMenu<FormPedidosCompra>(principal, "Pedidos de compra");
+            robo.Dialogo<FormEdicao>(() => robo.Clicar(tela, "Novo pedido"), dialogo =>
+            {
+                var itens = Robo.Descendentes(dialogo).OfType<DataGridView>().Single();
+                robo.Clicar(dialogo, "Incluir produto");
+                robo.Esperar(() => itens.EditingControl is not null, "lista de produtos em edição");
+                var lista = Assert.IsType<EdicaoLista>(itens.EditingControl);
+                var janela = lista.Handle;
+                SendMessage(janela, 0x02E2, IntPtr.Zero, IntPtr.Zero); // WM_DPICHANGED_BEFOREPARENT
+                Assert.Equal(janela, lista.Handle);
+                Assert.All(Robo.Descendentes(dialogo).OfType<DataGridView>().SelectMany(g => g.Columns.OfType<DataGridViewComboBoxColumn>()),
+                    c => Assert.IsType<ColunaLista>(c));
+                robo.Clicar(dialogo, "Cancelar");
+            }, "novo pedido");
+        });
+
+    [Fact]
+    public void Condicao_de_pagamento_com_parcelas_preenchidas_na_grade() =>
+        Robo.Executar(ambiente, robo =>
+        {
+            var principal = robo.Entrar();
+            var tela = robo.AbrirMenu<Form>(principal, "Condições de pagamento");
+            var nome = $"Grade {Guid.NewGuid():N}"[..20];
+            robo.Dialogo<FormEdicao>(() => robo.Clicar(tela, "Novo"), dialogo =>
+            {
+                robo.Preencher(dialogo, "Nome", nome);
+                robo.Clicar(dialogo, "Preencher a grade"); // padrão: 3 parcelas, 30 dias, a cada 30
+                var grade = Robo.Descendentes(dialogo).OfType<DataGridView>().Single();
+                robo.Esperar(() => grade.Rows.Count == 3, "parcelas preenchidas");
+                Assert.Equal(["30", "60", "90"], grade.Rows.Cast<DataGridViewRow>().Select(r => r.Cells[1].FormattedValue?.ToString()));
+                Assert.Equal("R$ 333,40", grade.Rows[2].Cells[5].FormattedValue); // 33,34% e os centavos
+                Assert.Contains(Robo.Descendentes(dialogo).OfType<Label>(), l => l.Text.StartsWith("Total: 100% em 3 parcela(s)"));
+                robo.Clicar(dialogo, "Salvar");
+            }, "nova condição");
+
+            var salva = robo.Rodar(() => robo.Servico<ICadastroService<Domain.Cadastros.CondicaoPagamento>>()
+                    .ListarAsync(q => q.Include(c => c.Parcelas).Where(c => c.Nome == nome)))
+                .Single();
+            Assert.Equal([33.33m, 33.33m, 33.34m], salva.Parcelas.OrderBy(p => p.Dias).Select(p => p.Percentual));
+            Assert.Equal("30/60/90 dias", salva.Resumo);
+        });
+
+    /// <summary>Uma lista aberta antes não pode ficar desatualizada: voltar para a aba traz o que foi feito em outra tela.</summary>
+    [Fact]
+    public void Lista_aberta_antes_mostra_o_recebimento_feito_depois_sem_F5() =>
+        Robo.Executar(ambiente, robo =>
+        {
+            var principal = robo.Entrar();
+            var recebimentos = robo.AbrirMenu<FormRecebimentos>(principal, "Recebimentos");
+            robo.AbrirMenu<FormPedidosCompra>(principal, "Pedidos de compra");
+
+            // Pedido recebido enquanto a lista de recebimentos estava aberta em outra aba.
+            var compras = robo.Servico<CompraService>();
+            var lookups = robo.Servico<IConsultasLookup>();
+            var pedido = compras.Novo(robo.Rodar(() => lookups.ListarAsync(TipoLookup.Fornecedores)).First().Id);
+            pedido.Itens = [new PedidoCompraItemInput { ProdutoId = robo.Rodar(() => lookups.ListarAsync(TipoLookup.Produtos)).First().Id, Quantidade = 3, CustoUnitario = 10m }];
+            var id = robo.Rodar(() => compras.SalvarAsync(pedido));
+            var item = robo.Rodar(() => robo.Servico<IConsultasCompras>().ItensAsync(id)).Single();
+            var recebimento = robo.Rodar(() => compras.ReceberAsync(new RecebimentoInput { PedidoId = id, Data = Hoje, Itens = [new(item.Id, 3)] }));
+            Assert.DoesNotContain(Robo.Linhas<RecebimentoResumo>(Robo.Grade(recebimentos)), r => r.Id == recebimento);
+
+            Assert.Same(recebimentos, robo.AbrirMenu<FormRecebimentos>(principal, "Recebimentos")); // a mesma aba, sem F5
+            robo.Esperar(() => Robo.Linhas<RecebimentoResumo>(Robo.Grade(recebimentos)).Any(r => r.Id == recebimento),
+                "recebimento novo na lista ao voltar para a aba");
         });
 }

@@ -85,6 +85,8 @@ public sealed class PropostaService(
         texto.Append($"\n*Total: {Moeda(resumo.Total)}* ({Moeda(o.QuantidadeConvidados == 0 ? 0 : resumo.Total / o.QuantidadeConvidados)} por convidado)\n");
         if (o.CondicaoPagamento is { } condicao)
             texto.Append($"💳 {TextosPagamento.Completo(condicao, resumo.Total, DateOnly.FromDateTime(Agora), o.DataEvento)}\n");
+        if (o.FormaPagamento is { } forma)
+            texto.Append($"💰 Forma de pagamento: {forma.Nome}\n");
         texto
             .Append($"Proposta válida até {o.ValidoAte:dd/MM/yyyy}.\n\n")
             .Append("Posso te enviar a proposta completa por e-mail ou agendar uma degustação? 😊");
@@ -113,7 +115,8 @@ public sealed class PropostaService(
         .Include(o => o.TipoEvento)
         .Include(o => o.Espaco)
         .Include(o => o.Pacote)
-        .Include(o => o.CondicaoPagamento)
+        .Include(o => o.CondicaoPagamento!).ThenInclude(c => c.Parcelas).ThenInclude(p => p.FormaPagamento)
+        .Include(o => o.FormaPagamento)
         .Include(o => o.Servicos);
 
     private async Task<Orcamento> CarregarAsync(int orcamentoId, CancellationToken ct)
@@ -184,6 +187,8 @@ public sealed class PropostaService(
         if (o.CondicaoPagamento is { } condicao)
             html.Append($"<p><b>Condição de pagamento:</b> {H(condicao.Texto)}<br>" +
                         $"{H(TextosPagamento.Simulacao(condicao, resumo.Total, DateOnly.FromDateTime(Agora), o.DataEvento))}</p>");
+        if (o.FormaPagamento is { } forma)
+            html.Append($"<p><b>Forma de pagamento:</b> {H(forma.Nome)}</p>");
 
         if (o.Pacote is not null)
             html.Append($"<p>{H(o.RegraFaixas.Descricao)}</p>");

@@ -281,4 +281,23 @@ public class ComprasTests
         Assert.Equal(69.9m, cotacao.PrecoDe(picanha, atacadao)!.PrecoUnitario);
         Assert.DoesNotContain(cotacao.Precos, p => p.Item == refrigerante);
     }
+
+    [Fact]
+    public void Pagamento_do_pedido_muda_so_antes_do_recebimento_e_a_forma_vai_para_as_contas()
+    {
+        var pedido = Pedido(out _, out _);
+        pedido.DefinirPagamento(3, 5);
+        Assert.Equal((3, 5), (pedido.CondicaoPagamentoId!.Value, pedido.FormaPagamentoId!.Value));
+
+        var recebimento = pedido.Receber(Hoje, Quantidades(pedido, 10, 20), null, null, Agora);
+        Assert.Throws<RegraNegocioException>(() => pedido.DefinirPagamento(null, null));
+
+        var nota = new NotaFiscalEntrada(7, "77", null, Hoje, CategoriaDespesa.Insumos, [recebimento], 125m, null, Hoje);
+        var (_, parcelamento) = nota.LancarContas([(Hoje.AddDays(28), 60m), (Hoje.AddDays(42), 65m)], null, formaPagamentoId: 5);
+        Assert.All(parcelamento!.Parcelas, p => Assert.Equal(5, p.FormaPagamentoId));
+
+        var unica = new NotaFiscalEntrada(7, "78", null, Hoje, CategoriaDespesa.Insumos,
+            [Pedido(out _, out _) is var outro ? outro.Receber(Hoje, Quantidades(outro, 10, 20), null, null, Agora) : null!], 125m, null, Hoje);
+        Assert.Equal(5, unica.LancarContas([(Hoje.AddDays(10), 125m)], null, formaPagamentoId: 5).Conta!.FormaPagamentoId);
+    }
 }

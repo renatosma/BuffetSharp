@@ -62,6 +62,7 @@ internal sealed class FormPedidosCompra : FormListagem<PedidoCompraResumo>
                 p => p.PercentualRecebido >= 100 ? Tema.Sucesso : p.PercentualRecebido > 0 ? Tema.Alerta : null)
             .Texto("Sem nota", p => p.AFaturar > 0 ? $"{p.AFaturar} receb." : "", 14, _ => Tema.Alerta)
             .Data("Previsão", p => p.PrevisaoEntrega, peso: 16)
+            .Texto("Pagamento", p => p.Pagamento, 24)
             .Texto("Cotação", p => p.Cotacao, 14)
             .Texto("Observações", p => p.MotivoCancelamento ?? p.Observacoes, 40)
             .Busca(p => $"{p.Codigo} {p.Fornecedor} {p.Cotacao} {p.Observacoes}");
@@ -153,7 +154,9 @@ internal sealed class FormPedidosCompra : FormListagem<PedidoCompraResumo>
             ("Previsão de entrega", pedido.PrevisaoEntrega?.ToString("dd/MM/yyyy") ?? "-"),
             ("Situação", Textos.Exibir(pedido.Status)),
             ("Cotação", pedido.Cotacao ?? "-"),
-            ("Telefone", pedido.TelefoneFornecedor ?? "-"));
+            ("Telefone", pedido.TelefoneFornecedor ?? "-"),
+            ("Condição de pagamento", pedido.CondicaoPagamento ?? "-"),
+            ("Forma de pagamento", pedido.FormaPagamento ?? "-"));
         doc.Tabela(["Produto", "Quantidade", "Un.", "Recebido", "Custo unitário", "Total"],
             itens.Select(i => new[]
             {
@@ -175,6 +178,7 @@ internal sealed class FormPedidosCompra : FormListagem<PedidoCompraResumo>
         var texto = $"Olá! Aqui é do *{_opcoes.NomeEmpresa}*. Segue o pedido de compra *{pedido.Codigo}*:\n\n" +
                     string.Join("\n", itens.Select(i => $"• {i.Produto}: {i.Quantidade:0.###} {i.Unidade}")) +
                     (pedido.PrevisaoEntrega is { } previsao ? $"\n\nEntrega até {previsao:dd/MM/yyyy}." : "") +
+                    (pedido.Pagamento.Length > 0 ? $"\nPagamento: {pedido.Pagamento}." : "") +
                     "\n\nPode me confirmar o valor e o prazo? Obrigado!";
         DialogosEnvio.WhatsApp(this, new MensagemWhatsApp(pedido.TelefoneFornecedor ?? "", texto), $"pedido para {pedido.Fornecedor}");
     }

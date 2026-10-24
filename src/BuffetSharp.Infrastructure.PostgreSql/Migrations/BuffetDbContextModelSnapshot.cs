@@ -430,6 +430,57 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("condicoespagamento", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.CondicaoPagamentoParcela", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<int>("CondicaoPagamentoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("condicaopagamentoid");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<int>("Dias")
+                        .HasColumnType("integer")
+                        .HasColumnName("dias");
+
+                    b.Property<int?>("FormaPagamentoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("formapagamentoid");
+
+                    b.Property<decimal>("Percentual")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("percentual");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("Id")
+                        .HasName("pk_condicaopagamentoparcelas");
+
+                    b.HasIndex("CondicaoPagamentoId")
+                        .HasDatabaseName("ix_condicaopagamentoparcelas_condicaopagamentoid");
+
+                    b.HasIndex("FormaPagamentoId")
+                        .HasDatabaseName("ix_condicaopagamentoparcelas_formapagamentoid");
+
+                    b.ToTable("condicaopagamentoparcelas", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.ContatoAdicional", b =>
                 {
                     b.Property<int>("Id")
@@ -1845,6 +1896,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("fim");
 
+                    b.Property<int?>("FormaPagamentoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("formapagamentoid");
+
                     b.Property<int>("IdadeMaximaIsento")
                         .HasColumnType("integer")
                         .HasColumnName("idademaximaisento");
@@ -1934,6 +1989,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("EspacoId")
                         .HasDatabaseName("ix_orcamentos_espacoid");
+
+                    b.HasIndex("FormaPagamentoId")
+                        .HasDatabaseName("ix_orcamentos_formapagamentoid");
 
                     b.HasIndex("Inicio")
                         .HasDatabaseName("ix_orcamentos_inicio");
@@ -2758,6 +2816,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("categoria");
 
+                    b.Property<int?>("CondicaoPagamentoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("condicaopagamentoid");
+
                     b.Property<int?>("CotacaoCompraId")
                         .HasColumnType("integer")
                         .HasColumnName("cotacaocompraid");
@@ -2769,6 +2831,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<DateOnly>("Data")
                         .HasColumnType("date")
                         .HasColumnName("data");
+
+                    b.Property<int?>("FormaPagamentoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("formapagamentoid");
 
                     b.Property<int>("FornecedorId")
                         .HasColumnType("integer")
@@ -2802,8 +2868,14 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.HasKey("Id")
                         .HasName("pk_pedidoscompra");
 
+                    b.HasIndex("CondicaoPagamentoId")
+                        .HasDatabaseName("ix_pedidoscompra_condicaopagamentoid");
+
                     b.HasIndex("CotacaoCompraId")
                         .HasDatabaseName("ix_pedidoscompra_cotacaocompraid");
+
+                    b.HasIndex("FormaPagamentoId")
+                        .HasDatabaseName("ix_pedidoscompra_formapagamentoid");
 
                     b.HasIndex("FornecedorId")
                         .HasDatabaseName("ix_pedidoscompra_fornecedorid");
@@ -3249,6 +3321,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("fim");
 
+                    b.Property<int?>("FormaPagamentoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("formapagamentoid");
+
                     b.Property<int>("IdadeMaximaIsento")
                         .HasColumnType("integer")
                         .HasColumnName("idademaximaisento");
@@ -3340,6 +3416,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("CondicaoPagamentoId")
                         .HasDatabaseName("ix_eventos_condicaopagamentoid");
+
+                    b.HasIndex("FormaPagamentoId")
+                        .HasDatabaseName("ix_eventos_formapagamentoid");
 
                     b.HasIndex("Inicio")
                         .HasDatabaseName("ix_eventos_inicio");
@@ -4623,6 +4702,24 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("FormaPagamento");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.CondicaoPagamentoParcela", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.CondicaoPagamento", null)
+                        .WithMany("Parcelas")
+                        .HasForeignKey("CondicaoPagamentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_condicaopagamentoparcelas_condicoespagamento_condicaopagame~");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.FormaPagamento", "FormaPagamento")
+                        .WithMany()
+                        .HasForeignKey("FormaPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_condicaopagamentoparcelas_formaspagamento_formapagamentoid");
+
+                    b.Navigation("FormaPagamento");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.ContatoAdicional", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Cadastros.Cliente", null)
@@ -4852,6 +4949,12 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_orcamentos_espacos_espacoid");
 
+                    b.HasOne("BuffetSharp.Domain.Cadastros.FormaPagamento", "FormaPagamento")
+                        .WithMany()
+                        .HasForeignKey("FormaPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_orcamentos_formaspagamento_formapagamentoid");
+
                     b.HasOne("BuffetSharp.Domain.Cardapio.Pacote", "Pacote")
                         .WithMany()
                         .HasForeignKey("PacoteId")
@@ -4876,6 +4979,8 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("CondicaoPagamento");
 
                     b.Navigation("Espaco");
+
+                    b.Navigation("FormaPagamento");
 
                     b.Navigation("Pacote");
 
@@ -5110,11 +5215,23 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.PedidoCompra", b =>
                 {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.CondicaoPagamento", "CondicaoPagamento")
+                        .WithMany()
+                        .HasForeignKey("CondicaoPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_pedidoscompra_condicoespagamento_condicaopagamentoid");
+
                     b.HasOne("BuffetSharp.Domain.Estoque.CotacaoCompra", "CotacaoCompra")
                         .WithMany()
                         .HasForeignKey("CotacaoCompraId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_pedidoscompra_cotacoescompra_cotacaocompraid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.FormaPagamento", "FormaPagamento")
+                        .WithMany()
+                        .HasForeignKey("FormaPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_pedidoscompra_formaspagamento_formapagamentoid");
 
                     b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
                         .WithMany()
@@ -5123,7 +5240,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_pedidoscompra_fornecedores_fornecedorid");
 
+                    b.Navigation("CondicaoPagamento");
+
                     b.Navigation("CotacaoCompra");
+
+                    b.Navigation("FormaPagamento");
 
                     b.Navigation("Fornecedor");
                 });
@@ -5297,6 +5418,12 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_eventos_espacos_espacoid");
 
+                    b.HasOne("BuffetSharp.Domain.Cadastros.FormaPagamento", "FormaPagamento")
+                        .WithMany()
+                        .HasForeignKey("FormaPagamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_eventos_formaspagamento_formapagamentoid");
+
                     b.HasOne("BuffetSharp.Domain.Comercial.Orcamento", "Orcamento")
                         .WithOne("Evento")
                         .HasForeignKey("BuffetSharp.Domain.Eventos.Evento", "OrcamentoId")
@@ -5327,6 +5454,8 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("CondicaoPagamento");
 
                     b.Navigation("Espaco");
+
+                    b.Navigation("FormaPagamento");
 
                     b.Navigation("Orcamento");
 
@@ -5698,6 +5827,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Contatos");
 
                     b.Navigation("Enderecos");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.CondicaoPagamento", b =>
+                {
+                    b.Navigation("Parcelas");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Fornecedor", b =>

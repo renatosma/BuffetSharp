@@ -76,6 +76,7 @@ public sealed class EventoService(
             ConvidadosIsentos = e.ConvidadosIsentos,
             ValorTotal = e.ValorTotal,
             CondicaoPagamentoId = e.CondicaoPagamentoId,
+            FormaPagamentoId = e.FormaPagamentoId,
             Observacoes = e.Observacoes
         };
     }
@@ -116,6 +117,11 @@ public sealed class EventoService(
 
         if (evento.CondicaoPagamentoId != input.CondicaoPagamentoId)
             evento.DefinirCondicaoPagamento(input.CondicaoPagamentoId);
+        if (evento.FormaPagamentoId != input.FormaPagamentoId)
+        {
+            await OrcamentoService.GarantirFormaAtivaAsync(db, input.FormaPagamentoId, ct);
+            evento.DefinirFormaPagamento(input.FormaPagamentoId);
+        }
 
         // A comissão fica congelada na venda; muda somente se o vendedor for trocado.
         if (evento.EhNovo || evento.VendedorId != input.VendedorId)
@@ -232,8 +238,11 @@ public sealed class EventoService(
     public Task GerarParcelasAsync(int eventoId, PlanoPagamentoInput plano, CancellationToken ct = default) =>
         AlterarAsync(eventoId, q => q.Include(e => e.Parcelas), (_, e) =>
         {
-            e.GerarParcelas(plano.Quantidade, plano.PrimeiroVencimento, plano.ValorEntrada, plano.VencimentoEntrada,
-                plano.FormaPagamentoId, plano.IntervaloDias is > 0 ? plano.IntervaloDias : null);
+            if (plano.Vencimentos is { Count: > 0 } vencimentos)
+                e.GerarParcelas(vencimentos.Select(v => v.ParaPlanejado()).ToList(), plano.FormaPagamentoId);
+            else
+                e.GerarParcelas(plano.Quantidade, plano.PrimeiroVencimento, plano.ValorEntrada, plano.VencimentoEntrada,
+                    plano.FormaPagamentoId, plano.IntervaloDias is > 0 ? plano.IntervaloDias : null);
             if (plano.CondicaoPagamentoId is { } condicaoId && condicaoId != e.CondicaoPagamentoId)
                 e.DefinirCondicaoPagamento(condicaoId);
         }, ct);
@@ -247,10 +256,13 @@ public sealed class EventoService(
         await using var db = fabrica.Criar();
         var evento = await db.Eventos.AsNoTracking().Include(e => e.Parcelas).FirstOrDefaultAsync(e => e.Id == eventoId, ct)
                      ?? throw new RegraNegocioException("Evento não encontrado.");
-        var condicao = await db.CondicoesPagamento.AsNoTracking().FirstOrDefaultAsync(c => c.Id == condicaoPagamentoId, ct)
+        var condicao = await db.CondicoesPagamento.AsNoTracking().Include(c => c.Parcelas).FirstOrDefaultAsync(c => c.Id == condicaoPagamentoId, ct)
                        ?? throw new RegraNegocioException("Condição de pagamento não encontrada.");
 
         var pago = evento.Parcelas.Where(p => p.Status == StatusTitulo.Pago).Sum(p => p.Valor);
+        if (condicao.ParcelasDefinidas)
+            return PlanoPagamentoInput.DaCondicao(condicao, condicao.Vencimentos(evento.ValorTotal - pago, DateOnly.FromDateTime(Agora), evento.DataEvento),
+                evento.FormaPagamentoId ?? condicao.FormaPagamentoId);
         var plano = condicao.Simular(evento.ValorTotal - pago, DateOnly.FromDateTime(Agora), evento.DataEvento);
         return new PlanoPagamentoInput
         {
@@ -258,7 +270,7 @@ public sealed class EventoService(
             PrimeiroVencimento = plano.PrimeiroVencimento,
             ValorEntrada = plano.ValorEntrada,
             VencimentoEntrada = plano.VencimentoEntrada ?? plano.PrimeiroVencimento,
-            FormaPagamentoId = condicao.FormaPagamentoId,
+            FormaPagamentoId = evento.FormaPagamentoId ?? condicao.FormaPagamentoId,
             IntervaloDias = plano.IntervaloDias ?? 0,
             CondicaoPagamentoId = condicao.Id
         };

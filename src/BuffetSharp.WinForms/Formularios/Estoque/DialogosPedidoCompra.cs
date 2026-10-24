@@ -31,6 +31,8 @@ internal static class DialogosPedidoCompra
         Validador.Garantir(input.Status == StatusPedidoCompra.Aberto,
             input.Status == StatusPedidoCompra.Cancelado ? "Pedido cancelado." : "O pedido já teve recebimento e não pode mais ser alterado.");
         var fornecedores = await lookups.ListarAsync(TipoLookup.Fornecedores);
+        var condicoes = await lookups.ListarAsync(TipoLookup.CondicoesPagamento);
+        var formas = await lookups.ListarAsync(TipoLookup.FormasPagamento);
         if (input.FornecedorId == 0 && fornecedores.Count > 0)
             input.FornecedorId = fornecedores[0].Id;
         var produtos = await servico.ProdutosAsync(input.FornecedorId);
@@ -46,8 +48,12 @@ internal static class DialogosPedidoCompra
         e.Data("Data do pedido", () => input.Data, v => input.Data = v ?? input.Data, nameof(input.Data));
         e.Data("Previsão de entrega", () => input.PrevisaoEntrega, v => input.PrevisaoEntrega = v, nameof(input.PrevisaoEntrega), opcional: true);
         e.Opcoes("Categoria da despesa", () => input.Categoria, v => input.Categoria = v, nameof(input.Categoria));
-        e.Texto("Observações", () => input.Observacoes, v => input.Observacoes = v, nameof(input.Observacoes), 1000,
-            dica: "Prazo combinado, condições, contato...");
+        e.Lista("Condição de pagamento", condicoes, () => input.CondicaoPagamentoId, v => input.CondicaoPagamentoId = v,
+            nameof(input.CondicaoPagamentoId), permitirVazio: true);
+        e.Lista("Forma de pagamento", formas, () => input.FormaPagamentoId, v => input.FormaPagamentoId = v,
+            nameof(input.FormaPagamentoId), permitirVazio: true);
+        e.Texto("Observações", () => input.Observacoes, v => input.Observacoes = v, nameof(input.Observacoes), 1000, span: 2,
+            dica: "Prazo de entrega, contato...");
 
         e.Secao("Itens");
         var grade = CriarGradeItens(linhas, () => produtos);
@@ -113,13 +119,13 @@ internal static class DialogosPedidoCompra
         Tema.EstilizarGrade(grade);
         grade.ReadOnly = false;
         grade.EditMode = DataGridViewEditMode.EditOnEnter;
-        var colunaProduto = new DataGridViewComboBoxColumn
+        var colunaProduto = new ColunaLista
         {
             HeaderText = "Produto", DataPropertyName = nameof(LinhaItem.ProdutoId), FillWeight = 45,
             DataSource = produtos().ToList(), ValueMember = nameof(ProdutoCompra.Id), DisplayMember = nameof(ProdutoCompra.Nome),
             DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton, FlatStyle = FlatStyle.Flat
         };
-        var colunaUnidade = new DataGridViewComboBoxColumn
+        var colunaUnidade = new ColunaLista
         {
             HeaderText = "Unidade de compra", DataPropertyName = nameof(LinhaItem.EmbalagemId), FillWeight = 25,
             DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton, FlatStyle = FlatStyle.Flat
@@ -208,6 +214,13 @@ internal static class DialogosPedidoCompra
         public decimal Saldo => Pedido - JaRecebido;
         public decimal Custo { get; init; }
         public decimal Chegou { get; set; }
+
+        /// <summary>Caixa "Chegou": marcar traz o que falta; desmarcar zera (o item continua no saldo do pedido).</summary>
+        public bool Marcado
+        {
+            get => Chegou > 0;
+            set => Chegou = value ? Chegou > 0 ? Chegou : Saldo : 0;
+        }
     }
 
     /// <summary>
@@ -243,26 +256,45 @@ internal static class DialogosPedidoCompra
             DefaultCellStyle = { Format = "N3", FormatProvider = Textos.PtBr, Alignment = DataGridViewContentAlignment.MiddleRight }
         };
         grade.Columns.AddRange(
-            new DataGridViewTextBoxColumn { HeaderText = "Produto", DataPropertyName = nameof(LinhaRecebimento.Produto), FillWeight = 40, ReadOnly = true },
+            new DataGridViewCheckBoxColumn { HeaderText = "Chegou", DataPropertyName = nameof(LinhaRecebimento.Marcado), FillWeight = 12 },
+            new DataGridViewTextBoxColumn { HeaderText = "Produto", DataPropertyName = nameof(LinhaRecebimento.Produto), FillWeight = 33, ReadOnly = true },
             new DataGridViewTextBoxColumn { HeaderText = "Un.", DataPropertyName = nameof(LinhaRecebimento.Unidade), FillWeight = 8, ReadOnly = true },
             Numero("Pedido", nameof(LinhaRecebimento.Pedido), 13),
             Numero("Já recebido", nameof(LinhaRecebimento.JaRecebido), 13),
             Numero("Falta", nameof(LinhaRecebimento.Saldo), 13),
-            Numero("Chegou agora", nameof(LinhaRecebimento.Chegou), 15, somenteLeitura: false));
+            Numero("Qtd. que chegou", nameof(LinhaRecebimento.Chegou), 20, somenteLeitura: false));
         grade.Columns[^1].DefaultCellStyle.BackColor = Tema.Fundo;
         grade.Columns[^1].DefaultCellStyle.Font = Tema.FonteNegrito;
         grade.DataSource = linhas;
         grade.DataError += (_, ev) => ev.ThrowException = false;
+        grade.CurrentCellDirtyStateChanged += (_, _) =>
+        {
+            if (grade.IsCurrentCellDirty && grade.CurrentCell is DataGridViewCheckBoxCell)
+                grade.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        };
+        // Item que não chegou fica esmaecido.
+        grade.CellFormatting += (_, ev) =>
+        {
+            if (ev.RowIndex >= 0 && ev.RowIndex < linhas.Count && !linhas[ev.RowIndex].Marcado)
+                ev.CellStyle.ForeColor = Tema.TextoSuave;
+        };
 
         var resumo = new Label { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(8, 8, 0, 0) };
         void Atualizar()
         {
             var parcial = linhas.Any(l => l.Chegou < l.Saldo);
-            resumo.Text = $"Valor recebido: {Textos.Moeda(linhas.Sum(l => Math.Round(l.Chegou * l.Custo, 2)))}" +
-                          (parcial ? "  •  recebimento parcial: o saldo continua no pedido" : "  •  pedido completo");
+            resumo.Text = $"{linhas.Count(l => l.Marcado)} de {linhas.Count} chegaram  •  " +
+                          $"{Textos.Moeda(linhas.Sum(l => Math.Round(l.Chegou * l.Custo, 2)))}" +
+                          (parcial ? "  •  parcial (o resto fica no pedido)" : "  •  pedido completo");
             resumo.ForeColor = parcial ? Tema.Alerta : Tema.Sucesso;
         }
-        grade.CellEndEdit += (_, _) => Atualizar();
+        grade.CellValueChanged += (_, ev) =>
+        {
+            if (ev.RowIndex < 0)
+                return;
+            grade.InvalidateRow(ev.RowIndex); // a caixa e a quantidade andam juntas
+            Atualizar();
+        };
         var tudo = Tema.BotaoSecundario("Chegou tudo", Icones.Confirmar);
         tudo.Click += (_, _) =>
         {
@@ -272,7 +304,7 @@ internal static class DialogosPedidoCompra
             grade.Refresh();
             Atualizar();
         };
-        var nada = Tema.BotaoSecundario("Zerar", Icones.Desfazer);
+        var nada = Tema.BotaoSecundario("Desmarcar todos", Icones.Desfazer);
         nada.Click += (_, _) =>
         {
             grade.EndEdit();
@@ -298,7 +330,8 @@ internal static class DialogosPedidoCompra
 
         int? recebido = null;
         using var dialogo = new FormEdicao($"Receber pedido {pedido.Codigo}",
-            "Informe o que chegou: entra no estoque agora. O que faltar continua no pedido para o próximo recebimento. " +
+            "Marque os itens que chegaram (e ajuste a quantidade, se veio menos): entra no estoque agora. O que não chegou continua " +
+            "no pedido para o próximo recebimento. " +
             "A nota fiscal e as contas a pagar são lançadas depois (uma nota pode juntar vários recebimentos).", e,
             async () => recebido = await servico.ReceberAsync(input), 820);
         return dialogo.ShowDialog(dono) == DialogResult.OK ? recebido : null;

@@ -21,6 +21,7 @@ internal sealed class OrcamentoConfig : IEntityTypeConfiguration<Orcamento>
         b.HasOne(x => x.Pacote).WithMany().HasForeignKey(x => x.PacoteId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Vendedor).WithMany().HasForeignKey(x => x.VendedorId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.CondicaoPagamento).WithMany().HasForeignKey(x => x.CondicaoPagamentoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.FormaPagamento).WithMany().HasForeignKey(x => x.FormaPagamentoId).OnDelete(DeleteBehavior.Restrict);
         b.HasMany(x => x.Servicos).WithOne().HasForeignKey(x => x.OrcamentoId).OnDelete(DeleteBehavior.Cascade);
 
         b.HasIndex(x => x.Status);
@@ -55,6 +56,7 @@ internal sealed class EventoConfig : IEntityTypeConfiguration<Evento>
             .OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Vendedor).WithMany().HasForeignKey(x => x.VendedorId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.CondicaoPagamento).WithMany().HasForeignKey(x => x.CondicaoPagamentoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.FormaPagamento).WithMany().HasForeignKey(x => x.FormaPagamentoId).OnDelete(DeleteBehavior.Restrict);
         b.Property(x => x.PercentualComissao).HasPrecision(5, 2);
 
         b.HasMany(x => x.Servicos).WithOne().HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Cascade);

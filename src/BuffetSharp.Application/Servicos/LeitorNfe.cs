@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
 using BuffetSharp.Application.Modelos;
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comum;
 
 namespace BuffetSharp.Application.Servicos;
@@ -111,9 +112,23 @@ public static class LeitorNfe
             ValorOutros = outros,
             ValorTotal = total is null ? valorProdutos - desconto + frete + outros : Decimal(total, "vNF"),
             Itens = itens,
-            Duplicatas = duplicatas
+            Duplicatas = duplicatas,
+            MeioPagamento = Meio(Texto(Filho(Filho(inf, "pag"), "detPag"), "tPag"))
         };
     }
+
+    /// <summary>Código tPag da SEFAZ convertido no tipo de forma de pagamento.</summary>
+    private static TipoFormaPagamento? Meio(string? tPag) => tPag switch
+    {
+        "01" => TipoFormaPagamento.Dinheiro,
+        "02" => TipoFormaPagamento.Cheque,
+        "03" => TipoFormaPagamento.CartaoCredito,
+        "04" => TipoFormaPagamento.CartaoDebito,
+        "15" => TipoFormaPagamento.Boleto,
+        "16" or "18" => TipoFormaPagamento.Transferencia,
+        "17" => TipoFormaPagamento.Pix,
+        _ => null
+    };
 
     private static XElement? Filho(XElement? pai, string nome) => pai?.Elements().FirstOrDefault(e => e.Name.LocalName == nome);
 

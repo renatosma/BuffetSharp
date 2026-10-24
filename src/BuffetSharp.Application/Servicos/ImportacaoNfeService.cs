@@ -50,9 +50,13 @@ public sealed class ImportacaoNfeService(IBuffetDbContextFactory fabrica, ISessa
                 Math.Round(i.Quantidade * (i.PedidoCompraItem.Embalagem?.Fator ?? 1), 3)))));
         }
 
+        var forma = nota.MeioPagamento is { } meio
+            ? await db.FormasPagamento.AsNoTracking().Where(f => f.Ativo && f.Tipo == meio).OrderBy(f => f.Id).FirstOrDefaultAsync(ct)
+            : null;
         return new AnaliseNfe
         {
             Nota = nota,
+            FormaPagamentoId = forma?.Id,
             FornecedorId = fornecedor?.Id,
             Fornecedor = fornecedor?.NomeExibicao ?? nota.Emitente.Nome,
             RecebimentosAFaturar = aFaturar,
@@ -112,6 +116,7 @@ public sealed class ImportacaoNfeService(IBuffetDbContextFactory fabrica, ISessa
         var pedido = new PedidoCompra(fornecedor.Id, nota.DataEmissao);
         pedido.Alterar(fornecedor.Id, nota.DataEmissao, null, input.Categoria, $"Compra sem pedido: {nota.Descricao} importada do XML.");
         pedido.DefinirItens(itens.Select(i => (i.Produto, i.Embalagem, i.Item.Quantidade, i.Item.CustoUnitario)));
+        pedido.DefinirPagamento(null, input.FormaPagamentoId);
         var recebimento = pedido.Receber(input.DataRecebimento, pedido.Itens.ToDictionary(i => i, i => i.Quantidade), input.Observacoes,
             sessao.Usuario?.Login, Agora);
         var quando = input.DataRecebimento == Hoje ? Agora : input.DataRecebimento.ToDateTime(new TimeOnly(12, 0));
@@ -123,9 +128,10 @@ public sealed class ImportacaoNfeService(IBuffetDbContextFactory fabrica, ISessa
             nota.ValorTotal, input.Observacoes, Hoje);
         notaEntrada.DefinirChaveAcesso(nota.ChaveAcesso);
         var foraDoEstoque = nota.Itens.Count - itens.Count;
-        var (conta, parcelamento) = notaEntrada.LancarContas(input.Vencimentos.Select(v => (v.Vencimento, v.Valor)).ToList(),
+        var (conta, parcelamento) = notaEntrada.LancarContas(input.Vencimentos.Select(v => v.ParaPlanejado()).ToList(),
             fornecedor.NomeExibicao,
-            $"NF-e importada (compra sem pedido): {itens.Count} item(ns) no estoque" + (foraDoEstoque > 0 ? $", {foraDoEstoque} fora do estoque." : "."));
+            $"NF-e importada (compra sem pedido): {itens.Count} item(ns) no estoque" + (foraDoEstoque > 0 ? $", {foraDoEstoque} fora do estoque." : "."),
+            input.FormaPagamentoId);
         if (conta is not null)
             db.ContasPagar.Add(conta);
         if (parcelamento is not null)

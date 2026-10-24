@@ -65,6 +65,7 @@ public sealed class OrcamentoService(
             ValorEspaco = o.ValorEspaco,
             PercentualDesconto = o.PercentualDesconto,
             CondicaoPagamentoId = o.CondicaoPagamentoId,
+            FormaPagamentoId = o.FormaPagamentoId,
             Observacoes = o.Observacoes,
             Servicos = o.Servicos.Select(s => new ServicoItemInput
             {
@@ -121,6 +122,12 @@ public sealed class OrcamentoService(
                 Validador.Garantir(condicao?.Ativo == true, "A condição de pagamento não existe ou está inativa.");
             }
             orcamento.DefinirCondicaoPagamento(input.CondicaoPagamentoId);
+        }
+
+        if (input.FormaPagamentoId != orcamento.FormaPagamentoId)
+        {
+            await GarantirFormaAtivaAsync(db, input.FormaPagamentoId, ct);
+            orcamento.DefinirFormaPagamento(input.FormaPagamentoId);
         }
 
         if (input.VendedorId != orcamento.VendedorId)
@@ -196,5 +203,13 @@ public sealed class OrcamentoService(
                         ?? throw new RegraNegocioException("Orçamento não encontrado.");
         acao(orcamento);
         await db.SaveChangesAsync(ct);
+    }
+
+    internal static async Task GarantirFormaAtivaAsync(IBuffetDbContext db, int? formaPagamentoId, CancellationToken ct)
+    {
+        if (formaPagamentoId is not { } id)
+            return;
+        var forma = await db.FormasPagamento.FindAsync([id], ct);
+        Validador.Garantir(forma?.Ativo == true, "A forma de pagamento não existe ou está inativa.");
     }
 }

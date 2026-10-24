@@ -102,9 +102,14 @@ public class NotaFiscalEntrada : Entidade
     /// Lança a nota em contas a pagar: um vencimento vira uma conta, vários viram uma compra parcelada. A soma precisa bater
     /// com o total da nota.
     /// </summary>
-    /// <param name="observacao">Texto das contas; sem ele, cita os recebimentos e os pedidos da nota.</param>
     public (ContaPagar? Conta, ParcelamentoPagar? Parcelamento) LancarContas(IReadOnlyList<(DateOnly Vencimento, decimal Valor)> vencimentos,
-        string? fornecedor, string? observacao = null)
+        string? fornecedor, string? observacao = null, int? formaPagamentoId = null) =>
+        LancarContas(vencimentos.Select(v => new VencimentoPlanejado(v.Vencimento, v.Valor)).ToList(), fornecedor, observacao, formaPagamentoId);
+
+    /// <param name="observacao">Texto das contas; sem ele, cita os recebimentos e os pedidos da nota.</param>
+    /// <param name="formaPagamentoId">Meio previsto para pagar as contas que não têm forma própria (boleto, PIX...).</param>
+    public (ContaPagar? Conta, ParcelamentoPagar? Parcelamento) LancarContas(IReadOnlyList<VencimentoPlanejado> vencimentos,
+        string? fornecedor, string? observacao = null, int? formaPagamentoId = null)
     {
         Validador.Garantir(ContaPagar is null && ParcelamentoPagar is null && ContaPagarId is null && ParcelamentoPagarId is null,
             "As contas desta nota já foram lançadas.");
@@ -124,11 +129,12 @@ public class NotaFiscalEntrada : Entidade
         {
             ContaPagar = new ContaPagar(descricao, Categoria, ValorTotal, vencimentos[0].Vencimento, FornecedorId) { Observacao = observacao };
             ContaPagar.DefinirDocumento(Numero);
+            ContaPagar.DefinirFormaPagamento(vencimentos[0].FormaPagamentoId ?? formaPagamentoId);
         }
         else
         {
             ParcelamentoPagar = new ParcelamentoPagar(descricao, Categoria, ValorTotal, FornecedorId, null, Numero, observacao);
-            ParcelamentoPagar.GerarParcelas(vencimentos);
+            ParcelamentoPagar.GerarParcelas(vencimentos, formaPagamentoId);
         }
         return (ContaPagar, ParcelamentoPagar);
     }

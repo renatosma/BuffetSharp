@@ -110,7 +110,11 @@ public class ParcelamentoPagar : Entidade
     }
 
     /// <summary>Parcelas com os vencimentos e valores informados (ex.: os boletos de uma nota fiscal).</summary>
-    public IReadOnlyList<ContaPagar> GerarParcelas(IReadOnlyList<(DateOnly Vencimento, decimal Valor)> vencimentos, int? formaPagamentoId = null)
+    public IReadOnlyList<ContaPagar> GerarParcelas(IReadOnlyList<(DateOnly Vencimento, decimal Valor)> vencimentos, int? formaPagamentoId = null) =>
+        GerarParcelas(vencimentos.Select(v => new VencimentoPlanejado(v.Vencimento, v.Valor)).ToList(), formaPagamentoId);
+
+    /// <summary>Parcelas com os vencimentos informados; cada uma com a sua forma ou, sem ela, <paramref name="formaPagamentoId"/>.</summary>
+    public IReadOnlyList<ContaPagar> GerarParcelas(IReadOnlyList<VencimentoPlanejado> vencimentos, int? formaPagamentoId = null)
     {
         Validador.Garantir(_parcelas.Count == 0, "As parcelas já foram geradas. Desfaça o parcelamento para refazê-lo.");
         Validador.Garantir(vencimentos.Count is >= 1 and <= PlanoParcelas.MaximoParcelas,
@@ -120,7 +124,7 @@ public class ParcelamentoPagar : Entidade
             $"A soma das parcelas ({vencimentos.Sum(v => v.Valor):C}) deve ser igual ao valor total ({ValorTotal:C}).");
         var ordenados = vencimentos.OrderBy(v => v.Vencimento).ToList();
         _parcelas.AddRange(ordenados.Select((v, i) =>
-            new ContaPagar(this, new ParcelaPlanejada(i + 1, ordenados.Count, v.Valor, v.Vencimento), formaPagamentoId)));
+            new ContaPagar(this, new ParcelaPlanejada(i + 1, ordenados.Count, v.Valor, v.Vencimento), v.FormaPagamentoId ?? formaPagamentoId)));
         return _parcelas;
     }
 

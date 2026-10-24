@@ -19,6 +19,16 @@ public static class TextosPagamento
         if (valor <= 0)
             return string.Empty;
 
+        if (condicao.ParcelasDefinidas)
+        {
+            var definidas = condicao.Vencimentos(valor, hoje, dataEvento);
+            var formas = condicao.Parcelas.OrderBy(p => p.Dias).Select(p => p.FormaPagamento?.Nome).ToList();
+            string Forma(int i) => i < formas.Count && formas[i] is { } nome ? $" ({nome})" : "";
+            return definidas.Count == 1
+                ? $"Pagamento único de {Moeda(valor)} até {definidas[0].Vencimento:dd/MM/yyyy}{Forma(0)}"
+                : $"{definidas.Count} parcelas: " + string.Join(", ", definidas.Select((p, i) => $"{Moeda(p.Valor)} em {p.Vencimento:dd/MM/yyyy}{Forma(i)}"));
+        }
+
         var plano = condicao.Simular(valor, hoje, dataEvento);
         if (condicao.AVista)
             return $"Pagamento único de {Moeda(valor)} até {plano.PrimeiroVencimento:dd/MM/yyyy}";

@@ -119,9 +119,24 @@ internal static class DialogoParcelamento
 
         decimal Total() => valorTotal?.Value ?? Marcadas().Sum(l => l.Valor);
 
+        // Condição com as parcelas definidas (prazo e % de cada uma): o plano vem pronto e os campos ficam travados.
+        void Travar()
+        {
+            foreach (var campo in new Control[] { entrada, vencimentoEntrada, quantidade, primeiro, intervalo })
+                campo.Enabled = plano.Vencimentos is not { Count: > 0 };
+        }
+
         void AtualizarPrevia()
         {
             var total = Total();
+            if (plano.Vencimentos is { Count: > 0 } prontos)
+            {
+                previa.Text = $"Total: {Textos.Moeda(total)}  •  parcelas definidas na condição" + Environment.NewLine +
+                              string.Join(Environment.NewLine, prontos.Select((v, i) => $"   {i + 1}/{prontos.Count,-6} {v.Vencimento:dd/MM/yyyy}   {Textos.Moeda(v.Valor)}" +
+                                  (formas.FirstOrDefault(f => f.Id == v.FormaPagamentoId)?.Nome is { } nome ? $"   {nome}" : "")));
+                previa.ForeColor = prontos.Sum(v => v.Valor) == total ? Tema.Texto : Tema.Alerta;
+                return;
+            }
             try
             {
                 var parcelas = PlanoParcelas.Calcular(total, (int)quantidade.Value, DateOnly.FromDateTime(primeiro.Value), entrada.Value,
@@ -141,21 +156,45 @@ internal static class DialogoParcelamento
             numero.ValueChanged += (_, _) => AtualizarPrevia();
         foreach (var data in new[] { vencimentoEntrada, primeiro })
             data.ValueChanged += (_, _) => AtualizarPrevia();
+        // O total mudou: as parcelas definidas da condição são recalculadas para o novo valor.
+        async void Recalcular()
+        {
+            if (plano.Vencimentos is { Count: > 0 } && condicao.SelectedItem is ItemLookup { Id: > 0 } escolhida && Total() > 0)
+            {
+                try
+                {
+                    var evento = juntar is null ? input.EventoId : Marcadas().FirstOrDefault()?.EventoId;
+                    plano.Vencimentos = (await servico.SugerirPlanoAsync(escolhida.Id, Total(), evento)).Vencimentos;
+                }
+                catch (Exception ex)
+                {
+                    Mensagens.Erro(dono, ex);
+                }
+            }
+            AtualizarPrevia();
+        }
         if (valorTotal is not null)
-            valorTotal.ValueChanged += (_, _) => AtualizarPrevia();
+            valorTotal.ValueChanged += (_, _) => Recalcular();
         if (grade is not null)
-            grade.Alterado += AtualizarPrevia;
+            grade.Alterado += Recalcular;
         e.AoCarregar(AtualizarPrevia);
 
         // Escolher a condição recalcula entrada, parcelas e vencimentos (os campos continuam editáveis).
         condicao.SelectionChangeCommitted += async (_, _) =>
         {
             if (condicao.SelectedItem is not ItemLookup { Id: > 0 } item)
+            {
+                plano.Vencimentos = null;
+                Travar();
+                AtualizarPrevia();
                 return;
+            }
             try
             {
                 var evento = juntar is null ? input.EventoId : Marcadas().FirstOrDefault()?.EventoId;
                 var sugerido = await servico.SugerirPlanoAsync(item.Id, Total(), evento);
+                plano.Vencimentos = sugerido.Vencimentos;
+                Travar();
                 entrada.Value = Math.Clamp(sugerido.ValorEntrada, entrada.Minimum, entrada.Maximum);
                 vencimentoEntrada.Value = (sugerido.VencimentoEntrada ?? sugerido.PrimeiroVencimento).ToDateTime(TimeOnly.MinValue);
                 quantidade.Value = Math.Clamp(sugerido.Quantidade, 1, PlanoParcelas.MaximoParcelas);
@@ -163,6 +202,7 @@ internal static class DialogoParcelamento
                 intervalo.Value = sugerido.IntervaloDias ?? 0;
                 if (sugerido.FormaPagamentoId is { } formaId && formas.Any(f => f.Id == formaId))
                     forma.SelectedIndex = formas.Select((f, i) => (f, i)).First(x => x.f.Id == formaId).i + 1;
+                AtualizarPrevia();
             }
             catch (Exception ex)
             {

@@ -106,11 +106,14 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
         CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var condicao = await db.CondicoesPagamento.AsNoTracking().FirstOrDefaultAsync(c => c.Id == condicaoPagamentoId, ct)
+        var condicao = await db.CondicoesPagamento.AsNoTracking().Include(c => c.Parcelas).FirstOrDefaultAsync(c => c.Id == condicaoPagamentoId, ct)
                        ?? throw new RegraNegocioException("Condição de pagamento não encontrada.");
         var dataEvento = eventoId is { } id
             ? DateOnly.FromDateTime(await db.Eventos.Where(e => e.Id == id).Select(e => e.Inicio).FirstAsync(ct))
             : DateOnly.MaxValue;
+        if (condicao.ParcelasDefinidas)
+            return PlanoPagamentoInput.DaCondicao(condicao, condicao.Vencimentos(valor, Hoje, eventoId is null ? null : dataEvento),
+                condicao.FormaPagamentoId);
         var plano = condicao.Simular(valor, Hoje, dataEvento);
         return new PlanoPagamentoInput
         {
@@ -143,8 +146,11 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
         }
 
         var plano = input.Plano;
-        parcelamento.GerarParcelas(plano.Quantidade, plano.PrimeiroVencimento, plano.ValorEntrada, plano.VencimentoEntrada,
-            plano.FormaPagamentoId, plano.IntervaloDias is > 0 ? plano.IntervaloDias : null);
+        if (plano.Vencimentos is { Count: > 0 } vencimentos)
+            parcelamento.GerarParcelas(vencimentos.Select(v => v.ParaPlanejado()).ToList(), plano.FormaPagamentoId);
+        else
+            parcelamento.GerarParcelas(plano.Quantidade, plano.PrimeiroVencimento, plano.ValorEntrada, plano.VencimentoEntrada,
+                plano.FormaPagamentoId, plano.IntervaloDias is > 0 ? plano.IntervaloDias : null);
         db.ParcelamentosPagar.Add(parcelamento);
         await db.SaveChangesAsync(ct);
         return parcelamento.Id;

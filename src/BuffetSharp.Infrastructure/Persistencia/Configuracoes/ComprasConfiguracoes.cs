@@ -77,6 +77,8 @@ internal sealed class PedidoCompraConfig : IEntityTypeConfiguration<PedidoCompra
         b.Property(x => x.MotivoCancelamento).HasMaxLength(500);
         b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.CotacaoCompra).WithMany().HasForeignKey(x => x.CotacaoCompraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.CondicaoPagamento).WithMany().HasForeignKey(x => x.CondicaoPagamentoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.FormaPagamento).WithMany().HasForeignKey(x => x.FormaPagamentoId).OnDelete(DeleteBehavior.Restrict);
         b.HasMany(x => x.Itens).WithOne().HasForeignKey(x => x.PedidoCompraId).OnDelete(DeleteBehavior.Cascade);
         b.HasIndex(x => new { x.Status, x.Data });
     }
