@@ -142,6 +142,9 @@ public class Parcela : TituloFinanceiro
     public Evento? Evento { get; private set; }
     public int Numero { get; private set; }
 
+    /// <summary>Cobrança dos convidados excedentes: fica fora do plano de pagamento (não é refeita com ele).</summary>
+    public bool Excedentes { get; internal set; }
+
     protected override TituloFinanceiro CriarSaldo(decimal valor)
     {
         var saldo = new Parcela
@@ -149,6 +152,7 @@ public class Parcela : TituloFinanceiro
             EventoId = EventoId,
             Evento = Evento,
             Numero = Numero,
+            Excedentes = Excedentes,
             FormaPagamentoId = FormaPagamentoId,
             Observacao = Observacao
         };

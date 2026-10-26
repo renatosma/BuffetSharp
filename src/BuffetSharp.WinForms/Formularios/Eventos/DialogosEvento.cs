@@ -1,11 +1,13 @@
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
+using BuffetSharp.Domain.Comercial;
+using BuffetSharp.Domain.Eventos;
 using BuffetSharp.WinForms.Infra;
 
 namespace BuffetSharp.WinForms.Formularios.Eventos;
 
-/// <summary>Diálogos do evento: dados gerais, plano de pagamento e importação de convidados.</summary>
+/// <summary>Diálogos do evento: dados gerais, plano de pagamento, importação de convidados e excedentes.</summary>
 internal static class DialogosEvento
 {
     /// <summary>Cria (venda direta) ou altera um evento. Retorna o Id salvo ou nulo se cancelado.</summary>
@@ -142,6 +144,76 @@ internal static class DialogosEvento
             "Parcelas em aberto serão substituídas; parcelas já pagas são mantidas. Escolha uma condição para preencher o plano ou ajuste à mão.",
             e, () => servico.GerarParcelasAsync(eventoId, plano), 640);
         return dialogo.ShowDialog(dono) == DialogResult.OK;
+    }
+
+    /// <summary>
+    /// Fecha a contagem de quem veio (o check-in já vem preenchido) e cobra os excedentes. Retorna o Id da parcela gerada,
+    /// 0 quando ninguém passou do contratado, ou nulo se cancelado.
+    /// </summary>
+    public static async Task<int?> ApurarExcedentesAsync(IWin32Window dono, EventoService servico, IConsultasLookup lookups, Evento evento)
+    {
+        var formas = await lookups.ListarAsync(TipoLookup.FormasPagamento);
+        var pagantes = evento.QuantidadeConvidados - evento.ConvidadosIsentos;
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var input = new ApuracaoExcedentesInput
+        {
+            Presentes = Math.Max(evento.PessoasPresentes, evento.QuantidadeConvidados),
+            PresentesMeia = evento.ConvidadosMeia,
+            PresentesIsentos = evento.ConvidadosIsentos,
+            ValorPorPessoa = evento.ValorPorPessoa > 0 || pagantes <= 0 ? evento.ValorPorPessoa : Math.Round(evento.ValorTotal / pagantes, 2),
+            Vencimento = DateOnly.FromDayNumber(Math.Min(hoje.AddDays(5).DayNumber, evento.DataEvento.AddDays(60).DayNumber)),
+            FormaPagamentoId = evento.FormaPagamentoId is { } f && formas.Any(x => x.Id == f) ? f : formas.FirstOrDefault()?.Id
+        };
+
+        var e = new EditorCampos(3);
+        e.Informacao("Contratado", () => TextosFaixas.Resumo(evento.QuantidadesPorFaixa), span: 2);
+        e.Informacao("Check-in", () => $"{evento.PessoasPresentes} pessoas");
+        var presentes = e.Inteiro("Pessoas presentes", () => input.Presentes, v => input.Presentes = v, minimo: 1, maximo: 10_000);
+        var meia = e.Inteiro("Crianças com meia", () => input.PresentesMeia, v => input.PresentesMeia = v, minimo: 0, maximo: 10_000);
+        var isentos = e.Inteiro("Crianças isentas", () => input.PresentesIsentos, v => input.PresentesIsentos = v, minimo: 0, maximo: 10_000);
+        var valor = e.Decimal("Valor por pessoa (R$)", () => input.ValorPorPessoa, v => input.ValorPorPessoa = v);
+        e.Data("Vencimento da cobrança", () => input.Vencimento, v => input.Vencimento = v ?? hoje);
+        e.Lista("Forma de pagamento", formas, () => input.FormaPagamentoId, v => input.FormaPagamentoId = v, permitirVazio: true);
+        var resumo = new Label { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(4, 8, 4, 4) };
+        e.Livre(resumo);
+
+        void Simular()
+        {
+            var contagem = new QuantidadesConvidados((int)presentes.Value, (int)meia.Value, (int)isentos.Value);
+            if (contagem.Meia + contagem.Isentos > contagem.Total)
+            {
+                resumo.Text = "As crianças não podem passar do total de pessoas presentes.";
+                resumo.ForeColor = Tema.Perigo;
+                return;
+            }
+            var x = evento.CalcularExcedentes(contagem, valor.Value);
+            var regra = evento.RegraFaixas;
+            var partes = new List<string>();
+            if (x.Inteira > 0)
+                partes.Add($"{x.Inteira} inteira × {Textos.Moeda(valor.Value)}");
+            if (x.Meia > 0)
+                partes.Add($"{x.Meia} meia × {Textos.Moeda(regra.ValorMeia(valor.Value))}");
+            if (x.Isentos > 0)
+                partes.Add($"{x.Isentos} isento(s), sem custo");
+            resumo.Text = x.Total == 0
+                ? "Ninguém passou do contratado: a contagem fica registrada, sem cobrança."
+                : $"Excedentes: {string.Join(" + ", partes)}" + Environment.NewLine + $"A cobrar: {Textos.Moeda(x.Valor)}" +
+                  (evento.Espaco is { } espaco && contagem.Total > espaco.CapacidadeMaxima
+                      ? $"   ⚠ acima da capacidade do espaço ({espaco.CapacidadeMaxima})"
+                      : "");
+            resumo.ForeColor = x.Valor > 0 ? Tema.Alerta : Tema.Texto;
+        }
+        foreach (var campo in new[] { presentes, meia, isentos, valor })
+            campo.ValueChanged += (_, _) => Simular();
+        e.AoCarregar(Simular);
+
+        int? parcelaId = null;
+        using var dialogo = new FormEdicao("Convidados excedentes",
+            "Informe quantas pessoas vieram (o check-in mais quem entrou pela portaria). Quem passou do contratado é cobrado numa " +
+            "parcela própria, fora do plano de pagamento. A vaga de um adulto que faltou cobre uma criança a mais, nunca o contrário." +
+            (evento.EstoqueBaixado ? " O estoque já foi baixado: o consumo dos excedentes não muda (ajuste pelo inventário)." : ""),
+            e, async () => parcelaId = (await servico.ApurarExcedentesAsync(evento.Id, input)).ParcelaId ?? 0, 760);
+        return dialogo.ShowDialog(dono) == DialogResult.OK ? parcelaId : null;
     }
 
     public static async Task<int?> ImportarConvidadosAsync(IWin32Window dono, EventoService servico, int eventoId)

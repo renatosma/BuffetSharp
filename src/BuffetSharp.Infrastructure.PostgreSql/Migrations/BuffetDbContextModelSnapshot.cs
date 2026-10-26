@@ -3317,6 +3317,22 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("estoquebaixado");
 
+                    b.Property<DateTime?>("ExcedentesApuradosEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("excedentesapuradosem");
+
+                    b.Property<int>("ExcedentesInteira")
+                        .HasColumnType("integer")
+                        .HasColumnName("excedentesinteira");
+
+                    b.Property<int>("ExcedentesIsentos")
+                        .HasColumnType("integer")
+                        .HasColumnName("excedentesisentos");
+
+                    b.Property<int>("ExcedentesMeia")
+                        .HasColumnType("integer")
+                        .HasColumnName("excedentesmeia");
+
                     b.Property<DateTime>("Fim")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("fim");
@@ -3365,6 +3381,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("percentualmeia");
 
+                    b.Property<int?>("PresentesApurados")
+                        .HasColumnType("integer")
+                        .HasColumnName("presentesapurados");
+
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("integer")
                         .HasColumnName("quantidadeconvidados");
@@ -3388,6 +3408,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)")
                         .HasColumnName("titulo");
+
+                    b.Property<decimal>("ValorExcedentes")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valorexcedentes");
 
                     b.Property<decimal>("ValorPorPessoa")
                         .HasPrecision(18, 2)
@@ -4488,6 +4513,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("EventoId")
                         .HasColumnType("integer")
                         .HasColumnName("eventoid");
+
+                    b.Property<bool>("Excedentes")
+                        .HasColumnType("boolean")
+                        .HasColumnName("excedentes");
 
                     b.Property<int?>("FormaPagamentoId")
                         .HasColumnType("integer")

@@ -639,6 +639,19 @@ internal sealed class FormEventoDetalhe : FormBase
             await DialogoPix.ExibirAsync(this, _navegador, p.Id, p.Valor, $"{p.Descricao} - {Evento.Codigo}", Evento.ClienteId,
                 Evento.Cliente?.Nome ?? "Cliente");
         }, edicao: false);
+        BotaoAba(barra, "Convidados excedentes", Icones.Pessoas, ApurarExcedentesAsync, edicao: false);
+        BotaoAba(barra, "Desfazer excedentes", Icones.Desfazer, async () =>
+        {
+            if (!Evento.ExcedentesApurados)
+            {
+                Mensagens.Aviso(this, "Os excedentes deste evento não foram apurados.");
+                return;
+            }
+            if (Mensagens.Confirmar(this, Evento.ValorExcedentes > 0
+                    ? $"Desfazer a apuração? A cobrança de {Textos.Moeda(Evento.ValorExcedentes)} será cancelada e sai do valor do evento."
+                    : "Desfazer a apuração dos presentes?", "Desfazer excedentes"))
+                await Recarregar(_eventos.DesfazerApuracaoExcedentesAsync(_eventoId));
+        }, edicao: false);
         BotaoAba(barra, "Estornar pagamento", Icones.Desfazer, async () =>
         {
             if (_parcelas.Selecionado is not { } p)
@@ -686,14 +699,39 @@ internal sealed class FormEventoDetalhe : FormBase
 
     private async Task PlanoPagamentoAsync()
     {
-        var saldo = Evento.ValorTotal - Evento.Parcelas.Where(p => p.Status == StatusTitulo.Pago).Sum(p => p.Valor);
-        if (await DialogosEvento.PlanoPagamentoAsync(this, _eventos, _lookups, _eventoId, saldo, Evento.DataEvento,
+        if (await DialogosEvento.PlanoPagamentoAsync(this, _eventos, _lookups, _eventoId, Evento.SaldoAParcelar, Evento.DataEvento,
                 Evento.CondicaoPagamentoId, Evento.FormaPagamentoId))
             await CarregarAsync();
     }
 
+    /// <summary>Apura os excedentes e, havendo cobrança, oferece enviá-la ao cliente pelo PIX.</summary>
+    private async Task<bool> ApurarExcedentesAsync()
+    {
+        if (Evento.ExcedentesApurados)
+        {
+            Mensagens.Aviso(this, $"Os excedentes já foram apurados ({Evento.PresentesApurados} pessoas presentes). Use \"Desfazer excedentes\" para refazer a contagem.");
+            return false;
+        }
+        if (await DialogosEvento.ApurarExcedentesAsync(this, _eventos, _lookups, Evento) is not { } parcelaId)
+            return false;
+        await CarregarAsync();
+        if (parcelaId > 0 && Evento.Parcelas.FirstOrDefault(p => p.Id == parcelaId) is { } parcela &&
+            Mensagens.Confirmar(this, $"Cobrança de {Textos.Moeda(parcela.Valor)} lançada ({parcela.Descricao}). Enviar ao cliente pelo PIX agora?",
+                "Convidados excedentes"))
+            await DialogoPix.ExibirAsync(this, _navegador, parcela.Id, parcela.Valor, $"{parcela.Descricao} - {Evento.Codigo}", Evento.ClienteId,
+                Evento.Cliente?.Nome ?? "Cliente");
+        return true;
+    }
+
     private async Task RealizarAsync()
     {
+        var excedentes = Evento.PessoasPresentes - Evento.QuantidadeConvidados;
+        if (!Evento.ExcedentesApurados && excedentes > 0 &&
+            Mensagens.Confirmar(this, $"O check-in registrou {Evento.PessoasPresentes} pessoas, {excedentes} além das {Evento.QuantidadeConvidados} contratadas. " +
+                                      "Apurar e cobrar os excedentes antes de encerrar?", "Convidados excedentes") &&
+            !await ApurarExcedentesAsync())
+            return;
+
         if (!Mensagens.Confirmar(this,
                 "Marcar o evento como realizado? Os insumos do cardápio serão baixados do estoque (ficha técnica × convidados) e o evento não poderá mais ser alterado.",
                 "Realizar evento"))
@@ -729,6 +767,7 @@ internal sealed class FormEventoDetalhe : FormBase
             ("Espaço", e.Espaco?.Nome ?? "-"),
             ("Convidados contratados", TextosFaixas.Resumo(e.QuantidadesPorFaixa)),
             ("Pessoas na lista", e.TotalPessoasNaLista.ToString()),
+            ("Presentes", e.PresentesApurados?.ToString() ?? e.PessoasPresentes.ToString()),
             ("Situação", Textos.Exibir(e.Status)));
 
         if (e.PacoteId is { } pacoteId)
@@ -819,7 +858,8 @@ internal sealed class FormEventoDetalhe : FormBase
                           + (e.Orcamento is not null ? $"  •  origem: {e.Orcamento.Codigo}" : "");
 
         var custosEquipe = e.TotalEquipe + e.CustoMateriais + _detalhe.DespesasVinculadas;
-        _valor.Atualizar(Textos.Moeda(e.ValorTotal), e.ValorNaoParcelado > 0 ? $"{Textos.Moeda(e.ValorNaoParcelado)} sem parcela" : "100% parcelado",
+        _valor.Atualizar(Textos.Moeda(e.ValorTotal), e.ValorNaoParcelado > 0 ? $"{Textos.Moeda(e.ValorNaoParcelado)} sem parcela"
+                : e.ValorExcedentes > 0 ? $"inclui {Textos.Moeda(e.ValorExcedentes)} de excedentes" : "100% parcelado",
             e.ValorNaoParcelado > 0 ? Tema.Alerta : Tema.Primaria);
         _recebido.Atualizar(Textos.Moeda(e.TotalRecebido));
         var vencidas = e.Parcelas.Count(p => p.EstaVencido(DateOnly.FromDateTime(DateTime.Today)));
@@ -843,7 +883,7 @@ internal sealed class FormEventoDetalhe : FormBase
         _servicos.Carregar(e.Servicos);
         _insumosPrevistos.Carregar(e.Pacote is null
             ? []
-            : e.Pacote.CalcularConsumo(e.QuantidadeConvidados).Select(c =>
+            : e.Pacote.CalcularConsumo(e.PessoasAtendidas).Select(c =>
             {
                 var produto = e.Pacote.Itens.SelectMany(i => i.ItemCardapio!.Ingredientes).First(f => f.ProdutoId == c.Key).Produto!;
                 return new InsumoPrevisto(produto.Nome, c.Value, produto.UnidadeMedida?.Sigla ?? "", Math.Round(c.Value * produto.CustoMedio, 2));
@@ -854,8 +894,10 @@ internal sealed class FormEventoDetalhe : FormBase
         if (selecionadoConvidado is { } idConvidado)
             _convidados.Selecionar(c => c.Id == idConvidado);
         _resumoConvidados.Text = $"Na lista: {e.TotalPessoasNaLista} pessoas  •  confirmadas: {e.PessoasConfirmadas}  •  presentes: {e.PessoasPresentes}" +
-                                 (e.TotalPessoasNaLista > e.QuantidadeConvidados ? $"  ⚠ acima do contratado ({e.QuantidadeConvidados})" : "");
-        _resumoConvidados.ForeColor = e.TotalPessoasNaLista > e.QuantidadeConvidados ? Tema.Alerta : Tema.Texto;
+                                 (e.ExcedentesApurados ? $"  •  apurados: {e.PresentesApurados} ({TextoExcedentes(e)})"
+                                     : e.PessoasPresentes > e.QuantidadeConvidados ? $"  ⚠ {e.PessoasPresentes - e.QuantidadeConvidados} além do contratado: apure os excedentes no Financeiro"
+                                     : e.TotalPessoasNaLista > e.QuantidadeConvidados ? $"  ⚠ acima do contratado ({e.QuantidadeConvidados})" : "");
+        _resumoConvidados.ForeColor = !e.ExcedentesApurados && Math.Max(e.TotalPessoasNaLista, e.PessoasPresentes) > e.QuantidadeConvidados ? Tema.Alerta : Tema.Texto;
 
         var selecionadoMaterial = _materiais.Selecionado?.MaterialId;
         _materiais.Carregar(e.Materiais.OrderBy(m => m.Material?.Categoria).ThenBy(m => m.Material?.Nome));
@@ -921,6 +963,8 @@ internal sealed class FormEventoDetalhe : FormBase
         Par("Convidados", TextosFaixas.Resumo(e.QuantidadesPorFaixa));
         if (e.ConvidadosMeia > 0 || e.ConvidadosIsentos > 0)
             Par("Crianças", e.RegraFaixas.Descricao);
+        if (e.ExcedentesApurados)
+            Par("Presentes", $"{e.PresentesApurados} pessoas ({TextoExcedentes(e)})");
         Par("Vendedor", e.Vendedor is null ? null : $"{e.Vendedor.Nome} ({e.PercentualComissao:0.##}% de comissão)");
         if (e.Orcamento is not null)
             Par("Orçamento", e.Orcamento.Codigo);
@@ -932,4 +976,8 @@ internal sealed class FormEventoDetalhe : FormBase
             Par("Observações", e.Observacoes);
         _dados.ResumeLayout();
     }
+
+    private static string TextoExcedentes(Evento e) => e.Excedentes.Total == 0
+        ? "sem excedentes"
+        : $"{e.Excedentes.Total} excedente(s)" + (e.ValorExcedentes > 0 ? $", {Textos.Moeda(e.ValorExcedentes)} cobrados" : ", sem custo");
 }

@@ -695,8 +695,22 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                 evento.RegistrarPresenca(escala.FuncionarioId, _rnd.NextDouble() < 0.95);
 
             var encerramento = evento.Fim.AddHours(1);
+
+            // Um em cada quatro recebeu gente além do contratado: os excedentes são cobrados no PIX depois da festa.
+            if (evento.Id % 4 == 0)
+            {
+                var presentes = evento.QuantidadesPorFaixa with
+                {
+                    Total = Math.Max(evento.PessoasPresentes, evento.QuantidadeConvidados) + 3 + evento.Id % 9
+                };
+                var vencimento = DateOnly.FromDateTime(encerramento).AddDays(5);
+                if (evento.ApurarExcedentes(presentes, evento.ValorPorPessoa, vencimento, _formas["PIX"].Id, encerramento) is { } cobranca &&
+                    vencimento <= Hoje)
+                    Pagar(cobranca, vencimento, _formas["PIX"]);
+            }
+
             evento.Realizar(encerramento);
-            foreach (var (produtoId, quantidade) in p.Pacote.CalcularConsumo(evento.QuantidadeConvidados))
+            foreach (var (produtoId, quantidade) in p.Pacote.CalcularConsumo(evento.PessoasAtendidas))
             {
                 var produto = _produtos.Values.First(x => x.Id == produtoId);
                 db.MovimentacoesEstoque.Add(produto.RegistrarSaida(quantidade, encerramento,

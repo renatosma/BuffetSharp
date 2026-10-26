@@ -2536,6 +2536,18 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<bool>("EstoqueBaixado")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<DateTime?>("ExcedentesApuradosEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("ExcedentesInteira")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ExcedentesIsentos")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ExcedentesMeia")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("Fim")
                         .HasColumnType("datetime(6)");
 
@@ -2573,6 +2585,9 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("PresentesApurados")
+                        .HasColumnType("int");
+
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("int");
 
@@ -2591,6 +2606,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
+
+                    b.Property<decimal>("ValorExcedentes")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("ValorPorPessoa")
                         .HasPrecision(18, 2)
@@ -3420,6 +3439,9 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
 
                     b.Property<int>("EventoId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("Excedentes")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<int?>("FormaPagamentoId")
                         .HasColumnType("int");

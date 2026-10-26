@@ -49,7 +49,7 @@ public sealed class EventoService(
         return new EventoDetalhe
         {
             Evento = evento,
-            CustoInsumosEstimado = Math.Round((evento.Pacote?.CustoPorPessoa ?? 0) * evento.QuantidadeConvidados, 2),
+            CustoInsumosEstimado = Math.Round((evento.Pacote?.CustoPorPessoa ?? 0) * evento.PessoasAtendidas, 2),
             DespesasVinculadas = despesas
         };
     }
@@ -204,6 +204,28 @@ public sealed class EventoService(
     public Task DesfazerCheckInAsync(int eventoId, int convidadoId, CancellationToken ct = default) =>
         AlterarAsync(eventoId, q => q.Include(e => e.Convidados), (_, e) => e.DesfazerCheckIn(convidadoId), ct);
 
+    /// <summary>
+    /// Fecha a contagem de quem veio e lança a cobrança dos excedentes numa parcela própria. Retorna a apuração e o Id da
+    /// parcela (nulo quando ninguém passou do contratado).
+    /// </summary>
+    public async Task<(ExcedentesConvidados Excedentes, int? ParcelaId)> ApurarExcedentesAsync(int eventoId,
+        ApuracaoExcedentesInput input, CancellationToken ct = default)
+    {
+        Parcela? parcela = null;
+        var excedentes = ExcedentesConvidados.Nenhum;
+        await AlterarAsync(eventoId, q => q.Include(e => e.Convidados).Include(e => e.Parcelas), async (db, evento) =>
+        {
+            await OrcamentoService.GarantirFormaAtivaAsync(db, input.FormaPagamentoId, ct);
+            parcela = evento.ApurarExcedentes(input.QuantidadesPorFaixa, input.ValorPorPessoa, input.Vencimento,
+                input.FormaPagamentoId, Agora);
+            excedentes = evento.Excedentes;
+        }, ct);
+        return (excedentes, parcela?.Id);
+    }
+
+    public Task DesfazerApuracaoExcedentesAsync(int eventoId, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Parcelas), (_, e) => e.DesfazerApuracaoExcedentes(), ct);
+
     // ------------------------- Checklist -------------------------
 
     public Task AdicionarTarefaAsync(int eventoId, TarefaInput input, CancellationToken ct = default) =>
@@ -259,11 +281,10 @@ public sealed class EventoService(
         var condicao = await db.CondicoesPagamento.AsNoTracking().Include(c => c.Parcelas).FirstOrDefaultAsync(c => c.Id == condicaoPagamentoId, ct)
                        ?? throw new RegraNegocioException("Condição de pagamento não encontrada.");
 
-        var pago = evento.Parcelas.Where(p => p.Status == StatusTitulo.Pago).Sum(p => p.Valor);
         if (condicao.ParcelasDefinidas)
-            return PlanoPagamentoInput.DaCondicao(condicao, condicao.Vencimentos(evento.ValorTotal - pago, DateOnly.FromDateTime(Agora), evento.DataEvento),
+            return PlanoPagamentoInput.DaCondicao(condicao, condicao.Vencimentos(evento.SaldoAParcelar, DateOnly.FromDateTime(Agora), evento.DataEvento),
                 evento.FormaPagamentoId ?? condicao.FormaPagamentoId);
-        var plano = condicao.Simular(evento.ValorTotal - pago, DateOnly.FromDateTime(Agora), evento.DataEvento);
+        var plano = condicao.Simular(evento.SaldoAParcelar, DateOnly.FromDateTime(Agora), evento.DataEvento);
         return new PlanoPagamentoInput
         {
             Quantidade = plano.Quantidade,
@@ -353,7 +374,8 @@ public sealed class EventoService(
     // ------------------------- Ciclo de vida -------------------------
 
     /// <summary>
-    /// Marca o evento como realizado e baixa do estoque os insumos do pacote (ficha técnica × convidados).
+    /// Marca o evento como realizado e baixa do estoque os insumos do pacote (ficha técnica × convidados, contando os
+    /// excedentes já apurados).
     /// </summary>
     public async Task<ResultadoRealizacao> RealizarAsync(int eventoId, CancellationToken ct = default)
     {
@@ -371,7 +393,7 @@ public sealed class EventoService(
                     return;
                 }
 
-                var consumo = evento.Pacote.CalcularConsumo(evento.QuantidadeConvidados);
+                var consumo = evento.Pacote.CalcularConsumo(evento.PessoasAtendidas);
                 var produtos = await db.Produtos.Where(p => consumo.Keys.Contains(p.Id)).ToListAsync(ct);
                 foreach (var produto in produtos)
                 {

@@ -373,6 +373,18 @@ public sealed class EventoDetalhe
 
 public sealed record ResultadoRealizacao(IReadOnlyList<string> Avisos);
 
+/// <summary>Contagem de quem veio ao evento (check-in + portaria) para cobrar os convidados excedentes.</summary>
+public sealed class ApuracaoExcedentesInput
+{
+    public int Presentes { get; set; }
+    public int PresentesMeia { get; set; }
+    public int PresentesIsentos { get; set; }
+    public decimal ValorPorPessoa { get; set; }
+    public DateOnly Vencimento { get; set; }
+    public int? FormaPagamentoId { get; set; }
+    public QuantidadesConvidados QuantidadesPorFaixa => new(Presentes, PresentesMeia, PresentesIsentos);
+}
+
 public sealed class DegustacaoInput
 {
     public int Id { get; set; }

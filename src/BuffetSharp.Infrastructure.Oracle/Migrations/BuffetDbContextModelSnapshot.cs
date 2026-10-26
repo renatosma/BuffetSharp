@@ -3311,6 +3311,22 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(1)")
                         .HasColumnName("ESTOQUEBAIXADO");
 
+                    b.Property<DateTime?>("ExcedentesApuradosEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("EXCEDENTESAPURADOSEM");
+
+                    b.Property<int>("ExcedentesInteira")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("EXCEDENTESINTEIRA");
+
+                    b.Property<int>("ExcedentesIsentos")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("EXCEDENTESISENTOS");
+
+                    b.Property<int>("ExcedentesMeia")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("EXCEDENTESMEIA");
+
                     b.Property<DateTime>("Fim")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("FIM");
@@ -3359,6 +3375,10 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DECIMAL(18,2)")
                         .HasColumnName("PERCENTUALMEIA");
 
+                    b.Property<int?>("PresentesApurados")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("PRESENTESAPURADOS");
+
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("QUANTIDADECONVIDADOS");
@@ -3382,6 +3402,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("NVARCHAR2(150)")
                         .HasColumnName("TITULO");
+
+                    b.Property<decimal>("ValorExcedentes")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("VALOREXCEDENTES");
 
                     b.Property<decimal>("ValorPorPessoa")
                         .HasPrecision(18, 2)
@@ -4480,6 +4505,10 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<int>("EventoId")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("EVENTOID");
+
+                    b.Property<bool>("Excedentes")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("EXCEDENTES");
 
                     b.Property<int?>("FormaPagamentoId")
                         .HasColumnType("NUMBER(10)")

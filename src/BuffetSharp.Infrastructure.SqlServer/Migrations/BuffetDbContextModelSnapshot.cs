@@ -2635,6 +2635,18 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<bool>("EstoqueBaixado")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime?>("ExcedentesApuradosEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ExcedentesInteira")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ExcedentesIsentos")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ExcedentesMeia")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("Fim")
                         .HasColumnType("datetime2");
 
@@ -2672,6 +2684,9 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("PresentesApurados")
+                        .HasColumnType("int");
+
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("int");
 
@@ -2690,6 +2705,10 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<decimal>("ValorExcedentes")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("ValorPorPessoa")
                         .HasPrecision(18, 2)
@@ -3555,6 +3574,9 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 
                     b.Property<int>("EventoId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("Excedentes")
+                        .HasColumnType("bit");
 
                     b.Property<int?>("FormaPagamentoId")
                         .HasColumnType("int");

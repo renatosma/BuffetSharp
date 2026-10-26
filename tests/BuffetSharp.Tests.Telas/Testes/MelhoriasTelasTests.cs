@@ -50,6 +50,41 @@ public class MelhoriasTelasTests(AmbienteTelas ambiente)
         });
 
     [Fact]
+    public void Excedentes_cobrados_e_desfeitos_na_aba_financeiro() =>
+        Robo.Executar(ambiente, robo =>
+        {
+            var principal = robo.Entrar();
+            var eventos = robo.Servico<EventoService>();
+            var realizados = robo.Rodar(() => robo.Servico<IConsultasEventos>().ListarAsync(new FiltroEventos { Status = StatusEvento.Realizado }));
+            var alvo = realizados.Select(e => robo.Rodar(() => eventos.ObterDetalheAsync(e.Id)).Evento)
+                .First(e => !e.ExcedentesApurados && e.ValorPorPessoa > 0);
+
+            var navegador = robo.Servico<Navegador>();
+            navegador.Abrir($"evento:{alvo.Id}", () => navegador.Criar<FormEventoDetalhe>(alvo.Id));
+            robo.Esperar(() => Robo.AbaAtual(principal) is FormEventoDetalhe tela && Robo.Carregado(tela), "central do evento");
+            var evento = (FormEventoDetalhe)Robo.AbaAtual(principal)!;
+            robo.SelecionarAba(evento, "Financeiro");
+            var parcelas = Robo.Interno<Grade<Domain.Financeiro.Parcela>>(evento, "_parcelas");
+
+            var presentes = Math.Max(alvo.PessoasPresentes, alvo.QuantidadeConvidados) + 4;
+            robo.RespostaConfirmacao = "Não"; // não abre o PIX agora
+            robo.Dialogo<FormEdicao>(() => robo.Clicar(evento, "Convidados excedentes"), dialogo =>
+            {
+                robo.Preencher(dialogo, "Pessoas presentes", presentes);
+                robo.Clicar(dialogo, "Salvar");
+            }, "convidados excedentes");
+            robo.Esperar(() => parcelas.Itens.Any(p => p.Excedentes && p.Status == Domain.Financeiro.StatusTitulo.Aberto), "cobrança dos excedentes");
+            var cobranca = parcelas.Itens.Single(p => p.Excedentes);
+            Assert.Equal((presentes - alvo.QuantidadeConvidados) * alvo.ValorPorPessoa, cobranca.Valor);
+
+            robo.RespostaConfirmacao = "Sim";
+            robo.Clicar(evento, "Desfazer excedentes");
+            robo.Esperar(() => parcelas.Itens.Single(p => p.Id == cobranca.Id).Status == Domain.Financeiro.StatusTitulo.Cancelado,
+                "cobrança cancelada");
+            Assert.Equal(alvo.ValorTotal, robo.Rodar(() => eventos.ObterDetalheAsync(alvo.Id)).Evento.ValorTotal);
+        });
+
+    [Fact]
     public void Lembrete_resolvido_pela_tela_sai_da_lista() =>
         Robo.Executar(ambiente, robo =>
         {

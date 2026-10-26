@@ -101,6 +101,16 @@ public class Evento : Entidade
     public DateTime? RealizadoEm { get; private set; }
     public bool EstoqueBaixado { get; private set; }
 
+    /// <summary>Pessoas contadas no evento (check-in + portaria); nulo enquanto não houve a apuração dos excedentes.</summary>
+    public int? PresentesApurados { get; private set; }
+    public DateTime? ExcedentesApuradosEm { get; private set; }
+    public int ExcedentesInteira { get; private set; }
+    public int ExcedentesMeia { get; private set; }
+    public int ExcedentesIsentos { get; private set; }
+
+    /// <summary>Valor cobrado pelos excedentes (já somado ao <see cref="ValorTotal"/>).</summary>
+    public decimal ValorExcedentes { get; private set; }
+
     public IReadOnlyCollection<EventoServico> Servicos => _servicos;
     public IReadOnlyCollection<EventoFuncionario> Equipe => _equipe;
     public IReadOnlyCollection<Convidado> Convidados => _convidados;
@@ -137,6 +147,16 @@ public class Evento : Entidade
     public int TotalPessoasNaLista => _convidados.Sum(c => 1 + c.Acompanhantes);
     public int PessoasConfirmadas => _convidados.Where(c => c.Rsvp == StatusRsvp.Confirmado).Sum(c => 1 + c.Acompanhantes);
     public int PessoasPresentes => _convidados.Where(c => c.CheckInEm is not null).Sum(c => 1 + c.Acompanhantes);
+
+    public bool ExcedentesApurados => ExcedentesApuradosEm is not null;
+    public ExcedentesConvidados Excedentes => new(ExcedentesInteira, ExcedentesMeia, ExcedentesIsentos, ValorExcedentes);
+
+    /// <summary>O contratado ou, se vieram mais pessoas, as contadas na apuração: base do consumo de insumos.</summary>
+    public int PessoasAtendidas => Math.Max(QuantidadeConvidados, PresentesApurados ?? 0);
+
+    /// <summary>Saldo que o plano de pagamento divide: fora o já pago e a cobrança dos excedentes, que tem parcela própria.</summary>
+    public decimal SaldoAParcelar =>
+        ValorTotal - _parcelas.Where(p => p.Status == StatusTitulo.Pago || (p.Excedentes && p.Status == StatusTitulo.Aberto)).Sum(p => p.Valor);
 
     // ---------------- Criação e dados ----------------
 
@@ -175,6 +195,8 @@ public class Evento : Entidade
         Validador.Garantir(!string.IsNullOrWhiteSpace(titulo), "Informe o título do evento.");
         Validador.Garantir(espacoId > 0, "Selecione o espaço do evento.");
         convidados.Validar();
+        Validador.Garantir(!ExcedentesApurados || convidados == QuantidadesPorFaixa,
+            "Os excedentes já foram apurados sobre os convidados contratados. Desfaça a apuração para alterá-los.");
 
         Titulo = titulo.Trim();
         EspacoId = espacoId;
@@ -289,6 +311,63 @@ public class Evento : Entidade
 
     public void DesfazerCheckIn(int convidadoId) => ObterConvidado(convidadoId).CheckInEm = null;
 
+    // ---------------- Convidados excedentes ----------------
+
+    public ExcedentesConvidados CalcularExcedentes(QuantidadesConvidados presentes, decimal valorPorPessoa) =>
+        ExcedentesConvidados.Calcular(QuantidadesPorFaixa, presentes, RegraFaixas, valorPorPessoa);
+
+    /// <summary>
+    /// Registra quantas pessoas vieram (o check-in mais quem entrou pela portaria) e cobra as que passaram do contratado,
+    /// como prevê o contrato: o valor entra no total do evento numa parcela própria, fora do plano de pagamento. Vale
+    /// também depois de realizado, quando a contagem é fechada. Retorna a parcela (nula quando não há o que cobrar).
+    /// </summary>
+    public Parcela? ApurarExcedentes(QuantidadesConvidados presentes, decimal valorPorPessoa, DateOnly vencimento,
+        int? formaPagamentoId, DateTime agora)
+    {
+        Validador.Garantir(Status != StatusEvento.Cancelado, "Evento cancelado.");
+        Validador.Garantir(agora >= Inicio, "Os excedentes são apurados a partir do início do evento.");
+        Validador.Garantir(!ExcedentesApurados, "Os excedentes deste evento já foram apurados. Desfaça a apuração para refazê-la.");
+        presentes.Validar();
+        Validador.Garantir(presentes.Total >= PessoasPresentes,
+            $"O check-in registrou {PessoasPresentes} pessoas: a contagem não pode ser menor.");
+        Validador.Garantir(valorPorPessoa >= 0, "O valor por pessoa não pode ser negativo.");
+
+        var excedentes = CalcularExcedentes(presentes, valorPorPessoa);
+        Parcela? parcela = null;
+        if (excedentes.Valor > 0)
+        {
+            Validador.Garantir(vencimento <= DataEvento.AddDays(60), "A cobrança dos excedentes não pode vencer mais de 60 dias após o evento.");
+            var numero = _parcelas.Count == 0 ? 1 : _parcelas.Max(p => p.Numero) + 1;
+            parcela = new Parcela(this, numero, excedentes.Valor, vencimento, formaPagamentoId ?? FormaPagamentoId,
+                $"Convidados excedentes ({excedentes.Pagantes})") { Excedentes = true };
+            _parcelas.Add(parcela);
+            ValorTotal += excedentes.Valor;
+        }
+
+        PresentesApurados = presentes.Total;
+        ExcedentesApuradosEm = agora;
+        (ExcedentesInteira, ExcedentesMeia, ExcedentesIsentos, ValorExcedentes) =
+            (excedentes.Inteira, excedentes.Meia, excedentes.Isentos, excedentes.Valor);
+        return parcela;
+    }
+
+    /// <summary>Desfaz a apuração (contagem errada, cortesia): cancela a cobrança, que não pode ter sido paga, e devolve o total.</summary>
+    public void DesfazerApuracaoExcedentes()
+    {
+        Validador.Garantir(Status != StatusEvento.Cancelado, "Evento cancelado.");
+        Validador.Garantir(ExcedentesApurados, "Os excedentes deste evento não foram apurados.");
+        var cobranca = _parcelas.Where(p => p.Excedentes && p.Status != StatusTitulo.Cancelado).ToList();
+        Validador.Garantir(cobranca.All(p => p.Status == StatusTitulo.Aberto),
+            "A cobrança dos excedentes já recebeu pagamento. Estorne o pagamento para desfazer a apuração.");
+
+        foreach (var parcela in cobranca)
+            parcela.Cancelar();
+        ValorTotal -= ValorExcedentes;
+        PresentesApurados = null;
+        ExcedentesApuradosEm = null;
+        (ExcedentesInteira, ExcedentesMeia, ExcedentesIsentos, ValorExcedentes) = (0, 0, 0, 0);
+    }
+
     // ---------------- Materiais ----------------
 
     /// <summary>
@@ -400,19 +479,18 @@ public class Evento : Entidade
 
     /// <summary>
     /// (Re)gera o plano de pagamento sobre o saldo ainda não pago. Parcelas abertas são
-    /// substituídas; parcelas pagas são preservadas.
+    /// substituídas; parcelas pagas e a cobrança dos excedentes são preservadas.
     /// </summary>
     /// <param name="intervaloDias">Dias entre as parcelas; nulo = mensais (mesmo dia de cada mês).</param>
     public IReadOnlyList<Parcela> GerarParcelas(int quantidade, DateOnly primeiroVencimento, decimal valorEntrada = 0,
         DateOnly? vencimentoEntrada = null, int? formaPagamentoId = null, int? intervaloDias = null)
     {
         GarantirConfirmado();
-        var restantes = _parcelas.Where(p => p.Status != StatusTitulo.Aberto).ToList();
-        var saldo = ValorTotal - restantes.Where(p => p.Status != StatusTitulo.Cancelado).Sum(p => p.Valor);
+        var saldo = SaldoAParcelar;
         Validador.Garantir(saldo > 0, "Não há saldo a parcelar para este evento.");
         var plano = PlanoParcelas.Calcular(saldo, quantidade, primeiroVencimento, valorEntrada, vencimentoEntrada, intervaloDias);
 
-        _parcelas.RemoveAll(p => p.Status == StatusTitulo.Aberto);
+        _parcelas.RemoveAll(p => p.Status == StatusTitulo.Aberto && !p.Excedentes);
         var numero = _parcelas.Count == 0 ? 0 : _parcelas.Max(p => p.Numero);
         var geradas = plano.Select(p => new Parcela(this, ++numero, p.Valor, p.Vencimento, formaPagamentoId,
             p.Entrada ? "Entrada" : $"Parcela {p.Numero}/{p.Quantidade}")).ToList();
@@ -436,8 +514,7 @@ public class Evento : Entidade
     public IReadOnlyList<Parcela> GerarParcelas(IReadOnlyList<VencimentoPlanejado> vencimentos, int? formaPagamentoId = null)
     {
         GarantirConfirmado();
-        var restantes = _parcelas.Where(p => p.Status != StatusTitulo.Aberto).ToList();
-        var saldo = ValorTotal - restantes.Where(p => p.Status != StatusTitulo.Cancelado).Sum(p => p.Valor);
+        var saldo = SaldoAParcelar;
         Validador.Garantir(saldo > 0, "Não há saldo a parcelar para este evento.");
         Validador.Garantir(vencimentos.Count is >= 1 and <= PlanoParcelas.MaximoParcelas,
             $"Informe de 1 a {PlanoParcelas.MaximoParcelas} vencimentos.");
@@ -447,7 +524,7 @@ public class Evento : Entidade
         Validador.Garantir(vencimentos.Max(v => v.Vencimento) <= DataEvento.AddDays(60),
             "O plano de pagamento não pode terminar mais de 60 dias após o evento.");
 
-        _parcelas.RemoveAll(p => p.Status == StatusTitulo.Aberto);
+        _parcelas.RemoveAll(p => p.Status == StatusTitulo.Aberto && !p.Excedentes);
         var numero = _parcelas.Count == 0 ? 0 : _parcelas.Max(p => p.Numero);
         var ordenados = vencimentos.OrderBy(v => v.Vencimento).ToList();
         var geradas = ordenados.Select((v, i) => new Parcela(this, ++numero, v.Valor, v.Vencimento, v.FormaPagamentoId ?? formaPagamentoId,

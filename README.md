@@ -147,8 +147,12 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   - insumos previstos;
   - escala da **equipe** com presença;
   - **convidados**, com importação colada do Excel, RSVP e **check-in**;
+  - **convidados excedentes**: a contagem de quem veio (o check-in já vem preenchido, mais quem entrou pela portaria, com
+    as crianças de meia e isentas) é comparada com o contratado e o que passou vira uma cobrança numa parcela própria, ao
+    valor por pessoa do contrato, que pode sair na hora pelo PIX. Ao realizar o evento, se o check-in passou do
+    contratado, o sistema oferece apurar antes. A apuração pode ser desfeita enquanto a cobrança não foi paga;
   - **plano de pagamento** com entrada e parcelas, preenchido pela condição de pagamento (mensais ou a cada N dias);
-  - encerramento com **baixa automática de estoque** (ficha técnica × convidados);
+  - encerramento com **baixa automática de estoque** (ficha técnica × convidados, contando os excedentes já apurados);
   - cancelamento;
   - ficha do evento impressa.
 - **Cardápio**: itens com ficha técnica (insumos por convidado) e custo por pessoa. Pacotes mostram
@@ -275,7 +279,12 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   relatórios de despesa e o resultado do evento continuarem corretos. A fatura do cartão não é reparcelada (ela se
   desfaz pelo estorno do pagamento feito com o cartão). Uma parcela não é excluída sozinha nem troca de fornecedor.
 - O plano de pagamento preserva as parcelas pagas e recalcula o saldo. Os centavos vão para a última
-  parcela.
+  parcela. A cobrança dos excedentes fica fora do plano: refazê-lo não a altera.
+- Os excedentes são contados por faixa. A vaga de quem paga mais e não veio cobre quem paga menos (uma criança da meia
+  no lugar de um adulto que faltou não é cobrada), nunca o contrário. Isentos excedentes não pagam. A contagem não pode
+  ser menor que o check-in, a apuração vale a partir do início do evento (também depois de realizado) e é feita uma vez:
+  para refazer, desfaz-se a anterior, o que exige a cobrança sem pagamento. Depois da apuração, os convidados contratados
+  não mudam. Se o evento já foi realizado, o estoque baixado não muda (ajuste pelo inventário).
 - Cancelar o evento cancela as parcelas em aberto. Evento realizado ou cancelado não pode mais ser
   alterado.
 - Só existe um contrato vigente por evento. Um contrato cujo texto não confere com o código de
@@ -303,16 +312,16 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **302 testes** (xUnit v3): 277 de domínio, integração e bancos, e 25 das telas.
+São **312 testes** (xUnit v3): 286 de domínio, integração e bancos, e 26 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
-  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, diárias da equipe, BR Code do
+  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, convidados excedentes, diárias da equipe, BR Code do
   PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada e leitura do XML da NF-e.
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
-  backup, funil, lembretes, reajuste, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, ordem de produção,
+  backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, ordem de produção,
   checklist, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 
@@ -337,7 +346,7 @@ login, navega pelo menu, preenche campos pelo rótulo, clica nos botões e trata
 - reserva de material, emissão de contrato e assinatura desenhada;
 - degustação, comissão, envio de proposta por e-mail e WhatsApp;
 - auditoria;
-- lead cadastrado e convertido, lembrete resolvido e tarefa do checklist concluída.
+- lead cadastrado e convertido, lembrete resolvido, tarefa do checklist concluída e excedentes cobrados e desfeitos.
 
 Como funcionam:
 
