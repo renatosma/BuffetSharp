@@ -95,6 +95,7 @@ internal static class Program
         services.AddSingleton(configuracao.GetSection(LogOptions.Secao).Get<LogOptions>() ?? new LogOptions());
         services.AddSingleton(configuracao.GetSection(LembretesOptions.Secao).Get<LembretesOptions>() ?? new LembretesOptions());
         services.AddSingleton(configuracao.GetSection(PixOptions.Secao).Get<PixOptions>() ?? new PixOptions());
+        services.AddSingleton(configuracao.GetSection(NfseOptions.Secao).Get<NfseOptions>() ?? new NfseOptions());
         services.AddAplicacao();
         services.AddInfraestrutura(configuracao.GetConnectionString("Buffet"),
             CatalogoProvedores.Interpretar(configuracao["BancoDeDados:Provedor"]));

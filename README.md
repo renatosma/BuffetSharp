@@ -42,6 +42,8 @@ As configurações ficam em `src/BuffetSharp.WinForms/appsettings.json`:
 - `Inicializacao:CriarDadosDemonstracao`: use `false` em produção. Assim, só os usuários iniciais são criados.
 - `Pix`: chave PIX do buffet (CPF/CNPJ, e-mail, celular ou chave aleatória), nome do recebedor e cidade. Sem chave, a
   cobrança por PIX fica desligada.
+- `Nfse`: tokens do [Focus NFe](https://focusnfe.com.br) para emitir a NFS-e (`TokenHomologacao` e `TokenProducao`). Coloque-os
+  só no `appsettings.Local.json`. Sem token, só o ambiente simulado funciona (nota de treino, sem valor fiscal).
 - `Lembretes`: antecedência (em dias) para avisar das propostas, parcelas e contas a pagar que vencem, e
   `EmailAutomatico` para enviar sozinho, depois do login, os e-mails de parcela a vencer, degustação e aniversário.
 - `Backup`: pasta das cópias de segurança, cópia automática (a cada `IntervaloHoras`, depois do login), quantas cópias
@@ -231,6 +233,14 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   funcionário, na categoria Pessoal. O fechamento pode ser desfeito enquanto a conta não foi paga.
 - **Cobrança por PIX**: QR Code e código "copia e cola" de cada parcela (BR Code do Banco Central), para copiar, salvar
   ou enviar pelo WhatsApp ou por e-mail (com o QR Code anexo).
+- **NFS-e (nota fiscal de serviço)**: uma nota por evento, emitida pelo botão "NFS-e" da tela do evento, com o cliente
+  como tomador, o valor do evento (pode ser menor) e a descrição montada do modelo da configuração fiscal (evento, data,
+  convidados, local). A emissão vai pelo Focus NFe, que fala com a prefeitura: a nota fica "aguardando prefeitura" até a
+  resposta. Em Financeiro › Notas fiscais de serviço a situação é atualizada, a nota é aberta no site da prefeitura, o XML
+  é baixado e a nota é cancelada (com motivo). Nota recusada mostra o motivo e libera o evento para emitir de novo. Os
+  dados do buffet (CNPJ, inscrição municipal, município, regime, item da LC 116, ISS e retenção) ficam no botão
+  "Configuração fiscal" dessa tela, que a primeira emissão já oferece abrir. O ambiente **simulado** autoriza na hora,
+  sem internet, para treinar; **homologação** é o teste oficial do Focus.
 - **Conciliação bancária**: o extrato do banco em OFX é comparado com os movimentos da conta. O sistema sugere os pares
   (mesmo valor, até 5 dias de diferença), concilia os confirmados, lança o que só o banco tem (tarifas, rendimentos) e
   fecha a conta com o saldo do extrato.
@@ -312,16 +322,17 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **312 testes** (xUnit v3): 286 de domínio, integração e bancos, e 26 das telas.
+São **332 testes** (xUnit v3): 305 de domínio, integração e bancos, e 27 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
   parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, convidados excedentes, diárias da equipe, BR Code do
-  PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada e leitura do XML da NF-e.
+  PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada, leitura do XML da NF-e,
+  regras da NFS-e e o envio ao Focus NFe (HTTP simulado).
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
-  backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, ordem de produção,
+  backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, NFS-e, ordem de produção,
   checklist, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 

@@ -4635,6 +4635,236 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.ToTable("PARCELAMENTOSPAGAR", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Fiscal.ConfiguracaoFiscal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AliquotaIss")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("DECIMAL(5,2)")
+                        .HasColumnName("ALIQUOTAISS");
+
+                    b.Property<string>("Ambiente")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("AMBIENTE");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<string>("Cnpj")
+                        .HasMaxLength(14)
+                        .HasColumnType("NVARCHAR2(14)")
+                        .HasColumnName("CNPJ");
+
+                    b.Property<string>("CodigoCnae")
+                        .HasMaxLength(10)
+                        .HasColumnType("NVARCHAR2(10)")
+                        .HasColumnName("CODIGOCNAE");
+
+                    b.Property<string>("CodigoMunicipio")
+                        .HasMaxLength(7)
+                        .HasColumnType("NVARCHAR2(7)")
+                        .HasColumnName("CODIGOMUNICIPIO");
+
+                    b.Property<string>("CodigoTributarioMunicipio")
+                        .HasMaxLength(20)
+                        .HasColumnType("NVARCHAR2(20)")
+                        .HasColumnName("CODIGOTRIBUTARIOMUNICIPIO");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<string>("Discriminacao")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("DISCRIMINACAO");
+
+                    b.Property<string>("InscricaoMunicipal")
+                        .HasMaxLength(20)
+                        .HasColumnType("NVARCHAR2(20)")
+                        .HasColumnName("INSCRICAOMUNICIPAL");
+
+                    b.Property<bool>("IssRetido")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("ISSRETIDO");
+
+                    b.Property<string>("ItemListaServico")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("NVARCHAR2(10)")
+                        .HasColumnName("ITEMLISTASERVICO");
+
+                    b.Property<string>("Regime")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("REGIME");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_CONFIGURACOESFISCAIS");
+
+                    b.ToTable("CONFIGURACOESFISCAIS", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Fiscal.NotaFiscalServico", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AliquotaIss")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("DECIMAL(5,2)")
+                        .HasColumnName("ALIQUOTAISS");
+
+                    b.Property<string>("Ambiente")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("AMBIENTE");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<string>("CaminhoXml")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("CAMINHOXML");
+
+                    b.Property<DateTime?>("CanceladaEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CANCELADAEM");
+
+                    b.Property<string>("CodigoVerificacao")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("CODIGOVERIFICACAO");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<DateTime?>("DataEmissao")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("DATAEMISSAO");
+
+                    b.Property<string>("Discriminacao")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("DISCRIMINACAO");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("EVENTOID");
+
+                    b.Property<bool>("IssRetido")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("ISSRETIDO");
+
+                    b.Property<string>("Mensagem")
+                        .HasMaxLength(2000)
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("MENSAGEM");
+
+                    b.Property<string>("MotivoCancelamento")
+                        .HasMaxLength(255)
+                        .HasColumnType("NVARCHAR2(255)")
+                        .HasColumnName("MOTIVOCANCELAMENTO");
+
+                    b.Property<string>("Numero")
+                        .HasMaxLength(20)
+                        .HasColumnType("NVARCHAR2(20)")
+                        .HasColumnName("NUMERO");
+
+                    b.Property<string>("Referencia")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("REFERENCIA");
+
+                    b.Property<DateTime>("SolicitadaEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("SOLICITADAEM");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("STATUS");
+
+                    b.Property<string>("TomadorDocumento")
+                        .IsRequired()
+                        .HasMaxLength(14)
+                        .HasColumnType("NVARCHAR2(14)")
+                        .HasColumnName("TOMADORDOCUMENTO");
+
+                    b.Property<string>("TomadorEmail")
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("TOMADOREMAIL");
+
+                    b.Property<string>("TomadorNome")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("TOMADORNOME");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("URL");
+
+                    b.Property<string>("Usuario")
+                        .HasMaxLength(50)
+                        .HasColumnType("NVARCHAR2(50)")
+                        .HasColumnName("USUARIO");
+
+                    b.Property<decimal>("ValorServicos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("VALORSERVICOS");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_NOTASFISCAISSERVICO");
+
+                    b.HasIndex("Referencia")
+                        .IsUnique()
+                        .HasDatabaseName("IX_NOTASFISCAISSERVICO_REFERENCIA");
+
+                    b.HasIndex("SolicitadaEm")
+                        .HasDatabaseName("IX_NOTASFISCAISSERVICO_SOLICITADAEM");
+
+                    b.HasIndex("EventoId", "Status")
+                        .HasDatabaseName("IX_NOTASFISCAISSERVICO_EVENTOID_STATUS");
+
+                    b.ToTable("NOTASFISCAISSERVICO", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Seguranca.Usuario", b =>
                 {
                     b.Property<int>("Id")
@@ -5841,6 +6071,18 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("Evento");
 
                     b.Navigation("Fornecedor");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Fiscal.NotaFiscalServico", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", "Evento")
+                        .WithMany()
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_NOTASFISCAISSERVICO_EVENTOS_EVENTOID");
+
+                    b.Navigation("Evento");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Cliente", b =>

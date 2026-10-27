@@ -2,6 +2,7 @@ using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Infrastructure.Consultas;
 using BuffetSharp.Infrastructure.Email;
+using BuffetSharp.Infrastructure.Fiscal;
 using BuffetSharp.Infrastructure.Manutencao;
 using BuffetSharp.Infrastructure.Persistencia;
 using BuffetSharp.Infrastructure.Persistencia.Provedores;
@@ -53,6 +54,7 @@ public static class DependencyInjection
         services.AddSingleton<IConsultasLembretes, ConsultasLembretes>();
         services.AddSingleton<IConsultasEquipe, ConsultasEquipe>();
         services.AddSingleton<IConsultasCompras, ConsultasCompras>();
+        services.AddSingleton<IConsultasFiscais, ConsultasFiscais>();
 
         // E-mail: usa a configuração registrada pela aplicação ou, na falta dela, grava em pasta local.
         services.TryAddSingleton(new EmailOptions());
@@ -61,6 +63,10 @@ public static class DependencyInjection
         // Cópia de segurança: usa a configuração registrada pela aplicação ou, na falta dela, a padrão.
         services.TryAddSingleton(new BackupOptions());
         services.AddSingleton<IBackupBanco, BackupBanco>();
+
+        // NFS-e pelo Focus NFe (token na configuração da máquina; sem ela, só o ambiente simulado funciona).
+        services.TryAddSingleton(new NfseOptions());
+        services.AddSingleton<IProvedorNfse>(sp => new ProvedorNfseFocus(sp.GetRequiredService<NfseOptions>()));
 
         services.AddSingleton<IGeradorQrCode, GeradorQrCode>();
         services.AddSingleton<IHasherSenha, HasherSenhaPbkdf2>();

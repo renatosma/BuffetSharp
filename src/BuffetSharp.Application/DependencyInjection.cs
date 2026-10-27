@@ -37,10 +37,12 @@ public static class DependencyInjection
         services.AddTransient<EquipeService>();
         services.AddTransient<PixService>();
         services.AddTransient<ConciliacaoService>();
+        services.AddTransient<NfseService>();
 
         // Configurações com valor padrão quando a aplicação não as registra (ex.: testes).
         services.TryAddSingleton(new LembretesOptions());
         services.TryAddSingleton(new PixOptions());
+        services.TryAddSingleton(new NfseOptions());
         return services;
     }
 }

@@ -6,6 +6,7 @@ using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
+using BuffetSharp.Domain.Fiscal;
 using BuffetSharp.Domain.Seguranca;
 
 namespace BuffetSharp.WinForms.Infra;
@@ -51,6 +52,17 @@ internal static class Textos
         StatusRecebimento.Estornado => "Estornado",
         StatusNotaEntrada.Lancada => "Lançada",
         StatusNotaEntrada.Cancelada => "Cancelada",
+        StatusNfse.Processando => "Aguardando prefeitura",
+        StatusNfse.Autorizada => "Autorizada",
+        StatusNfse.Erro => "Recusada",
+        StatusNfse.Cancelada => "Cancelada",
+        AmbienteNfse.Simulado => "Simulado (treino, sem valor fiscal)",
+        AmbienteNfse.Homologacao => "Homologação (teste oficial, sem valor fiscal)",
+        AmbienteNfse.Producao => "Produção (nota com valor fiscal)",
+        RegimeTributario.SimplesNacional => "Simples Nacional",
+        RegimeTributario.Mei => "MEI",
+        RegimeTributario.LucroPresumido => "Lucro presumido",
+        RegimeTributario.LucroReal => "Lucro real",
         CategoriaDespesa.Manutencao => "Manutenção",
         CategoriaDespesa.Servicos => "Serviços",
         CategoriaDespesa.Comissoes => "Comissões",
@@ -156,6 +168,10 @@ internal static class Textos
         StatusRecebimento.Estornado => Tema.Neutro,
         StatusNotaEntrada.Lancada => Tema.Sucesso,
         StatusNotaEntrada.Cancelada => Tema.Neutro,
+        StatusNfse.Processando => Tema.Alerta,
+        StatusNfse.Autorizada => Tema.Sucesso,
+        StatusNfse.Erro => Tema.Perigo,
+        StatusNfse.Cancelada => Tema.Neutro,
         StatusContrato.AguardandoAssinatura => Tema.Alerta,
         StatusContrato.Assinado => Tema.Sucesso,
         StatusContrato.Cancelado => Tema.Neutro,
@@ -204,7 +220,8 @@ internal static class Textos
         ["PedidoCompra"] = "Pedido de compra", ["PedidoCompraItem"] = "Item do pedido de compra",
         ["CotacaoCompra"] = "Cotação de compra", ["CotacaoItem"] = "Produto da cotação", ["CotacaoParticipante"] = "Participante da cotação",
         ["CotacaoPreco"] = "Preço da cotação", ["RecebimentoCompra"] = "Recebimento de compra", ["RecebimentoItem"] = "Item recebido",
-        ["NotaFiscalEntrada"] = "Nota fiscal de entrada"
+        ["NotaFiscalEntrada"] = "Nota fiscal de entrada", ["ConfiguracaoFiscal"] = "Configuração fiscal (NFS-e)",
+        ["NotaFiscalServico"] = "Nota fiscal de serviço (NFS-e)"
     };
 
     /// <summary>Nome amigável da entidade gravado na auditoria.</summary>

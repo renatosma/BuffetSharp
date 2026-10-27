@@ -5,6 +5,7 @@ using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
+using BuffetSharp.Domain.Seguranca;
 using BuffetSharp.WinForms.Controles;
 using BuffetSharp.WinForms.Formularios.Financeiro;
 using BuffetSharp.WinForms.Impressao;
@@ -88,6 +89,8 @@ internal sealed class FormEventoDetalhe : FormBase
         AdicionarBotao("Ordem de produção", Icones.Lista, async () =>
             ImpressaoOperacao.OrdensProducao(this, [await _navegador.Servico<PlanejamentoService>().OrdemDoEventoAsync(_eventoId)],
                 _opcoes.NomeEmpresa));
+        if (sessao.Usuario?.PossuiPerfil(PerfilUsuario.Financeiro) == true)
+            AdicionarBotao("NFS-e", Icones.Pagina, () => DialogosNfse.EmitirAsync(this, _navegador.Servico<NfseService>(), _eventoId));
         AdicionarBotao("Atualizar", Icones.Atualizar, CarregarAsync);
         if (sessao.Usuario?.EhAdministrador == true)
             AdicionarBotao("Alterações", Icones.Escudo, () =>

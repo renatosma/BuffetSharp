@@ -74,6 +74,9 @@ internal sealed class FormEdicao : FormBase
             editor.DefinirSomenteLeitura(true);
     }
 
+    /// <summary>Troca o texto do botão de confirmar (ex.: "Emitir nota").</summary>
+    public void TextoSalvar(string texto) => _botaoSalvar.Text = texto;
+
     /// <summary>Botões extras na barra inferior (ex.: "Imprimir").</summary>
     public Button AdicionarAcao(Button botao)
     {

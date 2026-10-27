@@ -189,6 +189,7 @@ internal sealed class FormPrincipal : FormBase
             new("FINANCEIRO", "Caixa e bancos", Icones.Dinheiro, [Adm, Fin], () => n.Abrir<FormContasFinanceiras>()),
             new("FINANCEIRO", "Comissões", Icones.Dinheiro, [Adm, Fin], () => n.Abrir<FormComissoes>()),
             new("FINANCEIRO", "Pagamento da equipe", Icones.Pessoas, [Adm, Fin], () => n.Abrir<FormPagamentoEquipe>()),
+            new("FINANCEIRO", "Notas fiscais de serviço", Icones.Pagina, [Adm, Fin], () => n.Abrir<FormNotasServico>()),
             new("FINANCEIRO", "Relatórios", Icones.Calculadora, [Adm, Fin], () => n.Abrir<FormRelatorios>()),
 
             new("CADASTROS", "Tipos de evento", Icones.Etiqueta, [Adm, Com], () => Cadastro(DefinicoesCadastros.TiposEvento)),

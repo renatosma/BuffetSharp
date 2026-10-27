@@ -5,6 +5,7 @@ using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
+using BuffetSharp.Domain.Fiscal;
 using BuffetSharp.Domain.Seguranca;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -60,6 +61,8 @@ public interface IBuffetDbContext : IDisposable, IAsyncDisposable
     DbSet<ReajustePreco> ReajustesPreco { get; }
     DbSet<ModeloChecklist> ModelosChecklist { get; }
     DbSet<FechamentoEquipe> FechamentosEquipe { get; }
+    DbSet<ConfiguracaoFiscal> ConfiguracoesFiscais { get; }
+    DbSet<NotaFiscalServico> NotasFiscaisServico { get; }
     DbSet<RegistroAuditoria> RegistrosAuditoria { get; }
 
     ChangeTracker ChangeTracker { get; }

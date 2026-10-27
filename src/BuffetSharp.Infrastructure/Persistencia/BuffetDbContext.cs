@@ -7,6 +7,7 @@ using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
+using BuffetSharp.Domain.Fiscal;
 using BuffetSharp.Domain.Seguranca;
 using BuffetSharp.Infrastructure.Persistencia.Provedores;
 using Microsoft.EntityFrameworkCore;
@@ -63,6 +64,8 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
     public DbSet<ReajustePreco> ReajustesPreco => Set<ReajustePreco>();
     public DbSet<ModeloChecklist> ModelosChecklist => Set<ModeloChecklist>();
     public DbSet<FechamentoEquipe> FechamentosEquipe => Set<FechamentoEquipe>();
+    public DbSet<ConfiguracaoFiscal> ConfiguracoesFiscais => Set<ConfiguracaoFiscal>();
+    public DbSet<NotaFiscalServico> NotasFiscaisServico => Set<NotaFiscalServico>();
     public DbSet<RegistroAuditoria> RegistrosAuditoria => Set<RegistroAuditoria>();
 
     /// <summary>
