@@ -34,11 +34,12 @@ internal sealed class FormLembretes : FormListagem<Lembrete>
         Filtro("Tipo", _tipo);
         _tipo.SelectionChangeCommitted += (_, _) => Filtrar();
 
-        Botao("WhatsApp", Icones.Mensagem, WhatsAppAsync, "Abre o WhatsApp com a mensagem pronta para o cliente", destaque: true);
+        Botao("WhatsApp", Icones.Mensagem, WhatsAppAsync, "Envia a mensagem pronta para o cliente pelo WhatsApp", destaque: true);
         Botao("E-mail", Icones.Email, EmailAsync, "Envia a mensagem por e-mail");
         Botao("Resolvido", Icones.Confirmar, ResolverAsync, "Tira o lembrete da lista (já tratado de outra forma); numa tarefa de evento, conclui a tarefa");
         Separador();
         Botao("Abrir", Icones.Editar, AbrirAsync, "Abre o evento, orçamento, lead ou conta do lembrete");
+        Botao("WhatsApp do buffet", Icones.Configuracoes, SituacaoWhatsAppAsync, "Conexão do WhatsApp (Z-API) e mensagem de teste");
 
         var hoje = DateTime.Today;
         Grade.Texto("Tipo", l => Textos.Exibir(l.Tipo), 26, l => Cor(l.Tipo))
@@ -83,7 +84,7 @@ internal sealed class FormLembretes : FormListagem<Lembrete>
     {
         if (Selecionado() is not { } lembrete)
             return;
-        if (_servico.PrepararWhatsApp(lembrete) is not { } mensagem)
+        if (await _servico.PrepararWhatsAppAsync(lembrete) is not { } mensagem)
         {
             Mensagens.Aviso(this, "Este lembrete é uma tarefa interna, sem mensagem para o cliente. Use \"Abrir\" ou \"Resolvido\".");
             return;
@@ -94,11 +95,30 @@ internal sealed class FormLembretes : FormListagem<Lembrete>
         await CarregarAsync();
     }
 
+    /// <summary>Mostra se o WhatsApp do buffet está conectado e, se estiver, envia uma mensagem de teste.</summary>
+    private async Task SituacaoWhatsAppAsync()
+    {
+        var envio = _navegador.Servico<IEnvioWhatsApp>();
+        var situacao = await envio.SituacaoAsync();
+        if (!situacao.Conectado || !envio.Direto)
+        {
+            Mensagens.Aviso(this, situacao.Descricao, "WhatsApp do buffet");
+            return;
+        }
+        if (!Mensagens.Confirmar(this, situacao.Descricao + "\n\nEnviar uma mensagem de teste?", "WhatsApp do buffet"))
+            return;
+        var telefone = Dialogos.PedirTexto(this, "Mensagem de teste", "Celular com DDD", linhas: 1);
+        if (telefone is null)
+            return;
+        await envio.EnviarAsync(telefone, $"Mensagem de teste do BuffetSharp ({DateTime.Now:dd/MM/yyyy HH:mm}).");
+        Mensagens.Info(this, "Mensagem de teste enviada.", "WhatsApp do buffet");
+    }
+
     private async Task EmailAsync()
     {
         if (Selecionado() is not { } lembrete)
             return;
-        if (_servico.PrepararEmail(lembrete) is not { } email)
+        if (await _servico.PrepararEmailAsync(lembrete) is not { } email)
         {
             Mensagens.Aviso(this, "Este lembrete é uma tarefa interna, sem mensagem para o cliente. Use \"Abrir\" ou \"Resolvido\".");
             return;

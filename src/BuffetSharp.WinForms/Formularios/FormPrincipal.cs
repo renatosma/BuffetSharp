@@ -34,6 +34,7 @@ internal sealed class FormPrincipal : FormBase
     private readonly ToolStripStatusLabel _statusBackup = new() { ForeColor = Tema.TextoSuave };
     private readonly ToolStripStatusLabel _statusCobrancas = new() { ForeColor = Tema.TextoSuave };
     private readonly System.Windows.Forms.Timer _consultaCobrancas = new();
+    private readonly System.Windows.Forms.Timer _lembretesAutomaticos = new();
     private bool _verificandoCobrancas;
     private readonly TabControl _abas;
     private Button? _itemAtivo;
@@ -151,13 +152,38 @@ internal sealed class FormPrincipal : FormBase
 
         try
         {
-            if (_sessao.Usuario?.PossuiPerfil(PerfilUsuario.Comercial, PerfilUsuario.Financeiro) == true)
-                await Task.Run(() => _navegador.Servico<LembreteService>().EnviarEmailsAutomaticosAsync());
+            await LembretesAutomaticosAsync();
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "Os lembretes automáticos por e-mail não foram enviados");
+            _log.LogWarning(ex, "Os lembretes automáticos não foram enviados");
         }
+    }
+
+    /// <summary>
+    /// Lembretes automáticos ao cliente (e-mail e WhatsApp, se ligados): depois do login e a cada meia hora, para os do
+    /// WhatsApp saírem quando o horário comercial começar. Cada lembrete sai uma única vez.
+    /// </summary>
+    private async Task LembretesAutomaticosAsync()
+    {
+        if (_sessao.Usuario?.PossuiPerfil(PerfilUsuario.Comercial, PerfilUsuario.Financeiro) != true)
+            return;
+        await Task.Run(() => _navegador.Servico<LembreteService>().EnviarAutomaticosAsync());
+        if (_lembretesAutomaticos.Enabled)
+            return;
+        _lembretesAutomaticos.Interval = (int)TimeSpan.FromMinutes(30).TotalMilliseconds;
+        _lembretesAutomaticos.Tick += async (_, _) =>
+        {
+            try
+            {
+                await LembretesAutomaticosAsync();
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex, "Os lembretes automáticos não foram enviados");
+            }
+        };
+        _lembretesAutomaticos.Start();
     }
 
     /// <summary>Cópia de segurança diária em segundo plano; uma falha fica no log e na barra de status, sem interromper o usuário.</summary>
@@ -197,6 +223,7 @@ internal sealed class FormPrincipal : FormBase
             return;
         }
         _consultaCobrancas.Stop();
+        _lembretesAutomaticos.Stop();
         _navegador.FecharTodas();
         base.OnFormClosing(e);
     }

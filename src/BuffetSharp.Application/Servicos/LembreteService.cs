@@ -6,11 +6,15 @@ using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
+using BuffetSharp.Domain.Financeiro;
 using BuffetSharp.Domain.Seguranca;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace BuffetSharp.Application.Servicos;
+
+/// <summary>Quantos lembretes saíram sozinhos por e-mail e pelo WhatsApp.</summary>
+public sealed record ResultadoLembretesAutomaticos(int Emails, int WhatsApps);
 
 /// <summary>
 /// Lembretes do dia: o que cada perfil precisa resolver hoje, com a mensagem pronta para o cliente (WhatsApp ou e-mail).
@@ -20,6 +24,8 @@ public sealed class LembreteService(
     IBuffetDbContextFactory fabrica,
     IConsultasLembretes consultas,
     IEnvioEmail email,
+    IEnvioWhatsApp whatsApp,
+    WhatsAppOptions opcoesWhatsApp,
     BuffetOptions empresa,
     LembretesOptions opcoes,
     PixService pix,
@@ -88,18 +94,18 @@ public sealed class LembreteService(
     // ------------------------- Mensagens -------------------------
 
     /// <summary>Mensagem pronta para o WhatsApp do cliente (o telefone pode vir vazio); nula quando o lembrete não tem mensagem.</summary>
-    public MensagemWhatsApp? PrepararWhatsApp(Lembrete lembrete) =>
+    public async Task<MensagemWhatsApp?> PrepararWhatsAppAsync(Lembrete lembrete, CancellationToken ct = default) =>
         TemMensagem(lembrete.Tipo)
-            ? new MensagemWhatsApp(lembrete.Telefone ?? string.Empty, Texto(lembrete, whatsApp: true))
+            ? new MensagemWhatsApp(lembrete.Telefone ?? string.Empty, Texto(lembrete, whatsApp: true, await PagamentoAsync(lembrete, ct)))
             : null;
 
     /// <summary>E-mail pronto para revisão; nulo quando o lembrete não tem mensagem.</summary>
-    public EmailInput? PrepararEmail(Lembrete lembrete) => TemMensagem(lembrete.Tipo)
+    public async Task<EmailInput?> PrepararEmailAsync(Lembrete lembrete, CancellationToken ct = default) => TemMensagem(lembrete.Tipo)
         ? new EmailInput
         {
             Para = lembrete.Email ?? string.Empty,
             Assunto = Assunto(lembrete),
-            Mensagem = Texto(lembrete, whatsApp: false)
+            Mensagem = Texto(lembrete, whatsApp: false, await PagamentoAsync(lembrete, ct))
         }
         : null;
 
@@ -113,36 +119,84 @@ public sealed class LembreteService(
     }
 
     /// <summary>
-    /// Envio automático (se ligado em "Lembretes:EmailAutomatico"): e-mail aos clientes com parcela a vencer, degustação
-    /// marcada ou aniversário hoje. Cada lembrete é enviado uma única vez.
+    /// Envio automático dos lembretes ao cliente, cada um uma única vez: por e-mail (se ligado em "Lembretes:EmailAutomatico":
+    /// parcela a vencer, degustação e aniversário) e pelo WhatsApp do buffet (se ligado em "Lembretes:WhatsAppAutomatico",
+    /// com o envio direto configurado: também a parcela vencida, só no horário comercial). Fora do horário, o lembrete de quem
+    /// tem celular espera o horário para sair pelos dois canais juntos.
     /// </summary>
-    /// <returns>Quantos e-mails foram enviados.</returns>
-    public async Task<int> EnviarEmailsAutomaticosAsync(CancellationToken ct = default)
+    public async Task<ResultadoLembretesAutomaticos> EnviarAutomaticosAsync(CancellationToken ct = default)
     {
-        if (!opcoes.EmailAutomatico)
-            return 0;
+        var porWhatsApp = opcoes.WhatsAppAutomatico && whatsApp.Direto;
+        if (!opcoes.EmailAutomatico && !porWhatsApp)
+            return new ResultadoLembretesAutomaticos(0, 0);
 
-        var enviados = 0;
-        var automaticos = (await PendentesAsync(ct)).Where(l =>
-            l.Tipo is TipoLembrete.ParcelaAVencer or TipoLembrete.Degustacao or TipoLembrete.Aniversario &&
-            System.Net.Mail.MailAddress.TryCreate(l.Email?.Trim(), out _));
-        foreach (var lembrete in automaticos)
+        int emails = 0, mensagens = 0;
+        var horario = opcoesWhatsApp.DentroDoHorario(Agora);
+        foreach (var lembrete in (await PendentesAsync(ct)).Where(l => l.Tipo is TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida
+                     or TipoLembrete.Degustacao or TipoLembrete.Aniversario))
         {
-            try
+            var celular = porWhatsApp && new MensagemWhatsApp(lembrete.Telefone ?? "", "").TelefoneInternacional.Length is 12 or 13;
+            var comEmail = opcoes.EmailAutomatico && lembrete.Tipo != TipoLembrete.ParcelaVencida &&
+                           System.Net.Mail.MailAddress.TryCreate(lembrete.Email?.Trim(), out _);
+            if (celular && !horario || !celular && !comEmail)
+                continue;
+
+            var canal = (CanalLembrete?)null;
+            var pagamento = await PagamentoAsync(lembrete, ct);
+            if (celular)
             {
-                var mensagem = PrepararEmail(lembrete)!;
-                await email.EnviarAsync(new MensagemEmail(lembrete.Email!.Trim(), mensagem.Assunto, Html(mensagem.Mensagem), []), ct);
-                await MarcarTratadoAsync(lembrete, CanalLembrete.EmailAutomatico, ct);
-                enviados++;
+                try
+                {
+                    await whatsApp.EnviarAsync(lembrete.Telefone!, Texto(lembrete, whatsApp: true, pagamento), ct: ct);
+                    canal = CanalLembrete.WhatsAppAutomatico;
+                    mensagens++;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    log.LogWarning(ex, "Lembrete automático não enviado pelo WhatsApp para {Telefone} ({Chave})", lembrete.Telefone, lembrete.Chave);
+                }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            if (comEmail)
             {
-                log.LogWarning(ex, "Lembrete automático não enviado para {Email} ({Chave})", lembrete.Email, lembrete.Chave);
+                try
+                {
+                    await email.EnviarAsync(new MensagemEmail(lembrete.Email!.Trim(), Assunto(lembrete),
+                        Html(Texto(lembrete, whatsApp: false, pagamento)), []), ct);
+                    canal ??= CanalLembrete.EmailAutomatico;
+                    emails++;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    log.LogWarning(ex, "Lembrete automático não enviado para {Email} ({Chave})", lembrete.Email, lembrete.Chave);
+                }
             }
+            if (canal is { } enviado)
+                await MarcarTratadoAsync(lembrete, enviado, ct);
         }
-        if (enviados > 0)
-            log.LogInformation("{Quantidade} lembrete(s) enviado(s) por e-mail automaticamente", enviados);
-        return enviados;
+        if (emails + mensagens > 0)
+            log.LogInformation("Lembretes automáticos: {Emails} e-mail(s) e {WhatsApps} WhatsApp(s)", emails, mensagens);
+        return new ResultadoLembretesAutomaticos(emails, mensagens);
+    }
+
+    /// <summary>
+    /// Como pagar a parcela do lembrete: o boleto/PIX registrado pendente (link da fatura, PIX ou linha digitável) ou, sem ele,
+    /// o PIX estático do buffet. Nulo nos outros lembretes.
+    /// </summary>
+    private async Task<string?> PagamentoAsync(Lembrete l, CancellationToken ct)
+    {
+        if (l.Tipo is not (TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida))
+            return null;
+        await using var db = fabrica.Criar();
+        var cobranca = await db.CobrancasRegistradas.AsNoTracking()
+            .Where(c => c.ParcelaId == l.ReferenciaId && c.Status == StatusCobranca.Pendente)
+            .Select(c => new { c.UrlFatura, c.PixCopiaECola, c.LinhaDigitavel, c.Vencimento }).FirstOrDefaultAsync(ct);
+        if (cobranca is null)
+            return pix.TextoCobranca(l.ReferenciaId, l.Valor ?? 0);
+        if (cobranca.UrlFatura is { } url)
+            return $"Boleto e PIX para pagamento: {url}";
+        if (cobranca.PixCopiaECola is { } codigo)
+            return $"Para pagar por PIX, use o código \"copia e cola\" abaixo no aplicativo do seu banco:\n{codigo}";
+        return cobranca.LinhaDigitavel is { } linha ? $"Linha digitável do boleto (vence em {cobranca.Vencimento:dd/MM/yyyy}):\n{linha}" : null;
     }
 
     private string Assunto(Lembrete l) => l.Tipo switch
@@ -155,7 +209,7 @@ public sealed class LembreteService(
         _ => empresa.NomeEmpresa
     };
 
-    private string Texto(Lembrete l, bool whatsApp)
+    private string Texto(Lembrete l, bool whatsApp, string? pagamento = null)
     {
         var nome = (l.Pessoa ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
         var negrito = whatsApp ? "*" : "";
@@ -182,8 +236,8 @@ public sealed class LembreteService(
                 ". Podemos conversar sobre datas, cardápios e valores?",
             _ => l.Titulo
         });
-        if (l.Tipo is TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida && pix.TextoCobranca(l.ReferenciaId, l.Valor ?? 0) is { } cobranca)
-            texto.Append("\n\n").Append(cobranca);
+        if (pagamento is not null)
+            texto.Append("\n\n").Append(pagamento);
         if (!string.IsNullOrWhiteSpace(empresa.Telefone) && l.Tipo != TipoLembrete.Aniversario)
             texto.Append($"\n\nQualquer dúvida, estamos à disposição: {empresa.Telefone}.");
         return texto.ToString();

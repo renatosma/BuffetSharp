@@ -183,9 +183,17 @@ internal sealed class FormOrcamentos : FormListagem<OrcamentoResumo>
         if (Selecionado() is not { } item)
             return;
         var mensagem = await _propostas.PrepararWhatsAppAsync(item.Id);
-        if (DialogosEnvio.WhatsApp(this, mensagem, $"a proposta {item.Codigo}") is not { } telefone)
+        Func<AnexoEmail>? anexo = null;
+        if (DialogosEnvio.EnvioDireto)
+        {
+            var orcamento = await _servico.ObterAsync(item.Id);
+            var documento = await ImpressaoProposta.MontarAsync(orcamento, _lookups, _cardapio, _opcoes, await CondicaoAsync(orcamento));
+            anexo = () => DialogosEnvio.Pdf($"Proposta {item.Codigo}", documento.GerarPdf());
+        }
+        if (DialogosEnvio.WhatsApp(this, mensagem, $"a proposta {item.Codigo}", "a proposta", anexo) is not { } telefone)
             return;
-        if (Mensagens.Confirmar(this, "A mensagem foi enviada pelo WhatsApp? Ao confirmar, o envio fica registrado no orçamento.", "WhatsApp"))
+        if (DialogosEnvio.EnvioDireto ||
+            Mensagens.Confirmar(this, "A mensagem foi enviada pelo WhatsApp? Ao confirmar, o envio fica registrado no orçamento.", "WhatsApp"))
         {
             await _propostas.RegistrarWhatsAppAsync(item.Id, telefone);
             await CarregarAsync();

@@ -38,7 +38,10 @@ public enum CanalLembrete
     Manual,
 
     /// <summary>E-mail enviado sozinho pelo sistema.</summary>
-    EmailAutomatico
+    EmailAutomatico,
+
+    /// <summary>WhatsApp enviado sozinho pelo sistema (Z-API).</summary>
+    WhatsAppAutomatico
 }
 
 /// <summary>

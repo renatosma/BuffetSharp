@@ -66,10 +66,10 @@ public class ComercialFunilIntegracaoTests(BancoFixture banco)
         Assert.Equal(lembretes.Count, lembretes.Select(l => l.Chave).Distinct().Count());
 
         var cobranca = lembretes.First(l => l.Tipo == TipoLembrete.ParcelaVencida);
-        var whatsApp = servico.PrepararWhatsApp(cobranca)!;
+        var whatsApp = (await servico.PrepararWhatsAppAsync(cobranca, Ct))!;
         Assert.Contains("venc", whatsApp.Texto);
-        Assert.Null(servico.PrepararWhatsApp(lembretes.FirstOrDefault(l => !LembreteService.TemMensagem(l.Tipo))
-                                               ?? cobranca with { Tipo = TipoLembrete.ContaPagarAVencer }));
+        Assert.Null(await servico.PrepararWhatsAppAsync(lembretes.FirstOrDefault(l => !LembreteService.TemMensagem(l.Tipo))
+                                                         ?? cobranca with { Tipo = TipoLembrete.ContaPagarAVencer }, Ct));
 
         await servico.MarcarTratadoAsync(cobranca, CanalLembrete.Manual, Ct);
         await servico.MarcarTratadoAsync(cobranca, CanalLembrete.Manual, Ct); // tratar de novo não duplica

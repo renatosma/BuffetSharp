@@ -19,4 +19,10 @@ public sealed class LembretesOptions
     /// quem tem e-mail. Desligado por padrão: com ele desligado, o envio é feito pela tela de lembretes.
     /// </summary>
     public bool EmailAutomatico { get; set; }
+
+    /// <summary>
+    /// Envia sozinho pelo WhatsApp do buffet (Z-API), no horário comercial, os lembretes ao cliente (parcela a vencer e vencida,
+    /// degustação, aniversário) para quem tem celular. Só vale com o envio direto do WhatsApp configurado.
+    /// </summary>
+    public bool WhatsAppAutomatico { get; set; }
 }

@@ -33,6 +33,7 @@ internal sealed class Robo : IDisposable
         Servicos = servicos;
         _vigia.Tick += (_, _) => TratarDialogos();
         _vigia.Start();
+        WinForms.Formularios.Comercial.DialogosEnvio.Envio = servicos.GetRequiredService<IEnvioWhatsApp>();
         WinForms.Infra.Mensagens.Interceptador = pagina =>
         {
             var erro = pagina.Icon == TaskDialogIcon.Error || pagina.Heading is "Não foi possível concluir" or "Verifique os campos";
@@ -114,6 +115,7 @@ internal sealed class Robo : IDisposable
     {
         _vigia.Dispose();
         WinForms.Infra.Mensagens.Interceptador = null;
+        WinForms.Formularios.Comercial.DialogosEnvio.Envio = null;
     }
 
     /// <summary>Processa a fila de mensagens até a condição ser verdadeira (operações assíncronas das telas).</summary>

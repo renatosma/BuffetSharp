@@ -46,8 +46,13 @@ As configurações ficam em `src/BuffetSharp.WinForms/appsettings.json`:
   só no `appsettings.Local.json`. Sem token, só o ambiente simulado funciona (nota de treino, sem valor fiscal).
 - `Asaas`: chaves da API do [Asaas](https://www.asaas.com) para o boleto e o PIX registrados (`ChaveSandbox` e `ChaveProducao`, só no
   `appsettings.Local.json`) e `IntervaloConsultaMinutos`, de quanto em quanto tempo os pagamentos são conferidos (0 = só pelo botão).
-- `Lembretes`: antecedência (em dias) para avisar das propostas, parcelas e contas a pagar que vencem, e
-  `EmailAutomatico` para enviar sozinho, depois do login, os e-mails de parcela a vencer, degustação e aniversário.
+- `Lembretes`: antecedência (em dias) para avisar das propostas, parcelas e contas a pagar que vencem,
+  `EmailAutomatico` para enviar sozinho os e-mails de parcela a vencer, degustação e aniversário, e `WhatsAppAutomatico`
+  para enviar sozinho pelo WhatsApp do buffet esses lembretes e o da parcela vencida (depois do login e a cada meia hora).
+- `WhatsApp`: `Modo` `Link` (padrão: abre o WhatsApp do computador com a mensagem pronta), `Pasta` (grava cada mensagem
+  em `.txt`, para treinar) ou `ZApi` (envia direto pelo número do buffet conectado na [Z-API](https://www.z-api.io), com
+  `Instancia`, `Token` e `ClientToken` só no `appsettings.Local.json`). `HorarioInicio` e `HorarioFim` limitam os envios
+  automáticos ao horário comercial.
 - `Backup`: pasta das cópias de segurança, cópia automática (a cada `IntervaloHoras`, depois do login), quantas cópias
   manter e o caminho do `pg_dump`/`mysqldump` (`Ferramenta`) quando não estiverem no PATH. No SQL Server, o próprio
   servidor grava o arquivo: num servidor em outra máquina, use uma pasta do servidor.
@@ -198,7 +203,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   orçamento preenchido; perdido, guarda o motivo e pode ser reaberto.
 - **Lembretes do dia**: propostas perto de vencer, degustações de hoje e amanhã, aniversários de clientes, retornos de
   leads, parcelas a vencer e vencidas, contas a pagar, materiais não devolvidos e tarefas atrasadas dos eventos, conforme
-  o perfil. As mensagens ao cliente saem prontas para o WhatsApp ou o e-mail (a cobrança leva o PIX "copia e cola");
+  o perfil. As mensagens ao cliente saem prontas para o WhatsApp ou o e-mail (a cobrança leva o boleto registrado ou o PIX "copia e cola");
   depois de tratado, o lembrete some. O painel mostra quantos há. Opcionalmente, os e-mails saem sozinhos.
 - **Reajuste de preços**: percentual sobre os pacotes, serviços e espaços, com arredondamento (centavos, real inteiro ou
   múltiplo de R$ 5), simulação antes de aplicar e vigência futura (aplicado sozinho na data). Pode ser desfeito.
@@ -257,8 +262,14 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 - **Backup e logs**: cópia de segurança do banco (SQL Server nativo, `pg_dump` ou `mysqldump`) feita sozinha uma vez por
   dia e sob demanda, com as últimas cópias guardadas e instruções de restauração. Erros e acessos vão para um log em
   arquivo por dia. A barra de status mostra o último backup.
-- **Envio da proposta**: por e-mail (corpo em HTML e proposta em PDF anexa) ou por WhatsApp (abre o
-  WhatsApp com o resumo pronto). Cada envio fica no histórico e o rascunho passa a "Enviado".
+- **Envio da proposta**: por e-mail (corpo em HTML e proposta em PDF anexa) ou por WhatsApp (com a Z-API, sai direto
+  pelo número do buffet, com a proposta em PDF; sem ela, abre o WhatsApp com o resumo pronto). Cada envio fica no
+  histórico e o rascunho passa a "Enviado".
+- **WhatsApp do buffet (Z-API)**: com o envio direto configurado, todos os botões de WhatsApp (lembretes, PIX, boleto
+  registrado, cotação, pedido de compra) enviam a mensagem revisada sem abrir o aplicativo. Os lembretes de parcela a
+  vencer e vencida (com o link do boleto/PIX registrado, quando houver), de degustação e de aniversário podem sair
+  sozinhos, uma única vez e só no horário comercial. O botão "WhatsApp do buffet" dos Lembretes mostra se o número está
+  conectado e envia uma mensagem de teste.
 - **Degustações**: agenda com limite de degustações por horário, avaliação de 1 a 5, faltas,
   cancelamento e taxa de conversão (clientes que fecharam depois da degustação).
 - **Modelos de contrato**: textos-base com campos como `{{CLIENTE_NOME}}`, `{{DATA_EVENTO_EXTENSO}}`,
@@ -332,17 +343,17 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **345 testes** (xUnit v3): 317 de domínio, integração e bancos, e 28 das telas.
+São **352 testes** (xUnit v3): 323 de domínio, integração e bancos, e 29 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
   parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, convidados excedentes, diárias da equipe, BR Code do
   PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada, leitura do XML da NF-e,
-  regras da NFS-e e o envio ao Focus NFe, cobrança registrada e a API do Asaas (HTTP simulado).
+  regras da NFS-e e o envio ao Focus NFe, cobrança registrada e a API do Asaas, e o envio pela Z-API (HTTP simulado).
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
-  backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, NFS-e, boleto/PIX registrado com baixa automática, ordem de produção,
+  backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, NFS-e, boleto/PIX registrado com baixa automática, lembretes automáticos pelo WhatsApp, ordem de produção,
   checklist, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 

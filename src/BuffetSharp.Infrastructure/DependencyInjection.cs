@@ -9,6 +9,7 @@ using BuffetSharp.Infrastructure.Persistencia;
 using BuffetSharp.Infrastructure.Persistencia.Provedores;
 using BuffetSharp.Infrastructure.Persistencia.Seed;
 using BuffetSharp.Infrastructure.Seguranca;
+using BuffetSharp.Infrastructure.WhatsApp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -61,6 +62,10 @@ public static class DependencyInjection
         // E-mail: usa a configuração registrada pela aplicação ou, na falta dela, grava em pasta local.
         services.TryAddSingleton(new EmailOptions());
         services.AddSingleton<IEnvioEmail, EnvioEmailSmtp>();
+
+        // WhatsApp: abre o aplicativo (padrão), grava em pasta ou envia direto pela Z-API, conforme a configuração.
+        services.TryAddSingleton(new WhatsAppOptions());
+        services.AddSingleton<IEnvioWhatsApp>(sp => new EnvioWhatsApp(sp.GetRequiredService<WhatsAppOptions>()));
 
         // Cópia de segurança: usa a configuração registrada pela aplicação ou, na falta dela, a padrão.
         services.TryAddSingleton(new BackupOptions());

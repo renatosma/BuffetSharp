@@ -26,6 +26,9 @@ public sealed class AmbienteTelas : IAsyncLifetime
     /// <summary>Pasta temporária onde os e-mails são gravados (modo "Pasta").</summary>
     public string PastaEmails { get; } = Path.Combine(Path.GetTempPath(), $"BuffetSharp_Emails_{Guid.NewGuid():N}");
 
+    /// <summary>Pasta temporária onde as mensagens de WhatsApp são gravadas (modo "Pasta": envio direto, sem abrir o aplicativo).</summary>
+    public string PastaWhatsApp { get; } = Path.Combine(Path.GetTempPath(), $"BuffetSharp_WhatsApp_{Guid.NewGuid():N}");
+
     public async ValueTask InitializeAsync()
     {
         // Mesmas variáveis dos testes de integração (BUFFETSHARP_TEST_PROVIDER / BUFFETSHARP_TEST_CONNECTION com {banco}).
@@ -55,6 +58,8 @@ public sealed class AmbienteTelas : IAsyncLifetime
                 ["BancoDeDados:Provedor"] = Environment.GetEnvironmentVariable("BUFFETSHARP_TEST_PROVIDER"),
                 ["Email:Modo"] = nameof(ModoEnvioEmail.Pasta),
                 ["Email:Pasta"] = PastaEmails,
+                ["WhatsApp:Modo"] = nameof(ModoEnvioWhatsApp.Pasta),
+                ["WhatsApp:Pasta"] = PastaWhatsApp,
                 // A janela principal faria a cópia de segurança do banco de teste a cada login.
                 ["Backup:Automatico"] = "false"
             })
@@ -72,5 +77,7 @@ public sealed class AmbienteTelas : IAsyncLifetime
 
         if (Directory.Exists(PastaEmails))
             Directory.Delete(PastaEmails, recursive: true);
+        if (Directory.Exists(PastaWhatsApp))
+            Directory.Delete(PastaWhatsApp, recursive: true);
     }
 }

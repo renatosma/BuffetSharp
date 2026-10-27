@@ -32,6 +32,7 @@ internal static class Program
         // Erros inesperados vão para o log em arquivo, além da mensagem na tela.
         var log = servicos.GetRequiredService<ILoggerFactory>().CreateLogger("BuffetSharp.Telas");
         Mensagens.Log = log;
+        Formularios.Comercial.DialogosEnvio.Envio = servicos.GetRequiredService<IEnvioWhatsApp>();
         System.Windows.Forms.Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         System.Windows.Forms.Application.ThreadException += (_, e) => Mensagens.Erro(Form.ActiveForm, e.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -97,6 +98,7 @@ internal static class Program
         services.AddSingleton(configuracao.GetSection(PixOptions.Secao).Get<PixOptions>() ?? new PixOptions());
         services.AddSingleton(configuracao.GetSection(NfseOptions.Secao).Get<NfseOptions>() ?? new NfseOptions());
         services.AddSingleton(configuracao.GetSection(AsaasOptions.Secao).Get<AsaasOptions>() ?? new AsaasOptions());
+        services.AddSingleton(configuracao.GetSection(WhatsAppOptions.Secao).Get<WhatsAppOptions>() ?? new WhatsAppOptions());
         services.AddAplicacao();
         services.AddInfraestrutura(configuracao.GetConnectionString("Buffet"),
             CatalogoProvedores.Interpretar(configuracao["BancoDeDados:Provedor"]));

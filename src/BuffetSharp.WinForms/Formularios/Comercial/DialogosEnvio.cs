@@ -31,26 +31,48 @@ internal static class DialogosEnvio
     }
 
     /// <summary>
-    /// Mostra a mensagem para revisão e abre o WhatsApp (aplicativo ou WhatsApp Web) com o texto preenchido.
-    /// Retorna o telefone usado, ou nulo se o usuário cancelar.
+    /// Envio de WhatsApp configurado na aplicação (definido no início). Com envio direto (Z-API ou pasta) a mensagem sai pelo
+    /// número do buffet; sem ele, o WhatsApp do computador é aberto com o texto pronto.
     /// </summary>
-    public static string? WhatsApp(IWin32Window dono, MensagemWhatsApp mensagem, string assunto)
+    internal static IEnvioWhatsApp? Envio { get; set; }
+
+    /// <summary>A mensagem sai direto pelo WhatsApp do buffet (não depende do usuário confirmar no aplicativo).</summary>
+    public static bool EnvioDireto => Envio?.Direto == true;
+
+    /// <summary>
+    /// Mostra a mensagem para revisão e envia pelo WhatsApp do buffet (envio direto) ou abre o WhatsApp (aplicativo ou WhatsApp
+    /// Web) com o texto preenchido. Retorna o telefone usado, ou nulo se o usuário cancelar.
+    /// </summary>
+    /// <param name="nomeAnexo">O que pode ir anexado (ex.: "a proposta"); só no envio direto.</param>
+    /// <param name="gerarAnexo">Gera o documento anexado quando a opção estiver marcada.</param>
+    public static string? WhatsApp(IWin32Window dono, MensagemWhatsApp mensagem, string assunto, string? nomeAnexo = null,
+        Func<AnexoEmail>? gerarAnexo = null)
     {
         var telefone = mensagem.Telefone;
         var texto = mensagem.Texto;
+        var direto = Envio is { Direto: true } envio ? envio : null;
+        var anexar = direto is not null && gerarAnexo is not null;
         var e = new EditorCampos(1);
         e.Mascara("Celular do cliente", "(00) 00000-0000", () => telefone, v => telefone = v ?? "", "Telefone");
         e.Texto("Mensagem", () => texto, v => texto = v ?? "", "Texto", 4000, linhas: 14);
+        if (direto is not null && gerarAnexo is not null)
+            e.Marcador($"Anexar {nomeAnexo} (PDF)", () => anexar, v => anexar = v);
 
         using var dialogo = new FormEdicao($"Enviar {assunto} por WhatsApp",
-            "O WhatsApp será aberto com a mensagem pronta; confirme o envio por lá.", e, () =>
+            direto is null
+                ? "O WhatsApp será aberto com a mensagem pronta; confirme o envio por lá."
+                : $"A mensagem sai direto pelo WhatsApp do buffet ({direto.Destino}).", e, async () =>
             {
                 var final = new MensagemWhatsApp(telefone, texto);
                 if (final.TelefoneInternacional.Length < 12)
                     throw new Domain.Comum.RegraNegocioException("Informe o celular do cliente com DDD.");
-                Process.Start(new ProcessStartInfo(final.Link) { UseShellExecute = true });
-                return Task.CompletedTask;
+                if (direto is null)
+                    Process.Start(new ProcessStartInfo(final.Link) { UseShellExecute = true });
+                else
+                    await direto.EnviarAsync(final.TelefoneInternacional, texto, anexar && gerarAnexo is not null ? gerarAnexo() : null);
             }, 600);
+        if (direto is not null)
+            dialogo.TextoSalvar("Enviar");
         return dialogo.ShowDialog(dono) == DialogResult.OK ? telefone : null;
     }
 

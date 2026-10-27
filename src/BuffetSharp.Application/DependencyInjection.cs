@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.TryAddSingleton(new PixOptions());
         services.TryAddSingleton(new NfseOptions());
         services.TryAddSingleton(new AsaasOptions());
+        services.TryAddSingleton(new WhatsAppOptions());
         return services;
     }
 }
