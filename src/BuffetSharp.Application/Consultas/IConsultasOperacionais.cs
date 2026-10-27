@@ -168,7 +168,13 @@ public sealed record ParcelaResumo
     /// <summary>Natureza da forma (cartão de crédito, débito, PIX...): a do pagamento, ou a prevista se em aberto.</summary>
     public TipoFormaPagamento? TipoFormaPagamento { get; init; }
     public int DiasAtraso { get; init; }
+
+    /// <summary>Boleto/PIX registrado: pendente ou pago pela cobrança.</summary>
+    public int CobrancasPendentes { get; init; }
+    public int CobrancasPagas { get; init; }
+
     public string EventoCodigo => $"EVT-{EventoId:D5}";
+    public string Cobranca => CobrancasPendentes > 0 ? "Emitida" : CobrancasPagas > 0 ? "Paga" : string.Empty;
 }
 
 public sealed record ContaPagarResumo

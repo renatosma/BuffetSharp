@@ -1,5 +1,6 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
+using BuffetSharp.Infrastructure.Cobranca;
 using BuffetSharp.Infrastructure.Consultas;
 using BuffetSharp.Infrastructure.Email;
 using BuffetSharp.Infrastructure.Fiscal;
@@ -55,6 +56,7 @@ public static class DependencyInjection
         services.AddSingleton<IConsultasEquipe, ConsultasEquipe>();
         services.AddSingleton<IConsultasCompras, ConsultasCompras>();
         services.AddSingleton<IConsultasFiscais, ConsultasFiscais>();
+        services.AddSingleton<IConsultasCobrancas, ConsultasCobrancas>();
 
         // E-mail: usa a configuração registrada pela aplicação ou, na falta dela, grava em pasta local.
         services.TryAddSingleton(new EmailOptions());
@@ -67,6 +69,10 @@ public static class DependencyInjection
         // NFS-e pelo Focus NFe (token na configuração da máquina; sem ela, só o ambiente simulado funciona).
         services.TryAddSingleton(new NfseOptions());
         services.AddSingleton<IProvedorNfse>(sp => new ProvedorNfseFocus(sp.GetRequiredService<NfseOptions>()));
+
+        // Boleto e PIX registrados pelo Asaas (chave da API na configuração da máquina; sem ela, só o ambiente simulado).
+        services.TryAddSingleton(new AsaasOptions());
+        services.AddSingleton<IProvedorCobranca>(sp => new ProvedorCobrancaAsaas(sp.GetRequiredService<AsaasOptions>()));
 
         services.AddSingleton<IGeradorQrCode, GeradorQrCode>();
         services.AddSingleton<IHasherSenha, HasherSenhaPbkdf2>();

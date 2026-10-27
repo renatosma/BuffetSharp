@@ -69,6 +69,21 @@ internal sealed class FormContasReceber : FormTitulos<ParcelaResumo>
             }
             await DialogoPix.ExibirAsync(this, _navegador, p.Id, p.Valor, $"{p.Descricao} - {p.EventoCodigo}", p.ClienteId, p.Cliente);
         }, "QR Code e código copia e cola da parcela");
+        Botao("Boleto / PIX registrado", Icones.Documento, async () =>
+        {
+            if (Selecionado() is not { } p)
+                return;
+            if (p.Status != StatusTitulo.Aberto && p.CobrancasPendentes == 0)
+            {
+                Mensagens.Aviso(this, "Selecione uma parcela em aberto.");
+                return;
+            }
+            if (await DialogosCobranca.EmitirAsync(this, _navegador, p.Id))
+            {
+                await CarregarAsync();
+                Grade.Selecionar(x => x.Id == p.Id);
+            }
+        }, "Cobrança registrada no Asaas: o pagamento baixa a parcela sozinho");
         Botao("Estornar", Icones.Desfazer, async () =>
         {
             if (Selecionado() is not { } p)
@@ -105,6 +120,7 @@ internal sealed class FormContasReceber : FormTitulos<ParcelaResumo>
             .Data("Pago em", p => p.DataPagamento, peso: 18)
             .Moeda("Valor pago", p => p.ValorPago, 20)
             .Texto("Recebido com", p => PainelPagamento.PagoCom(p.Status, p.FormaPagamento, p.TipoFormaPagamento), 26)
+            .Texto("Boleto/PIX", p => p.Cobranca, 14, p => p.CobrancasPendentes > 0 ? Tema.Info : p.CobrancasPagas > 0 ? Tema.Sucesso : null)
             .Busca(p => $"{p.Cliente} {p.EventoCodigo} {p.EventoTitulo} {p.Descricao} {p.FormaPagamento} " +
                         PainelPagamento.PagoCom(p.Status, p.FormaPagamento, p.TipoFormaPagamento));
     }

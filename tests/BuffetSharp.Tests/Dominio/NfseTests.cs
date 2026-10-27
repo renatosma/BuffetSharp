@@ -64,7 +64,7 @@ public class NfseTests
             Validador.Validar(new ConfiguracaoFiscal { Cnpj = "11222333000100", CodigoMunicipio = "35503" }));
         Assert.Contains(erro.Erros, e => e.MemberNames.Contains(nameof(ConfiguracaoFiscal.Cnpj)));
         Assert.Contains(erro.Erros, e => e.MemberNames.Contains(nameof(ConfiguracaoFiscal.CodigoMunicipio)));
-        Assert.Throws<ValidacaoException>(() => Validador.Validar(new ConfiguracaoFiscal { AliquotaIss = 6 }));
+        Assert.Throws<ValidacaoException>(() => Validador.Validar(new ConfiguracaoFiscal { AliquotaIss = 5.01m }));
     }
 
     // ============================== Nota ==============================

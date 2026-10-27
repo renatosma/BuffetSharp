@@ -52,6 +52,15 @@ internal static class Textos
         StatusRecebimento.Estornado => "Estornado",
         StatusNotaEntrada.Lancada => "Lançada",
         StatusNotaEntrada.Cancelada => "Cancelada",
+        StatusCobranca.Pendente => "Pendente",
+        StatusCobranca.Paga => "Paga",
+        StatusCobranca.Cancelada => "Cancelada",
+        TipoCobranca.Boleto => "Boleto (com PIX)",
+        TipoCobranca.Pix => "PIX",
+        TipoCobranca.ClienteEscolhe => "Cliente escolhe na fatura",
+        AmbienteCobranca.Simulado => "Simulado (treino, sem cobrança de verdade)",
+        AmbienteCobranca.Sandbox => "Sandbox do Asaas (testes)",
+        AmbienteCobranca.Producao => "Produção (cobrança de verdade)",
         StatusNfse.Processando => "Aguardando prefeitura",
         StatusNfse.Autorizada => "Autorizada",
         StatusNfse.Erro => "Recusada",
@@ -168,6 +177,9 @@ internal static class Textos
         StatusRecebimento.Estornado => Tema.Neutro,
         StatusNotaEntrada.Lancada => Tema.Sucesso,
         StatusNotaEntrada.Cancelada => Tema.Neutro,
+        StatusCobranca.Pendente => Tema.Info,
+        StatusCobranca.Paga => Tema.Sucesso,
+        StatusCobranca.Cancelada => Tema.Neutro,
         StatusNfse.Processando => Tema.Alerta,
         StatusNfse.Autorizada => Tema.Sucesso,
         StatusNfse.Erro => Tema.Perigo,
@@ -221,7 +233,8 @@ internal static class Textos
         ["CotacaoCompra"] = "Cotação de compra", ["CotacaoItem"] = "Produto da cotação", ["CotacaoParticipante"] = "Participante da cotação",
         ["CotacaoPreco"] = "Preço da cotação", ["RecebimentoCompra"] = "Recebimento de compra", ["RecebimentoItem"] = "Item recebido",
         ["NotaFiscalEntrada"] = "Nota fiscal de entrada", ["ConfiguracaoFiscal"] = "Configuração fiscal (NFS-e)",
-        ["NotaFiscalServico"] = "Nota fiscal de serviço (NFS-e)"
+        ["NotaFiscalServico"] = "Nota fiscal de serviço (NFS-e)", ["ConfiguracaoCobranca"] = "Configuração da cobrança",
+        ["CobrancaRegistrada"] = "Cobrança registrada (boleto/PIX)"
     };
 
     /// <summary>Nome amigável da entidade gravado na auditoria.</summary>

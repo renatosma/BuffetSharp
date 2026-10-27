@@ -44,6 +44,8 @@ As configurações ficam em `src/BuffetSharp.WinForms/appsettings.json`:
   cobrança por PIX fica desligada.
 - `Nfse`: tokens do [Focus NFe](https://focusnfe.com.br) para emitir a NFS-e (`TokenHomologacao` e `TokenProducao`). Coloque-os
   só no `appsettings.Local.json`. Sem token, só o ambiente simulado funciona (nota de treino, sem valor fiscal).
+- `Asaas`: chaves da API do [Asaas](https://www.asaas.com) para o boleto e o PIX registrados (`ChaveSandbox` e `ChaveProducao`, só no
+  `appsettings.Local.json`) e `IntervaloConsultaMinutos`, de quanto em quanto tempo os pagamentos são conferidos (0 = só pelo botão).
 - `Lembretes`: antecedência (em dias) para avisar das propostas, parcelas e contas a pagar que vencem, e
   `EmailAutomatico` para enviar sozinho, depois do login, os e-mails de parcela a vencer, degustação e aniversário.
 - `Backup`: pasta das cópias de segurança, cópia automática (a cada `IntervaloHoras`, depois do login), quantas cópias
@@ -233,6 +235,14 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   funcionário, na categoria Pessoal. O fechamento pode ser desfeito enquanto a conta não foi paga.
 - **Cobrança por PIX**: QR Code e código "copia e cola" de cada parcela (BR Code do Banco Central), para copiar, salvar
   ou enviar pelo WhatsApp ou por e-mail (com o QR Code anexo).
+- **Boleto e PIX registrados (Asaas)**: em Contas a receber, o botão "Boleto / PIX registrado" emite a cobrança da parcela
+  (boleto com QR Code do PIX, só PIX, ou o cliente escolhe na página da fatura), com multa e juros, e mostra a linha
+  digitável, o PIX "copia e cola" e o QR Code para copiar ou enviar por WhatsApp e e-mail (com o link da fatura). Depois do
+  login e a cada intervalo configurado, o sistema pergunta ao Asaas quais cobranças foram pagas e baixa as parcelas sozinho
+  na conta configurada (com os juros, pela forma PIX, boleto ou cartão). O que não dá para baixar (parcela já recebida por
+  outro meio, por exemplo) fica com o aviso em Financeiro › Cobranças (boleto e PIX), que também mostra a taxa, cancela e
+  dá a segunda via. Com boleto pendente, o plano de pagamento do evento não pode ser refeito nem o evento cancelado. O
+  ambiente **simulado** tem o botão "Simular pagamento" para treinar; o **sandbox** é a conta de testes do Asaas.
 - **NFS-e (nota fiscal de serviço)**: uma nota por evento, emitida pelo botão "NFS-e" da tela do evento, com o cliente
   como tomador, o valor do evento (pode ser menor) e a descrição montada do modelo da configuração fiscal (evento, data,
   convidados, local). A emissão vai pelo Focus NFe, que fala com a prefeitura: a nota fica "aguardando prefeitura" até a
@@ -322,17 +332,17 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **332 testes** (xUnit v3): 305 de domínio, integração e bancos, e 27 das telas.
+São **345 testes** (xUnit v3): 317 de domínio, integração e bancos, e 28 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
   parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, convidados excedentes, diárias da equipe, BR Code do
   PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada, leitura do XML da NF-e,
-  regras da NFS-e e o envio ao Focus NFe (HTTP simulado).
+  regras da NFS-e e o envio ao Focus NFe, cobrança registrada e a API do Asaas (HTTP simulado).
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
-  backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, NFS-e, ordem de produção,
+  backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, NFS-e, boleto/PIX registrado com baixa automática, ordem de produção,
   checklist, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 

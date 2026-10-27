@@ -189,7 +189,9 @@ internal sealed class ConsultasFinanceiro(FabricaConexao conexoes) : IConsultasF
     {
         const string sql = """
             SELECT p.Id, p.EventoId, e.Titulo AS EventoTitulo, e.ClienteId, c.Nome AS Cliente, p.Numero, p.Descricao, p.Vencimento,
-                   p.Valor, p.Status, p.DataPagamento, p.ValorPago, f.Nome AS FormaPagamento, f.Tipo AS TipoFormaPagamento
+                   p.Valor, p.Status, p.DataPagamento, p.ValorPago, f.Nome AS FormaPagamento, f.Tipo AS TipoFormaPagamento,
+                   (SELECT COUNT(*) FROM CobrancasRegistradas cr WHERE cr.ParcelaId = p.Id AND cr.Status = 'Pendente') AS CobrancasPendentes,
+                   (SELECT COUNT(*) FROM CobrancasRegistradas cr WHERE cr.ParcelaId = p.Id AND cr.Status = 'Paga') AS CobrancasPagas
               FROM Parcelas p
               JOIN Eventos e ON e.Id = p.EventoId
               JOIN Clientes c ON c.Id = e.ClienteId

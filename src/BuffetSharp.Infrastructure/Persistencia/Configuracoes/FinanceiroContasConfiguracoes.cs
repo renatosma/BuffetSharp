@@ -1,4 +1,5 @@
 using BuffetSharp.Domain.Cadastros;
+using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -97,5 +98,43 @@ internal sealed class BaixaFormaConfig : IEntityTypeConfiguration<BaixaForma>
         b.HasOne(x => x.Movimento).WithOne().HasForeignKey<MovimentoConta>(x => x.BaixaFormaId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(x => x.Faturas).WithOne(x => x.OrigemBaixaForma).HasForeignKey(x => x.OrigemBaixaFormaId).OnDelete(DeleteBehavior.Restrict);
         b.Navigation(x => x.Faturas).HasField("_faturas");
+    }
+}
+
+internal sealed class ConfiguracaoCobrancaConfig : IEntityTypeConfiguration<ConfiguracaoCobranca>
+{
+    public void Configure(EntityTypeBuilder<ConfiguracaoCobranca> b)
+    {
+        b.ToTable("ConfiguracoesCobranca");
+        b.Property(x => x.MultaPercentual).HasPrecision(5, 2);
+        b.Property(x => x.JurosMensalPercentual).HasPrecision(5, 2);
+        b.HasOne<ContaFinanceira>().WithMany().HasForeignKey(x => x.ContaFinanceiraId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class CobrancaRegistradaConfig : IEntityTypeConfiguration<CobrancaRegistrada>
+{
+    public void Configure(EntityTypeBuilder<CobrancaRegistrada> b)
+    {
+        b.ToTable("CobrancasRegistradas");
+        b.Property(x => x.Descricao).HasMaxLength(Parcela.TamanhoDescricao).IsRequired();
+        b.Property(x => x.Referencia).HasMaxLength(30).IsRequired();
+        b.Property(x => x.IdExterno).HasMaxLength(60);
+        b.Property(x => x.ClienteExterno).HasMaxLength(60);
+        b.Property(x => x.LinhaDigitavel).HasMaxLength(60);
+        b.Property(x => x.NossoNumero).HasMaxLength(30);
+        b.Property(x => x.UrlBoleto).HasMaxLength(500);
+        b.Property(x => x.UrlFatura).HasMaxLength(500);
+        b.Property(x => x.PixCopiaECola).HasMaxLength(600);
+        b.Property(x => x.Mensagem).HasMaxLength(500);
+        b.Property(x => x.Usuario).HasMaxLength(50);
+
+        // Refazer o plano de pagamento exclui as parcelas em aberto: a cobrança (já cancelada) fica com o evento e a descrição.
+        b.HasOne(x => x.Parcela).WithMany().HasForeignKey(x => x.ParcelaId).OnDelete(DeleteBehavior.SetNull);
+        b.HasOne<Evento>().WithMany().HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.Referencia).IsUnique();
+        b.HasIndex(x => new { x.Status, x.ParcelaId });
+        b.HasIndex(x => x.EventoId);
+        b.HasIndex(x => x.SolicitadaEm);
     }
 }

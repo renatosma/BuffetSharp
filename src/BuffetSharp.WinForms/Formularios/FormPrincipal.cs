@@ -32,6 +32,9 @@ internal sealed class FormPrincipal : FormBase
     private readonly IBackupBanco _backup;
     private readonly ILogger<FormPrincipal> _log;
     private readonly ToolStripStatusLabel _statusBackup = new() { ForeColor = Tema.TextoSuave };
+    private readonly ToolStripStatusLabel _statusCobrancas = new() { ForeColor = Tema.TextoSuave };
+    private readonly System.Windows.Forms.Timer _consultaCobrancas = new();
+    private bool _verificandoCobrancas;
     private readonly TabControl _abas;
     private Button? _itemAtivo;
 
@@ -70,7 +73,7 @@ internal sealed class FormPrincipal : FormBase
         Controls.Add(conteudo);
         Controls.Add(CriarBarraSuperior(usuario));
         Controls.Add(CriarMenuLateral(usuario));
-        Controls.Add(CriarBarraStatus(usuario, banco, _statusBackup));
+        Controls.Add(CriarBarraStatus(usuario, banco, _statusBackup, _statusCobrancas));
     }
 
     protected override void OnLoad(EventArgs e)
@@ -80,6 +83,55 @@ internal sealed class FormPrincipal : FormBase
         _navegador.Abrir<FormDashboard>();
         _ = BackupAutomaticoAsync();
         _ = RotinasDiariasAsync();
+        IniciarConsultaCobrancas();
+    }
+
+    /// <summary>
+    /// Confere os pagamentos dos boletos/PIX registrados logo depois do login e a cada intervalo configurado (seção "Asaas"),
+    /// baixando as parcelas pagas. Falhas ficam no log e na barra de status, sem interromper o usuário.
+    /// </summary>
+    private void IniciarConsultaCobrancas()
+    {
+        var minutos = _navegador.Servico<AsaasOptions>().IntervaloConsultaMinutos;
+        if (minutos <= 0)
+            return;
+        _consultaCobrancas.Interval = (int)TimeSpan.FromMinutes(minutos).TotalMilliseconds;
+        _consultaCobrancas.Tick += async (_, _) => await VerificarCobrancasAsync();
+        _consultaCobrancas.Start();
+        _ = VerificarCobrancasAsync();
+    }
+
+    private async Task VerificarCobrancasAsync()
+    {
+        if (_verificandoCobrancas)
+            return;
+        _verificandoCobrancas = true;
+        try
+        {
+            var resultado = await Task.Run(() => _navegador.Servico<CobrancaService>().VerificarPagamentosAsync());
+            if (IsDisposed)
+                return;
+            if (resultado.Pagas > 0)
+            {
+                _statusCobrancas.Text = $"Boleto/PIX: {resultado.Pagas} pagamento(s) recebido(s) às {DateTime.Now:HH:mm}";
+                _statusCobrancas.ForeColor = Tema.Sucesso;
+            }
+            if (resultado.Avisos.Count > 0)
+                _log.LogWarning("Conferência dos boletos/PIX: {Avisos}", string.Join(" | ", resultado.Avisos));
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "A conferência dos pagamentos dos boletos/PIX falhou");
+            if (!IsDisposed)
+            {
+                _statusCobrancas.Text = "Boleto/PIX: não foi possível conferir os pagamentos";
+                _statusCobrancas.ForeColor = Tema.Alerta;
+            }
+        }
+        finally
+        {
+            _verificandoCobrancas = false;
+        }
     }
 
     /// <summary>
@@ -144,6 +196,7 @@ internal sealed class FormPrincipal : FormBase
             e.Cancel = true;
             return;
         }
+        _consultaCobrancas.Stop();
         _navegador.FecharTodas();
         base.OnFormClosing(e);
     }
@@ -189,6 +242,7 @@ internal sealed class FormPrincipal : FormBase
             new("FINANCEIRO", "Caixa e bancos", Icones.Dinheiro, [Adm, Fin], () => n.Abrir<FormContasFinanceiras>()),
             new("FINANCEIRO", "Comissões", Icones.Dinheiro, [Adm, Fin], () => n.Abrir<FormComissoes>()),
             new("FINANCEIRO", "Pagamento da equipe", Icones.Pessoas, [Adm, Fin], () => n.Abrir<FormPagamentoEquipe>()),
+            new("FINANCEIRO", "Cobranças (boleto e PIX)", Icones.Documento, [Adm, Fin], () => n.Abrir<FormCobrancas>()),
             new("FINANCEIRO", "Notas fiscais de serviço", Icones.Pagina, [Adm, Fin], () => n.Abrir<FormNotasServico>()),
             new("FINANCEIRO", "Relatórios", Icones.Calculadora, [Adm, Fin], () => n.Abrir<FormRelatorios>()),
 
@@ -355,13 +409,15 @@ internal sealed class FormPrincipal : FormBase
         return barra;
     }
 
-    private static Control CriarBarraStatus(UsuarioLogado usuario, FabricaConexao conexoes, ToolStripStatusLabel backup)
+    private static Control CriarBarraStatus(UsuarioLogado usuario, FabricaConexao conexoes, ToolStripStatusLabel backup,
+        ToolStripStatusLabel cobrancas)
     {
         var banco = conexoes.Provedor.DescreverConexao(conexoes.ConnectionString);
 
         var status = new StatusStrip { BackColor = Tema.Fundo, SizingGrip = false };
         status.Items.Add(new ToolStripStatusLabel($"Banco: {banco}") { ForeColor = Tema.TextoSuave });
         status.Items.Add(backup);
+        status.Items.Add(cobrancas);
         status.Items.Add(new ToolStripStatusLabel { Spring = true });
         status.Items.Add(new ToolStripStatusLabel($"Usuário: {usuario.Login} ({Textos.Exibir(usuario.Perfil)})") { ForeColor = Tema.TextoSuave });
         status.Items.Add(new ToolStripStatusLabel($"v{typeof(FormPrincipal).Assembly.GetName().Version?.ToString(3)}  •  .NET {Environment.Version.ToString(2)}")

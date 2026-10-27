@@ -258,8 +258,9 @@ public sealed class EventoService(
     // ------------------------- Financeiro -------------------------
 
     public Task GerarParcelasAsync(int eventoId, PlanoPagamentoInput plano, CancellationToken ct = default) =>
-        AlterarAsync(eventoId, q => q.Include(e => e.Parcelas), (_, e) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Parcelas), async (db, e) =>
         {
+            await GarantirSemCobrancaPendenteAsync(db, eventoId, "refazer o plano de pagamento", ct);
             if (plano.Vencimentos is { Count: > 0 } vencimentos)
                 e.GerarParcelas(vencimentos.Select(v => v.ParaPlanejado()).ToList(), plano.FormaPagamentoId);
             else
@@ -411,7 +412,21 @@ public sealed class EventoService(
     }
 
     public Task CancelarAsync(int eventoId, string motivo, CancellationToken ct = default) =>
-        AlterarAsync(eventoId, q => q.Include(e => e.Parcelas), (_, e) => e.Cancelar(motivo), ct);
+        AlterarAsync(eventoId, q => q.Include(e => e.Parcelas), async (db, e) =>
+        {
+            await GarantirSemCobrancaPendenteAsync(db, eventoId, "cancelar o evento", ct);
+            e.Cancelar(motivo);
+        }, ct);
+
+    /// <summary>Parcela em aberto com boleto/PIX registrado pendente: o cliente ainda pode pagar, então a cobrança sai antes.</summary>
+    private static async Task GarantirSemCobrancaPendenteAsync(IBuffetDbContext db, int eventoId, string acao, CancellationToken ct)
+    {
+        var pendentes = await db.CobrancasRegistradas.Where(c => c.EventoId == eventoId && c.Status == StatusCobranca.Pendente)
+            .Select(c => c.Descricao).ToListAsync(ct);
+        Validador.Garantir(pendentes.Count == 0,
+            $"Há boleto/PIX registrado pendente ({string.Join(", ", pendentes)}). Cancele a cobrança em Financeiro › Cobranças (boleto e PIX) " +
+            $"antes de {acao}.");
+    }
 
     // ------------------------- Infra -------------------------
 

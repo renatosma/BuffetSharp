@@ -64,6 +64,8 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
     public DbSet<ReajustePreco> ReajustesPreco => Set<ReajustePreco>();
     public DbSet<ModeloChecklist> ModelosChecklist => Set<ModeloChecklist>();
     public DbSet<FechamentoEquipe> FechamentosEquipe => Set<FechamentoEquipe>();
+    public DbSet<ConfiguracaoCobranca> ConfiguracoesCobranca => Set<ConfiguracaoCobranca>();
+    public DbSet<CobrancaRegistrada> CobrancasRegistradas => Set<CobrancaRegistrada>();
     public DbSet<ConfiguracaoFiscal> ConfiguracoesFiscais => Set<ConfiguracaoFiscal>();
     public DbSet<NotaFiscalServico> NotasFiscaisServico => Set<NotaFiscalServico>();
     public DbSet<RegistroAuditoria> RegistrosAuditoria => Set<RegistroAuditoria>();

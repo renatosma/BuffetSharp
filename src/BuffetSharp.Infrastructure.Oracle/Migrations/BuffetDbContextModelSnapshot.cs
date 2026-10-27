@@ -4003,6 +4003,230 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.ToTable("CARTOESCREDITO", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.CobrancaRegistrada", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Ambiente")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("AMBIENTE");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<bool>("Baixada")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("BAIXADA");
+
+                    b.Property<DateTime?>("CanceladaEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CANCELADAEM");
+
+                    b.Property<string>("ClienteExterno")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("CLIENTEEXTERNO");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<DateTime?>("DataPagamento")
+                        .HasColumnType("DATE")
+                        .HasColumnName("DATAPAGAMENTO");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("DESCRICAO");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("EVENTOID");
+
+                    b.Property<string>("IdExterno")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("IDEXTERNO");
+
+                    b.Property<string>("LinhaDigitavel")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("LINHADIGITAVEL");
+
+                    b.Property<string>("Mensagem")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("MENSAGEM");
+
+                    b.Property<string>("NossoNumero")
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("NOSSONUMERO");
+
+                    b.Property<string>("PagaCom")
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("PAGACOM");
+
+                    b.Property<int?>("ParcelaId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("PARCELAID");
+
+                    b.Property<string>("PixCopiaECola")
+                        .HasMaxLength(600)
+                        .HasColumnType("NVARCHAR2(600)")
+                        .HasColumnName("PIXCOPIAECOLA");
+
+                    b.Property<string>("Referencia")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("REFERENCIA");
+
+                    b.Property<DateTime>("SolicitadaEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("SOLICITADAEM");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("STATUS");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("TIPO");
+
+                    b.Property<string>("UrlBoleto")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("URLBOLETO");
+
+                    b.Property<string>("UrlFatura")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("URLFATURA");
+
+                    b.Property<string>("Usuario")
+                        .HasMaxLength(50)
+                        .HasColumnType("NVARCHAR2(50)")
+                        .HasColumnName("USUARIO");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("VALOR");
+
+                    b.Property<decimal?>("ValorLiquido")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("VALORLIQUIDO");
+
+                    b.Property<decimal?>("ValorPago")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("VALORPAGO");
+
+                    b.Property<DateTime>("Vencimento")
+                        .HasColumnType("DATE")
+                        .HasColumnName("VENCIMENTO");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_COBRANCASREGISTRADAS");
+
+                    b.HasIndex("EventoId")
+                        .HasDatabaseName("IX_COBRANCASREGISTRADAS_EVENTOID");
+
+                    b.HasIndex("ParcelaId")
+                        .HasDatabaseName("IX_COBRANCASREGISTRADAS_PARCELAID");
+
+                    b.HasIndex("Referencia")
+                        .IsUnique()
+                        .HasDatabaseName("IX_COBRANCASREGISTRADAS_REFERENCIA");
+
+                    b.HasIndex("SolicitadaEm")
+                        .HasDatabaseName("IX_COBRANCASREGISTRADAS_SOLICITADAEM");
+
+                    b.HasIndex("Status", "ParcelaId")
+                        .HasDatabaseName("IX_COBRANCASREGISTRADAS_STATUS_PARCELAID");
+
+                    b.ToTable("COBRANCASREGISTRADAS", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ConfiguracaoCobranca", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Ambiente")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("AMBIENTE");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<int?>("ContaFinanceiraId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("CONTAFINANCEIRAID");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<decimal>("JurosMensalPercentual")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("DECIMAL(5,2)")
+                        .HasColumnName("JUROSMENSALPERCENTUAL");
+
+                    b.Property<decimal>("MultaPercentual")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("DECIMAL(5,2)")
+                        .HasColumnName("MULTAPERCENTUAL");
+
+                    b.Property<string>("TipoPadrao")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("TIPOPADRAO");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_CONFIGURACOESCOBRANCA");
+
+                    b.HasIndex("ContaFinanceiraId")
+                        .HasDatabaseName("IX_CONFIGURACOESCOBRANCA_CONTAFINANCEIRAID");
+
+                    b.ToTable("CONFIGURACOESCOBRANCA", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ContaFinanceira", b =>
                 {
                     b.Property<int>("Id")
@@ -5893,6 +6117,33 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasConstraintName("FK_CARTOESCREDITO_FORNECEDORES_FORNECEDORID");
 
                     b.Navigation("Fornecedor");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.CobrancaRegistrada", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany()
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_COBRANCASREGISTRADAS_EVENTOS_EVENTOID");
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.Parcela", "Parcela")
+                        .WithMany()
+                        .HasForeignKey("ParcelaId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_COBRANCASREGISTRADAS_PARCELAS_PARCELAID");
+
+                    b.Navigation("Parcela");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ConfiguracaoCobranca", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ContaFinanceira", null)
+                        .WithMany()
+                        .HasForeignKey("ContaFinanceiraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_CONFIGURACOESCOBRANCA_CONTASFINANCEIRAS_CONTAFINANCEIRAID");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.ContaPagar", b =>

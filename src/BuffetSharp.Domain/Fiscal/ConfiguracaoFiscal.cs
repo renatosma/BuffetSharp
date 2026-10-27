@@ -64,7 +64,8 @@ public class ConfiguracaoFiscal : Entidade, IValidatableObject
     public string? CodigoCnae { get; set; }
 
     /// <summary>Alíquota do ISS em % (2% a 5%).</summary>
-    [Range(0, 5, ErrorMessage = "A alíquota do ISS deve estar entre 0% e 5%.")]
+    [Range(typeof(decimal), "0", "5", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true,
+        ErrorMessage = "A alíquota do ISS deve estar entre 0% e 5%.")]
     public decimal AliquotaIss { get; set; } = 5;
 
     /// <summary>O tomador (cliente) retém o ISS.</summary>
