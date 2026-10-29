@@ -75,6 +75,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await CriarIndisponibilidadesAsync(ct);
         await CriarRegrasPrecoAsync(ct);
         await CriarListaEsperaAsync(ct);
+        await CriarPesquisasSatisfacaoAsync(ct);
     }
 
     // =====================================================================
@@ -1259,6 +1260,42 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                 Nome = "Réveillon", Tipo = TipoRegraPreco.DataEspecial, Percentual = 40, Data = new DateOnly(Hoje.Year, 12, 31), Anual = true,
                 Exclusiva = true, AjustaLocacao = true
             });
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Pesquisas de satisfação dos eventos realizados nos últimos cinco meses: a maioria respondida (com promotores, neutros e
+    /// alguns detratores), algumas sem resposta, e os dois eventos mais recentes ainda sem pesquisa (viram lembrete).
+    /// </summary>
+    private async Task CriarPesquisasSatisfacaoAsync(CancellationToken ct)
+    {
+        int[] notas = [10, 9, 10, 8, 9, 6, 10, 7, 9, 10, 3, 9];
+        string?[] comentarios =
+        [
+            "Comida maravilhosa, todos elogiaram!", null, "Equipe muito atenciosa, voltaremos com certeza.", "Gostamos, mas o som estava alto.",
+            null, "Atrasou a entrada do jantar e faltou bebida no fim.", "Perfeito do começo ao fim.", null, null, "A decoração ficou linda!",
+            "Tivemos problema com o ar-condicionado e ninguém resolveu.", null
+        ];
+        var realizados = _eventos.Where(e => e.Status == StatusEvento.Realizado && e.Fim >= Agora.AddDays(-150))
+            .OrderByDescending(e => e.Fim).Skip(2).ToList();
+        for (var i = 0; i < realizados.Count; i++)
+        {
+            var evento = realizados[i];
+            var pesquisa = new PesquisaSatisfacao(evento.Id);
+            pesquisa.RegistrarEnvio(evento.Fim.AddDays(1).Date.AddHours(10));
+            if (i % 6 != 5)
+            {
+                var nps = notas[i % notas.Length];
+                var area = nps >= 9 ? 5 : nps >= 7 ? 4 : 2;
+                pesquisa.RegistrarResposta(nps, area, Math.Min(5, area + i % 2), nps >= 9 ? 4 + i % 2 : area, area, comentarios[i % comentarios.Length],
+                    _vendedores[i % _vendedores.Count].Login, evento.Fim.AddDays(2).Date.AddHours(15));
+                if (nps <= 6 && i % 2 == 1)
+                    pesquisa.TratarDetrator("Ligamos, pedimos desculpas e oferecemos degustação cortesia no próximo evento.", evento.Fim.AddDays(3));
+                if (nps >= 9 && i % 3 == 0)
+                    pesquisa.RegistrarPedidoAvaliacao(evento.Fim.AddDays(2).Date.AddHours(16));
+            }
+            db.PesquisasSatisfacao.Add(pesquisa);
+        }
         await db.SaveChangesAsync(ct);
     }
 

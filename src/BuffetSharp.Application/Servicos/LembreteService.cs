@@ -30,6 +30,7 @@ public sealed class LembreteService(
     LembretesOptions opcoes,
     PixService pix,
     EsperaService esperas,
+    PesquisaService pesquisas,
     ISessaoUsuario sessao,
     TimeProvider relogio,
     ILogger<LembreteService> log)
@@ -40,13 +41,14 @@ public sealed class LembreteService(
     /// <summary>Tipos de lembrete com mensagem para o cliente (os demais são tarefas internas).</summary>
     public static bool TemMensagem(TipoLembrete tipo) => tipo is TipoLembrete.OrcamentoVencendo or TipoLembrete.Degustacao
         or TipoLembrete.Aniversario or TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida or TipoLembrete.RetornoLead
-        or TipoLembrete.EsperaData;
+        or TipoLembrete.EsperaData or TipoLembrete.PesquisaSatisfacao or TipoLembrete.AvaliacaoGoogle;
 
     /// <summary>Perfis que cuidam de cada tipo de lembrete (o administrador vê todos).</summary>
     public static PerfilUsuario[] Perfis(TipoLembrete tipo) => tipo switch
     {
         TipoLembrete.OrcamentoVencendo or TipoLembrete.Degustacao or TipoLembrete.Aniversario or TipoLembrete.RetornoLead
-            or TipoLembrete.EsperaData => [PerfilUsuario.Comercial],
+            or TipoLembrete.EsperaData or TipoLembrete.PesquisaSatisfacao or TipoLembrete.AvaliacaoGoogle => [PerfilUsuario.Comercial],
+        TipoLembrete.Detrator => [PerfilUsuario.Administrador],
         TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida or TipoLembrete.ContaPagarAVencer => [PerfilUsuario.Financeiro],
         _ => [PerfilUsuario.Operacional]
     };
@@ -66,6 +68,7 @@ public sealed class LembreteService(
 
         // A espera sai da lista quando o aviso é registrado (a fila anda sozinha), sem precisar de lembrete tratado.
         lembretes.AddRange(await esperas.LembretesAsync(ct));
+        lembretes.AddRange(await pesquisas.LembretesAsync(ct));
         if (lembretes.Count == 0)
             return [];
 
@@ -90,10 +93,21 @@ public sealed class LembreteService(
             return;
         }
 
-        if (lembrete.Tipo == TipoLembrete.EsperaData)
+        // Espera e pesquisa guardam o andamento nelas mesmas (a fila anda, a pesquisa fica enviada), sem lembrete tratado.
+        switch (lembrete.Tipo)
         {
-            await esperas.RegistrarAvisoAsync(lembrete.ReferenciaId, ct);
-            return;
+            case TipoLembrete.EsperaData:
+                await esperas.RegistrarAvisoAsync(lembrete.ReferenciaId, ct);
+                return;
+            case TipoLembrete.PesquisaSatisfacao:
+                await pesquisas.RegistrarEnvioAsync(lembrete.ReferenciaId, ct);
+                return;
+            case TipoLembrete.AvaliacaoGoogle:
+                await pesquisas.RegistrarPedidoAvaliacaoAsync(lembrete.ReferenciaId, ct);
+                return;
+            case TipoLembrete.Detrator:
+                await pesquisas.TratarDetratorAsync(lembrete.ReferenciaId, $"Resolvido nos lembretes por {sessao.Usuario?.Login ?? "usuário"}.", ct);
+                return;
         }
 
         if (await db.LembretesTratados.AnyAsync(t => t.Chave == lembrete.Chave, ct))
@@ -144,7 +158,7 @@ public sealed class LembreteService(
         int emails = 0, mensagens = 0;
         var horario = opcoesWhatsApp.DentroDoHorario(Agora);
         foreach (var lembrete in (await PendentesAsync(ct)).Where(l => l.Tipo is TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida
-                     or TipoLembrete.Degustacao or TipoLembrete.Aniversario))
+                     or TipoLembrete.Degustacao or TipoLembrete.Aniversario or TipoLembrete.PesquisaSatisfacao))
         {
             var celular = porWhatsApp && new MensagemWhatsApp(lembrete.Telefone ?? "", "").TelefoneInternacional.Length is 12 or 13;
             var comEmail = opcoes.EmailAutomatico && lembrete.Tipo != TipoLembrete.ParcelaVencida &&
@@ -218,6 +232,8 @@ public sealed class LembreteService(
         TipoLembrete.ParcelaAVencer => $"Parcela com vencimento em {l.Data:dd/MM/yyyy} | {empresa.NomeEmpresa}",
         TipoLembrete.ParcelaVencida => $"Parcela em aberto desde {l.Data:dd/MM/yyyy} | {empresa.NomeEmpresa}",
         TipoLembrete.EsperaData => $"A data que você queria ficou livre: {l.Data:dd/MM/yyyy} | {empresa.NomeEmpresa}",
+        TipoLembrete.PesquisaSatisfacao => $"Como foi a sua festa? (1 minuto) | {empresa.NomeEmpresa}",
+        TipoLembrete.AvaliacaoGoogle => $"Obrigado pela sua avaliação! | {empresa.NomeEmpresa}",
         _ => empresa.NomeEmpresa
     };
 
@@ -247,6 +263,16 @@ public sealed class LembreteService(
                 $"Boa notícia: a data que você queria para o seu evento, {negrito}{l.Data.ToString("dddd, dd/MM/yyyy", PtBr)}{negrito}, " +
                 $"ficou disponível. Como você está na nossa lista de espera, a prioridade é sua por {empresa.DiasRespostaEspera} dia(s). " +
                 "Vamos garantir a data?",
+            TipoLembrete.PesquisaSatisfacao =>
+                $"Esperamos que a sua festa{(l.Detalhe is { } festa ? $" ({festa.Split(" - ", 2).Last()})" : "")} tenha sido inesquecível! " +
+                "Pode nos ajudar com 1 minuto?\n\n" +
+                $"1) De 0 a 10, quanto você indicaria o {empresa.NomeEmpresa} a um amigo?\n" +
+                "2) De 1 a 5, que nota você dá para:\n   a) comida e bebida\n   b) atendimento da equipe\n   c) espaço e decoração\n" +
+                "   d) organização e pontualidade\n3) Quer deixar um comentário?\n\n" +
+                "Pode responder só com os números, por exemplo: 10, 5, 5, 4, 5.",
+            TipoLembrete.AvaliacaoGoogle =>
+                "Muito obrigado pela nota! Ficamos felizes de ter feito parte da sua festa. Se puder, deixe também a sua avaliação no Google: " +
+                $"{empresa.LinkAvaliacaoGoogle}\nIsso ajuda outras famílias a conhecerem o nosso trabalho.",
             TipoLembrete.RetornoLead =>
                 "Tudo bem? Estou retornando sobre o seu evento" + (l.Detalhe is { } tipo ? $" ({tipo.ToLower(PtBr)})" : "") +
                 ". Podemos conversar sobre datas, cardápios e valores?",

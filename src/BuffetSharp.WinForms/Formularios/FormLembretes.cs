@@ -54,9 +54,9 @@ internal sealed class FormLembretes : FormListagem<Lembrete>
 
     private static Color? Cor(TipoLembrete tipo) => tipo switch
     {
-        TipoLembrete.ParcelaVencida or TipoLembrete.MaterialNaoDevolvido => Tema.Perigo,
+        TipoLembrete.ParcelaVencida or TipoLembrete.MaterialNaoDevolvido or TipoLembrete.Detrator => Tema.Perigo,
         TipoLembrete.Aniversario => Tema.Destaque,
-        TipoLembrete.EsperaData => Tema.Sucesso,
+        TipoLembrete.EsperaData or TipoLembrete.AvaliacaoGoogle => Tema.Sucesso,
         TipoLembrete.ContaPagarAVencer or TipoLembrete.ParcelaAVencer => Tema.Alerta,
         _ => Tema.Info
     };
@@ -162,6 +162,9 @@ internal sealed class FormLembretes : FormListagem<Lembrete>
                 break;
             case TipoLembrete.EsperaData:
                 _navegador.Abrir<FormListaEspera>();
+                break;
+            case TipoLembrete.PesquisaSatisfacao or TipoLembrete.Detrator or TipoLembrete.AvaliacaoGoogle:
+                _navegador.Abrir<FormPesquisasSatisfacao>();
                 break;
             default:
                 if (lembrete.EventoId is { } eventoId)

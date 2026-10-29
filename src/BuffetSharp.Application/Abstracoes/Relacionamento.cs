@@ -14,6 +14,9 @@ public sealed class LembretesOptions
     /// <summary>Avisar das contas a pagar que vencem nos próximos N dias (e das vencidas).</summary>
     public int DiasContaPagar { get; set; } = 3;
 
+    /// <summary>Dias depois do evento realizado para mandar a pesquisa de satisfação.</summary>
+    public int DiasPesquisaSatisfacao { get; set; } = 1;
+
     /// <summary>
     /// Envia sozinho, depois do login, os e-mails de lembrete ao cliente (parcela a vencer, degustação, aniversário) para
     /// quem tem e-mail. Desligado por padrão: com ele desligado, o envio é feito pela tela de lembretes.
@@ -22,7 +25,7 @@ public sealed class LembretesOptions
 
     /// <summary>
     /// Envia sozinho pelo WhatsApp do buffet (Z-API), no horário comercial, os lembretes ao cliente (parcela a vencer e vencida,
-    /// degustação, aniversário) para quem tem celular. Só vale com o envio direto do WhatsApp configurado.
+    /// degustação, aniversário, pesquisa de satisfação) para quem tem celular. Só vale com o envio direto do WhatsApp configurado.
     /// </summary>
     public bool WhatsAppAutomatico { get; set; }
 }

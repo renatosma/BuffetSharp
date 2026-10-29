@@ -18,11 +18,12 @@ public class WhatsAppIntegracaoTests(BancoFixture banco)
     private LembreteService Servico(IEnvioWhatsApp envio, WhatsAppOptions opcoesWhatsApp, bool automatico = true) =>
         new(banco.Obter<IBuffetDbContextFactory>(), banco.Obter<IConsultasLembretes>(), banco.Obter<IEnvioEmail>(), envio, opcoesWhatsApp,
             banco.Obter<BuffetOptions>(), new LembretesOptions { WhatsAppAutomatico = automatico }, banco.Obter<PixService>(),
-            banco.Obter<EsperaService>(), banco.Obter<ISessaoUsuario>(), TimeProvider.System, banco.Obter<ILogger<LembreteService>>());
+            banco.Obter<EsperaService>(), banco.Obter<PesquisaService>(), banco.Obter<ISessaoUsuario>(), TimeProvider.System, banco.Obter<ILogger<LembreteService>>());
 
     [Fact]
     public async Task Lembretes_saem_uma_vez_pelo_whatsapp_so_no_horario()
     {
+        var inicio = DateTime.Now;
         var pasta = Path.Combine(Path.GetTempPath(), $"BuffetSharp_WhatsApp_{Guid.NewGuid():N}");
         var opcoes = new WhatsAppOptions { Modo = ModoEnvioWhatsApp.Pasta, Pasta = pasta, HorarioInicio = 0, HorarioFim = 24 };
         using var envio = new EnvioWhatsApp(opcoes);
@@ -38,7 +39,8 @@ public class WhatsAppIntegracaoTests(BancoFixture banco)
 
             var servico = Servico(envio, opcoes);
             var candidatos = (await servico.ListarAsync(Ct)).Where(l =>
-                l.Tipo is TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida or TipoLembrete.Degustacao or TipoLembrete.Aniversario &&
+                l.Tipo is TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida or TipoLembrete.Degustacao or TipoLembrete.Aniversario
+                    or TipoLembrete.PesquisaSatisfacao &&
                 new Application.Modelos.MensagemWhatsApp(l.Telefone ?? "", "").TelefoneInternacional.Length is 12 or 13).ToList();
             Assert.Contains(candidatos, l => l.Tipo == TipoLembrete.ParcelaVencida);
 
@@ -58,6 +60,9 @@ public class WhatsAppIntegracaoTests(BancoFixture banco)
         {
             await using var db = banco.Obter<IBuffetDbContextFactory>().Criar();
             await db.LembretesTratados.Where(t => t.Canal == CanalLembrete.WhatsAppAutomatico).ExecuteDeleteAsync(Ct);
+
+            // As pesquisas de satisfação enviadas pelo teste voltam a ficar pendentes.
+            await db.PesquisasSatisfacao.Where(p => p.RespondidaEm == null && p.EnviadaEm >= inicio).ExecuteDeleteAsync(Ct);
             if (Directory.Exists(pasta))
                 Directory.Delete(pasta, recursive: true);
         }

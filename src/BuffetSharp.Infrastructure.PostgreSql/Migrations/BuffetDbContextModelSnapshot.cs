@@ -4446,6 +4446,93 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("modelocronogramaitens", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.PesquisaSatisfacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<DateTime?>("AvaliacaoGooglePedidaEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("avaliacaogooglepedidaem");
+
+                    b.Property<string>("Comentario")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("comentario");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<DateTime?>("DetratorTratadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("detratortratadoem");
+
+                    b.Property<DateTime?>("EnviadaEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("enviadaem");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("eventoid");
+
+                    b.Property<int?>("NotaAtendimento")
+                        .HasColumnType("integer")
+                        .HasColumnName("notaatendimento");
+
+                    b.Property<int?>("NotaComida")
+                        .HasColumnType("integer")
+                        .HasColumnName("notacomida");
+
+                    b.Property<int?>("NotaEspaco")
+                        .HasColumnType("integer")
+                        .HasColumnName("notaespaco");
+
+                    b.Property<int?>("NotaOrganizacao")
+                        .HasColumnType("integer")
+                        .HasColumnName("notaorganizacao");
+
+                    b.Property<int?>("Nps")
+                        .HasColumnType("integer")
+                        .HasColumnName("nps");
+
+                    b.Property<string>("RegistradaPor")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("registradapor");
+
+                    b.Property<DateTime?>("RespondidaEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("respondidaem");
+
+                    b.Property<string>("TratativaDetrator")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("tratativadetrator");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("Id")
+                        .HasName("pk_pesquisassatisfacao");
+
+                    b.HasIndex("EventoId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_pesquisassatisfacao_eventoid");
+
+                    b.ToTable("pesquisassatisfacao", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Baixa", b =>
                 {
                     b.Property<int>("Id")
@@ -6878,6 +6965,18 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_modelocronogramaitens_modeloscronograma_modelocronogramaid");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.PesquisaSatisfacao", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", "Evento")
+                        .WithMany()
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_pesquisassatisfacao_eventos_eventoid");
+
+                    b.Navigation("Evento");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaForma", b =>

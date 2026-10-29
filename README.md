@@ -36,7 +36,7 @@ As configurações ficam em `src/BuffetSharp.WinForms/appsettings.json`:
 - `Buffet`: dados da empresa (impressos na proposta e no contrato), intervalo mínimo entre eventos no
   mesmo espaço (que também é o deslocamento da equipe entre eventos), descanso mínimo da equipe entre um trabalho e
   outro (`DescansoMinimoEquipeHoras`, 11 horas por padrão; 0 desliga), prazo de resposta da lista de espera
-  (`DiasRespostaEspera`), validade padrão dos orçamentos, foro do contrato,
+  (`DiasRespostaEspera`), link de avaliação no Google (`LinkAvaliacaoGoogle`), validade padrão dos orçamentos, foro do contrato,
   prazo para confirmar convidados e limite de degustações por horário.
 - `Email`: envio de propostas e contratos. No modo `Pasta` (padrão) cada e-mail vira um arquivo `.eml`
   em `EmailsEnviados`, sem sair da máquina. Para enviar de verdade, use `"Modo": "Smtp"` e preencha
@@ -265,6 +265,14 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   que não vai libera o lugar. Na importação da lista, a coluna Mesa ("5", "Mesa 5" ou um nome, como "Noivos") cria a
   mesa no mapa se ela não existir. Saem impressos a lista da recepção (em ordem alfabética, com a mesa), a planta com
   quem senta em cada mesa e os cartões de mesa (uma página por mesa).
+- **Pesquisa de satisfação** (Comercial › Pesquisa de satisfação): um dia depois do evento realizado
+  (`Lembretes:DiasPesquisaSatisfacao`), a pesquisa vira lembrete com a mensagem pronta para WhatsApp ou e-mail. Ela tem a
+  nota de indicação de 0 a 10 (NPS) e notas de 1 a 5 para comida, atendimento, espaço e organização, mais um comentário. Com
+  o envio automático ligado, ela sai sozinha pela Z-API. O cliente responde na conversa ("10, 5, 5, 4, 5 adoramos"), e o
+  comercial cola a resposta em "Registrar resposta": "Ler a resposta" preenche as notas e o comentário. Nota de 0 a 6
+  vira o lembrete "Cliente insatisfeito" para o administrador, que registra a tratativa. Nota 9 ou 10 leva ao pedido de
+  avaliação no Google (`Buffet:LinkAvaliacaoGoogle`). O Painel de satisfação mostra o NPS do período, promotores, neutros
+  e detratores, a média por área, o NPS por tipo de evento e por vendedor e os comentários.
 - **Lista de espera de datas** (Comercial › Lista de espera): quem quer uma data ocupada, cliente ou lead do funil, entra
   na fila da data e do espaço (ou de qualquer espaço que comporte os convidados), pela ordem de entrada. Também dá para
   entrar pelo orçamento: com a data ocupada, aparece o botão "Entrar na lista de espera" com os dados preenchidos. Quando a
@@ -396,18 +404,18 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **403 testes** (xUnit v3): 368 de domínio, integração e bancos, e 35 das telas.
+São **413 testes** (xUnit v3): 377 de domínio, integração e bancos, e 36 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
-  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, lista de espera, convidados excedentes, diárias da equipe, BR Code do
+  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, lista de espera, pesquisa de satisfação, convidados excedentes, diárias da equipe, BR Code do
   PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada, leitura do XML da NF-e,
   regras da NFS-e e o envio ao Focus NFe, cobrança registrada e a API do Asaas, e o envio pela Z-API (HTTP simulado).
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
   backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, NFS-e, boleto/PIX registrado com baixa automática, lembretes automáticos pelo WhatsApp, ordem de produção,
-  checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, lista de espera, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
+  checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, lista de espera, pesquisa de satisfação, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 
 Para rodar as suítes de integração e de telas em outro banco, copie `BuffetSharp.runsettings.exemplo`

@@ -3390,6 +3390,72 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.ToTable("ModeloCronogramaItens", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.PesquisaSatisfacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("AvaliacaoGooglePedidaEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Comentario")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DetratorTratadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("EnviadaEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("NotaAtendimento")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("NotaComida")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("NotaEspaco")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("NotaOrganizacao")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Nps")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RegistradaPor")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("RespondidaEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("TratativaDetrator")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventoId")
+                        .IsUnique();
+
+                    b.ToTable("PesquisasSatisfacao", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Baixa", b =>
                 {
                     b.Property<int>("Id")
@@ -5380,6 +5446,17 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasForeignKey("ModeloCronogramaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.PesquisaSatisfacao", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", "Evento")
+                        .WithMany()
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Evento");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaForma", b =>

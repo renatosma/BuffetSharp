@@ -25,6 +25,9 @@ public sealed class BuffetOptions
     /// <summary>Dias que o primeiro da lista de espera tem para responder ao aviso de data liberada, antes de a vez passar.</summary>
     public int DiasRespostaEspera { get; set; } = 2;
 
+    /// <summary>Link para o cliente avaliar o buffet no Google (enviado aos promotores da pesquisa de satisfação); vazio desliga.</summary>
+    public string? LinkAvaliacaoGoogle { get; set; }
+
     public int DiasValidadeOrcamento { get; set; } = 15;
 
     /// <summary>Foro de eleição citado no contrato.</summary>

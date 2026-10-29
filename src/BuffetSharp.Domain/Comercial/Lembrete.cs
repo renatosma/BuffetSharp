@@ -29,7 +29,16 @@ public enum TipoLembrete
     TarefaEvento,
 
     /// <summary>A data que o primeiro da lista de espera queria ficou livre.</summary>
-    EsperaData
+    EsperaData,
+
+    /// <summary>Evento realizado sem a pesquisa de satisfação enviada.</summary>
+    PesquisaSatisfacao,
+
+    /// <summary>Cliente deu nota de 0 a 6 na pesquisa: o administrador liga para ele.</summary>
+    Detrator,
+
+    /// <summary>Cliente deu nota 9 ou 10: pedir a avaliação no Google.</summary>
+    AvaliacaoGoogle
 }
 
 public enum CanalLembrete
