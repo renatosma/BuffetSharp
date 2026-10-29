@@ -123,6 +123,21 @@ internal sealed class IndisponibilidadeFuncionarioConfig : IEntityTypeConfigurat
     }
 }
 
+internal sealed class EsperaDataConfig : IEntityTypeConfiguration<EsperaData>
+{
+    public void Configure(EntityTypeBuilder<EsperaData> b)
+    {
+        b.ToTable("EsperasData");
+        b.Property(x => x.Observacao).HasMaxLength(EsperaData.TamanhoObservacao);
+        b.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Lead).WithMany().HasForeignKey(x => x.LeadId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Espaco).WithMany().HasForeignKey(x => x.EspacoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.TipoEvento).WithMany().HasForeignKey(x => x.TipoEventoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<Orcamento>().WithMany().HasForeignKey(x => x.OrcamentoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.Situacao, x.Inicio });
+    }
+}
+
 internal sealed class RegraPrecoConfig : IEntityTypeConfiguration<RegraPreco>
 {
     public void Configure(EntityTypeBuilder<RegraPreco> b)

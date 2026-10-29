@@ -26,7 +26,10 @@ public enum TipoLembrete
     MaterialNaoDevolvido,
 
     /// <summary>Tarefa do checklist do evento com prazo vencido ou para hoje.</summary>
-    TarefaEvento
+    TarefaEvento,
+
+    /// <summary>A data que o primeiro da lista de espera queria ficou livre.</summary>
+    EsperaData
 }
 
 public enum CanalLembrete

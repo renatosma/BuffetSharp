@@ -22,6 +22,9 @@ public sealed class BuffetOptions
     /// </summary>
     public int DescansoMinimoEquipeHoras { get; set; } = 11;
 
+    /// <summary>Dias que o primeiro da lista de espera tem para responder ao aviso de data liberada, antes de a vez passar.</summary>
+    public int DiasRespostaEspera { get; set; } = 2;
+
     public int DiasValidadeOrcamento { get; set; } = 15;
 
     /// <summary>Foro de eleição citado no contrato.</summary>

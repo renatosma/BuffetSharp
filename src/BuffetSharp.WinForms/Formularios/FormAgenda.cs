@@ -21,6 +21,7 @@ internal sealed class FormAgenda : FormBase
     private readonly Label _tituloDia = new() { Dock = DockStyle.Top, Height = 30, Font = Tema.FonteNegrito };
     private readonly Grade<ItemAgenda> _doDia = new();
     private IReadOnlyList<ItemAgenda> _itensMes = [];
+    private IReadOnlyDictionary<DateOnly, int> _esperasMes = new Dictionary<DateOnly, int>();
 
     public FormAgenda(IConsultasAgenda agenda, IConsultasLookup lookups, Navegador navegador)
     {
@@ -121,12 +122,15 @@ internal sealed class FormAgenda : FormBase
         var espacoId = (_espaco.SelectedItem as ItemLookup)?.Id;
         _itensMes = await _agenda.ListarAsync(inicio, inicio.AddDays(42), espacoId is 0 ? null : espacoId, _preReservas.Checked);
         _calendario.DefinirItens(_itensMes);
+        _esperasMes = await _navegador.Servico<Application.Servicos.EsperaService>().PorDiaAsync(_calendario.InicioGrade, _calendario.InicioGrade.AddDays(41));
+        _calendario.DefinirEsperas(_esperasMes);
         MostrarDia(_calendario.DiaAtual);
     });
 
     private void MostrarDia(DateOnly dia)
     {
-        _tituloDia.Text = dia.ToString("dddd, dd/MM/yyyy", Textos.PtBr);
+        _tituloDia.Text = dia.ToString("dddd, dd/MM/yyyy", Textos.PtBr) +
+                          (_esperasMes.TryGetValue(dia, out var esperas) ? $"  •  {esperas} na lista de espera" : "");
         _doDia.Carregar(_itensMes.Where(i => DateOnly.FromDateTime(i.Inicio) == dia).OrderBy(i => i.Inicio));
     }
 

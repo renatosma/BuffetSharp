@@ -473,6 +473,24 @@ public sealed class LeadInput
 }
 
 /// <summary>Como o lead vira cliente: cadastrando um cliente novo com os dados dele ou ligando a um cliente existente.</summary>
+/// <summary>Entrada na lista de espera de uma data (Id 0 = nova); cliente ou lead.</summary>
+public sealed class EsperaInput
+{
+    public int Id { get; set; }
+    public int? ClienteId { get; set; }
+    public int? LeadId { get; set; }
+    public DateOnly Data { get; set; }
+    public TimeOnly HoraInicio { get; set; } = new(19, 0);
+    public TimeOnly HoraFim { get; set; } = new(23, 59);
+
+    /// <summary>Nulo = qualquer espaço que comporte os convidados.</summary>
+    public int? EspacoId { get; set; }
+
+    public int? TipoEventoId { get; set; }
+    public int Convidados { get; set; } = 100;
+    public string? Observacao { get; set; }
+}
+
 public sealed class ConversaoLeadInput
 {
     public int LeadId { get; set; }

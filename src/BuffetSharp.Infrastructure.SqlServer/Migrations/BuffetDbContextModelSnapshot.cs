@@ -1350,6 +1350,83 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.ToTable("EnviosProposta", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.EsperaData", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("AvisadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ClienteId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Convidados")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EncerradaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EntrouEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EspacoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fim")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("Inicio")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LeadId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int?>("OrcamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Situacao")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("TipoEventoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("EspacoId");
+
+                    b.HasIndex("LeadId");
+
+                    b.HasIndex("OrcamentoId");
+
+                    b.HasIndex("TipoEventoId");
+
+                    b.HasIndex("Situacao", "Inicio");
+
+                    b.ToTable("EsperasData", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.Lead", b =>
                 {
                     b.Property<int>("Id")
@@ -4732,6 +4809,42 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .HasForeignKey("OrcamentoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.EsperaData", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Cliente", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Espaco", "Espaco")
+                        .WithMany()
+                        .HasForeignKey("EspacoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BuffetSharp.Domain.Comercial.Lead", "Lead")
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BuffetSharp.Domain.Comercial.Orcamento", null)
+                        .WithMany()
+                        .HasForeignKey("OrcamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.TipoEvento", "TipoEvento")
+                        .WithMany()
+                        .HasForeignKey("TipoEventoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Espaco");
+
+                    b.Navigation("Lead");
+
+                    b.Navigation("TipoEvento");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.Lead", b =>

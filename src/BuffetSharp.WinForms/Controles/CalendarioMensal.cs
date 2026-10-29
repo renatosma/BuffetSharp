@@ -50,6 +50,15 @@ internal sealed class CalendarioMensal : Control
     /// <summary>Primeiro dia exibido (domingo da semana que contém o dia 1).</summary>
     public DateOnly InicioGrade => _mes.AddDays(-(int)_mes.DayOfWeek);
 
+    private IReadOnlyDictionary<DateOnly, int> _esperas = new Dictionary<DateOnly, int>();
+
+    /// <summary>Quantos interessados estão na lista de espera de cada dia (aparece no canto do dia).</summary>
+    public void DefinirEsperas(IReadOnlyDictionary<DateOnly, int> esperas)
+    {
+        _esperas = esperas;
+        Invalidate();
+    }
+
     public void DefinirItens(IReadOnlyList<ItemAgenda> itens)
     {
         _itens = itens;
@@ -110,6 +119,11 @@ internal sealed class CalendarioMensal : Control
                     new Rectangle((int)area.Right - LogicalToDeviceUnits(30), (int)area.Top + 3, LogicalToDeviceUnits(26), LogicalToDeviceUnits(20)),
                     corDia, TextFormatFlags.Right);
             }
+
+            if (_esperas.TryGetValue(dia, out var esperas))
+                TextRenderer.DrawText(g, $"{esperas} na espera", Tema.FontePequena,
+                    new Rectangle((int)area.Left + 4, (int)area.Top + 4, (int)area.Width - LogicalToDeviceUnits(34), LogicalToDeviceUnits(18)), Tema.Alerta,
+                    TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
 
             var doDia = _itens.Where(x => DateOnly.FromDateTime(x.Inicio) == dia).OrderBy(x => x.Inicio).ToList();
             var y = area.Top + LogicalToDeviceUnits(24);

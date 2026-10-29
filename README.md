@@ -35,7 +35,8 @@ As configurações ficam em `src/BuffetSharp.WinForms/appsettings.json`:
   `appsettings.Local.json`. Esse arquivo fica fora do git e sobrescreve o `appsettings.json`.
 - `Buffet`: dados da empresa (impressos na proposta e no contrato), intervalo mínimo entre eventos no
   mesmo espaço (que também é o deslocamento da equipe entre eventos), descanso mínimo da equipe entre um trabalho e
-  outro (`DescansoMinimoEquipeHoras`, 11 horas por padrão; 0 desliga), validade padrão dos orçamentos, foro do contrato,
+  outro (`DescansoMinimoEquipeHoras`, 11 horas por padrão; 0 desliga), prazo de resposta da lista de espera
+  (`DiasRespostaEspera`), validade padrão dos orçamentos, foro do contrato,
   prazo para confirmar convidados e limite de degustações por horário.
 - `Email`: envio de propostas e contratos. No modo `Pasta` (padrão) cada e-mail vira um arquivo `.eml`
   em `EmailsEnviados`, sem sair da máquina. Para enviar de verdade, use `"Modo": "Smtp"` e preencha
@@ -264,6 +265,14 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   que não vai libera o lugar. Na importação da lista, a coluna Mesa ("5", "Mesa 5" ou um nome, como "Noivos") cria a
   mesa no mapa se ela não existir. Saem impressos a lista da recepção (em ordem alfabética, com a mesa), a planta com
   quem senta em cada mesa e os cartões de mesa (uma página por mesa).
+- **Lista de espera de datas** (Comercial › Lista de espera): quem quer uma data ocupada, cliente ou lead do funil, entra
+  na fila da data e do espaço (ou de qualquer espaço que comporte os convidados), pela ordem de entrada. Também dá para
+  entrar pelo orçamento: com a data ocupada, aparece o botão "Entrar na lista de espera" com os dados preenchidos. Quando a
+  data libera (evento cancelado ou mudado de data), o primeiro da fila vira um lembrete "Data liberada" para o comercial,
+  com a mensagem de WhatsApp ou e-mail pronta. O aviso registra a vez dele, e ele tem alguns dias para responder
+  (`Buffet:DiasRespostaEspera`, 2 por padrão); sem resposta ou com desistência, a vez passa ao próximo. "Criar orçamento"
+  transforma o lead em cliente e abre o orçamento com a data e os convidados. "Datas alternativas" sugere as datas livres
+  mais próximas no mesmo dia da semana, e a agenda mostra em cada dia quantos estão na espera.
 - **Preço por data**: regras que ajustam o preço de tabela conforme a data do evento, em Comercial › Preços por data. Elas
   podem valer por dia da semana (sábado +15%, segunda a quinta -10%), por temporada que se repete todo ano e pode virar o
   ano (alta de 15/11 a 31/01) ou por data especial (réveillon). As regras que valem no dia se somam; a data especial
@@ -387,18 +396,18 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **398 testes** (xUnit v3): 364 de domínio, integração e bancos, e 34 das telas.
+São **403 testes** (xUnit v3): 368 de domínio, integração e bancos, e 35 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
-  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, convidados excedentes, diárias da equipe, BR Code do
+  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, lista de espera, convidados excedentes, diárias da equipe, BR Code do
   PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada, leitura do XML da NF-e,
   regras da NFS-e e o envio ao Focus NFe, cobrança registrada e a API do Asaas, e o envio pela Z-API (HTTP simulado).
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
   backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, NFS-e, boleto/PIX registrado com baixa automática, lembretes automáticos pelo WhatsApp, ordem de produção,
-  checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
+  checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, lista de espera, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 
 Para rodar as suítes de integração e de telas em outro banco, copie `BuffetSharp.runsettings.exemplo`

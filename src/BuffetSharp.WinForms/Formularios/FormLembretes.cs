@@ -56,6 +56,7 @@ internal sealed class FormLembretes : FormListagem<Lembrete>
     {
         TipoLembrete.ParcelaVencida or TipoLembrete.MaterialNaoDevolvido => Tema.Perigo,
         TipoLembrete.Aniversario => Tema.Destaque,
+        TipoLembrete.EsperaData => Tema.Sucesso,
         TipoLembrete.ContaPagarAVencer or TipoLembrete.ParcelaAVencer => Tema.Alerta,
         _ => Tema.Info
     };
@@ -158,6 +159,9 @@ internal sealed class FormLembretes : FormListagem<Lembrete>
                 break;
             case TipoLembrete.ContaPagarAVencer:
                 _navegador.Abrir<FormContasPagar>();
+                break;
+            case TipoLembrete.EsperaData:
+                _navegador.Abrir<FormListaEspera>();
                 break;
             default:
                 if (lembrete.EventoId is { } eventoId)

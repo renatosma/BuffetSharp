@@ -15,7 +15,7 @@ namespace BuffetSharp.WinForms.Formularios.Comercial;
 /// <summary>Parâmetros de abertura do editor (evita ambiguidade entre dois inteiros na injeção).</summary>
 /// <param name="TipoEventoId">Sugestões para um orçamento novo (ex.: o que o lead convertido informou).</param>
 internal sealed record AberturaOrcamento(int OrcamentoId = 0, int ClienteId = 0, int? TipoEventoId = null, DateOnly? Data = null,
-    int? Convidados = null);
+    int? Convidados = null, TimeOnly? HoraInicio = null, TimeOnly? HoraFim = null, int? EspacoId = null);
 
 /// <summary>
 /// Editor de orçamento: dados do evento, pacote e espaço com valores negociáveis, serviços adicionais,
@@ -31,6 +31,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly ICadastroService<CondicaoPagamento> _condicoesPagamento;
     private readonly AberturaOrcamento _abertura;
     private readonly TabelaPrecoService _precos;
+    private readonly Navegador _navegador;
 
     /// <summary>Ajuste das regras de preço para a data, o pacote e o espaço, e os valores que ele sugeriu.</summary>
     private AjustePreco _ajuste = AjustePreco.Nenhum;
@@ -49,6 +50,8 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly Label _titulo = Tema.Titulo("Orçamento");
     private readonly Label _status = new() { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(12, 8, 0, 0) };
     private readonly Label _disponivel = new() { AutoSize = true, Font = Tema.FonteNegrito };
+    private readonly Button _entrarEspera = Tema.BotaoSecundario("Entrar na lista de espera", Icones.Relogio);
+    private ComboBox _cliente = null!, _tipoEvento = null!;
     private readonly Label _simulacaoPagamento = new() { AutoSize = true, ForeColor = Tema.TextoSuave };
     private readonly Label _faixas = new() { AutoSize = true, ForeColor = Tema.TextoSuave };
     private readonly Label _precoData = new() { AutoSize = true, Font = Tema.FonteNegrito };
@@ -79,9 +82,11 @@ internal sealed class FormOrcamentoEdicao : FormBase
 
     public FormOrcamentoEdicao(OrcamentoService servico, DisponibilidadeService disponibilidade, IConsultasLookup lookups,
         IConsultasEstoqueCardapio cardapio, BuffetOptions opcoes, ICadastroService<CondicaoPagamento> condicoesPagamento,
-        AberturaOrcamento abertura, TabelaPrecoService precos)
+        AberturaOrcamento abertura, TabelaPrecoService precos, Navegador navegador)
     {
         _precos = precos;
+        _navegador = navegador;
+        _entrarEspera.Click += async (_, _) => await ExecutarAsync(EntrarNaEsperaAsync, _entrarEspera, cursorEspera: false);
         _servico = servico;
         _disponibilidade = disponibilidade;
         _lookups = lookups;
@@ -189,6 +194,12 @@ internal sealed class FormOrcamentoEdicao : FormBase
                     _input.Data = data;
                 if (_abertura.Convidados is > 0 and var convidados)
                     _input.Convidados = convidados;
+                if (_abertura.HoraInicio is { } horaInicio)
+                    _input.HoraInicio = horaInicio;
+                if (_abertura.HoraFim is { } horaFim)
+                    _input.HoraFim = horaFim;
+                if (_abertura.EspacoId is { } espacoId)
+                    _input.EspacoId = espacoId;
             }
 
             MontarCampos(clientes, tipos, vendedores);
@@ -216,8 +227,8 @@ internal sealed class FormOrcamentoEdicao : FormBase
         var e = _editor;
 
         e.Secao("Cliente e evento");
-        e.Lista("Cliente", clientes, () => i.ClienteId, v => i.ClienteId = v ?? 0, nameof(i.ClienteId), span: 2);
-        e.Lista("Tipo de evento", tipos, () => i.TipoEventoId, v => i.TipoEventoId = v ?? 0, nameof(i.TipoEventoId));
+        _cliente = e.Lista("Cliente", clientes, () => i.ClienteId, v => i.ClienteId = v ?? 0, nameof(i.ClienteId), span: 2);
+        _tipoEvento = e.Lista("Tipo de evento", tipos, () => i.TipoEventoId, v => i.TipoEventoId = v ?? 0, nameof(i.TipoEventoId));
         _data = e.Data("Data do evento", () => i.Data, v => i.Data = v ?? i.Data, nameof(i.Data));
         _inicio = e.Hora("Início", () => i.HoraInicio, v => i.HoraInicio = v);
         _fim = e.Hora("Término (pode passar da meia-noite)", () => i.HoraFim, v => i.HoraFim = v);
@@ -239,6 +250,8 @@ internal sealed class FormOrcamentoEdicao : FormBase
         _valorLocacao = e.Decimal("Valor da locação (R$)", () => i.ValorEspaco ?? 0, v => i.ValorEspaco = v);
         e.Livre(_precoData);
         e.Livre(_disponivel);
+        _entrarEspera.Visible = false;
+        e.Livre(_entrarEspera);
 
         e.Secao("Serviços adicionais");
         e.Livre(CriarPainelServicos());
@@ -420,6 +433,31 @@ internal sealed class FormOrcamentoEdicao : FormBase
         Recalcular();
     }
 
+    /// <summary>A data está ocupada: o cliente entra na lista de espera com os dados deste orçamento.</summary>
+    private async Task EntrarNaEsperaAsync()
+    {
+        if (_cliente.SelectedItem is not ItemLookup { Id: > 0 } cliente)
+        {
+            Mensagens.Aviso(this, "Selecione o cliente antes de colocá-lo na lista de espera.");
+            return;
+        }
+        var input = new EsperaInput
+        {
+            ClienteId = cliente.Id,
+            Data = DateOnly.FromDateTime(_data.Value),
+            HoraInicio = TimeOnly.FromDateTime(_inicio.Value),
+            HoraFim = TimeOnly.FromDateTime(_fim.Value),
+            EspacoId = _espaco.SelectedItem is ItemLookup { Id: > 0 } espaco ? espaco.Id : null,
+            TipoEventoId = _tipoEvento.SelectedItem is ItemLookup { Id: > 0 } tipo ? tipo.Id : null,
+            Convidados = (int)_convidados.Value
+        };
+        if (await DialogosEspera.EditarAsync(this, _navegador, input))
+            Mensagens.Info(this, $"{cliente.Nome} entrou na lista de espera de {input.Data:dd/MM/yyyy}. Quando a data liberar, aparece nos lembretes.");
+    }
+
+    /// <summary>Id do orçamento gravado (0 enquanto não foi salvo).</summary>
+    public int OrcamentoSalvo() => _input.Id;
+
     private void AgendarVerificacao()
     {
         _atrasoDisponibilidade.Stop();
@@ -504,6 +542,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
                 ? $"✔ {espaco.Nome} disponível em {inicio:dd/MM/yyyy} das {inicio:HH:mm} às {fim:HH:mm}."
                 : $"✖ Conflito: {conflito.Codigo} - {conflito.Titulo} ({conflito.Inicio:dd/MM HH:mm} às {conflito.Fim:HH:mm}).";
             _disponivel.ForeColor = conflito is null ? Tema.Sucesso : Tema.Perigo;
+            _entrarEspera.Visible = conflito is not null && _input.PodeEditar;
         }
         catch (RegraNegocioException ex)
         {

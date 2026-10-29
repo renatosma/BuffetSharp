@@ -74,6 +74,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await ContratarFornecedoresAsync(ct);
         await CriarIndisponibilidadesAsync(ct);
         await CriarRegrasPrecoAsync(ct);
+        await CriarListaEsperaAsync(ct);
     }
 
     // =====================================================================
@@ -1258,6 +1259,34 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                 Nome = "Réveillon", Tipo = TipoRegraPreco.DataEspecial, Percentual = 40, Data = new DateOnly(Hoje.Year, 12, 31), Anual = true,
                 Exclusiva = true, AjustaLocacao = true
             });
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Lista de espera: dois clientes na fila da data do próximo sábado ocupado e um lead esperando uma data que já está livre
+    /// (vira lembrete de "data liberada").
+    /// </summary>
+    private async Task CriarListaEsperaAsync(CancellationToken ct)
+    {
+        var agora = Agora;
+        var ocupado = _eventos.Where(e => e.Status == StatusEvento.Confirmado && e.Inicio > agora.AddDays(7)).OrderBy(e => e.Inicio).FirstOrDefault();
+        if (ocupado is not null)
+        {
+            var interessados = _clientesPf.Where(c => c.Id != ocupado.ClienteId).OrderBy(c => c.Id).Take(2).ToList();
+            for (var i = 0; i < interessados.Count; i++)
+                db.EsperasData.Add(new EsperaData(interessados[i].Id, null, ocupado.DataEvento, ocupado.HoraInicio, ocupado.HoraFim, ocupado.EspacoId,
+                    ocupado.TipoEventoId, Math.Min(ocupado.QuantidadeConvidados, 80), i == 0 ? "Quer muito esta data; aceita outro horário." : null,
+                    agora.AddDays(-10 + i * 3)));
+        }
+
+        var lead = await db.Leads.Where(l => l.Status == StatusLead.Novo || l.Status == StatusLead.EmContato).OrderBy(l => l.Id).FirstOrDefaultAsync(ct);
+        var livre = DateOnly.FromDateTime(agora).AddDays(200);
+        var espaco = _espacos.OrderBy(e => e.Id).First();
+        while (_eventos.Any(e => e.EspacoId == espaco.Id && e.Status != StatusEvento.Cancelado && Math.Abs(e.DataEvento.DayNumber - livre.DayNumber) <= 1))
+            livre = livre.AddDays(1);
+        if (lead is not null)
+            db.EsperasData.Add(new EsperaData(null, lead.Id, livre, new TimeOnly(19, 0), new TimeOnly(23, 0), espaco.Id, null, 60,
+                "Pediu para avisar se a data abrir.", agora.AddDays(-5)));
         await db.SaveChangesAsync(ct);
     }
 

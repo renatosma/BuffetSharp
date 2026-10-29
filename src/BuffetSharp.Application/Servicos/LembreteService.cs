@@ -29,6 +29,7 @@ public sealed class LembreteService(
     BuffetOptions empresa,
     LembretesOptions opcoes,
     PixService pix,
+    EsperaService esperas,
     ISessaoUsuario sessao,
     TimeProvider relogio,
     ILogger<LembreteService> log)
@@ -38,13 +39,14 @@ public sealed class LembreteService(
 
     /// <summary>Tipos de lembrete com mensagem para o cliente (os demais são tarefas internas).</summary>
     public static bool TemMensagem(TipoLembrete tipo) => tipo is TipoLembrete.OrcamentoVencendo or TipoLembrete.Degustacao
-        or TipoLembrete.Aniversario or TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida or TipoLembrete.RetornoLead;
+        or TipoLembrete.Aniversario or TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida or TipoLembrete.RetornoLead
+        or TipoLembrete.EsperaData;
 
     /// <summary>Perfis que cuidam de cada tipo de lembrete (o administrador vê todos).</summary>
     public static PerfilUsuario[] Perfis(TipoLembrete tipo) => tipo switch
     {
-        TipoLembrete.OrcamentoVencendo or TipoLembrete.Degustacao or TipoLembrete.Aniversario or TipoLembrete.RetornoLead =>
-            [PerfilUsuario.Comercial],
+        TipoLembrete.OrcamentoVencendo or TipoLembrete.Degustacao or TipoLembrete.Aniversario or TipoLembrete.RetornoLead
+            or TipoLembrete.EsperaData => [PerfilUsuario.Comercial],
         TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida or TipoLembrete.ContaPagarAVencer => [PerfilUsuario.Financeiro],
         _ => [PerfilUsuario.Operacional]
     };
@@ -59,8 +61,11 @@ public sealed class LembreteService(
 
     private async Task<List<Lembrete>> PendentesAsync(CancellationToken ct)
     {
-        var lembretes = await consultas.CalcularAsync(Agora,
-            new LembretesOptionsConsulta(opcoes.DiasOrcamento, opcoes.DiasParcela, opcoes.DiasContaPagar), ct);
+        var lembretes = (await consultas.CalcularAsync(Agora,
+            new LembretesOptionsConsulta(opcoes.DiasOrcamento, opcoes.DiasParcela, opcoes.DiasContaPagar), ct)).ToList();
+
+        // A espera sai da lista quando o aviso é registrado (a fila anda sozinha), sem precisar de lembrete tratado.
+        lembretes.AddRange(await esperas.LembretesAsync(ct));
         if (lembretes.Count == 0)
             return [];
 
@@ -82,6 +87,12 @@ public sealed class LembreteService(
                          ?? throw new RegraNegocioException("Evento não encontrado.");
             evento.ConcluirTarefa(lembrete.ReferenciaId, sessao.Usuario?.Login, Agora);
             await db.SaveChangesAsync(ct);
+            return;
+        }
+
+        if (lembrete.Tipo == TipoLembrete.EsperaData)
+        {
+            await esperas.RegistrarAvisoAsync(lembrete.ReferenciaId, ct);
             return;
         }
 
@@ -206,6 +217,7 @@ public sealed class LembreteService(
         TipoLembrete.Aniversario => $"Feliz aniversário! | {empresa.NomeEmpresa}",
         TipoLembrete.ParcelaAVencer => $"Parcela com vencimento em {l.Data:dd/MM/yyyy} | {empresa.NomeEmpresa}",
         TipoLembrete.ParcelaVencida => $"Parcela em aberto desde {l.Data:dd/MM/yyyy} | {empresa.NomeEmpresa}",
+        TipoLembrete.EsperaData => $"A data que você queria ficou livre: {l.Data:dd/MM/yyyy} | {empresa.NomeEmpresa}",
         _ => empresa.NomeEmpresa
     };
 
@@ -231,6 +243,10 @@ public sealed class LembreteService(
             TipoLembrete.ParcelaVencida =>
                 $"Consta em aberto a parcela {negrito}{Descricao(l)}{negrito}, no valor de {valor}, com vencimento em {l.Data:dd/MM/yyyy}. " +
                 "Se o pagamento já foi feito, por favor desconsidere esta mensagem e nos envie o comprovante.",
+            TipoLembrete.EsperaData =>
+                $"Boa notícia: a data que você queria para o seu evento, {negrito}{l.Data.ToString("dddd, dd/MM/yyyy", PtBr)}{negrito}, " +
+                $"ficou disponível. Como você está na nossa lista de espera, a prioridade é sua por {empresa.DiasRespostaEspera} dia(s). " +
+                "Vamos garantir a data?",
             TipoLembrete.RetornoLead =>
                 "Tudo bem? Estou retornando sobre o seu evento" + (l.Detalhe is { } tipo ? $" ({tipo.ToLower(PtBr)})" : "") +
                 ". Podemos conversar sobre datas, cardápios e valores?",

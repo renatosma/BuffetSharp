@@ -1675,6 +1675,107 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.ToTable("ENVIOSPROPOSTA", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.EsperaData", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<DateTime?>("AvisadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("AVISADOEM");
+
+                    b.Property<int?>("ClienteId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("CLIENTEID");
+
+                    b.Property<int>("Convidados")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("CONVIDADOS");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<DateTime?>("EncerradaEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ENCERRADAEM");
+
+                    b.Property<DateTime>("EntrouEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ENTROUEM");
+
+                    b.Property<int?>("EspacoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ESPACOID");
+
+                    b.Property<DateTime>("Fim")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("FIM");
+
+                    b.Property<DateTime>("Inicio")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("INICIO");
+
+                    b.Property<int?>("LeadId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("LEADID");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(300)
+                        .HasColumnType("NVARCHAR2(300)")
+                        .HasColumnName("OBSERVACAO");
+
+                    b.Property<int?>("OrcamentoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ORCAMENTOID");
+
+                    b.Property<string>("Situacao")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("SITUACAO");
+
+                    b.Property<int?>("TipoEventoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("TIPOEVENTOID");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_ESPERASDATA");
+
+                    b.HasIndex("ClienteId")
+                        .HasDatabaseName("IX_ESPERASDATA_CLIENTEID");
+
+                    b.HasIndex("EspacoId")
+                        .HasDatabaseName("IX_ESPERASDATA_ESPACOID");
+
+                    b.HasIndex("LeadId")
+                        .HasDatabaseName("IX_ESPERASDATA_LEADID");
+
+                    b.HasIndex("OrcamentoId")
+                        .HasDatabaseName("IX_ESPERASDATA_ORCAMENTOID");
+
+                    b.HasIndex("TipoEventoId")
+                        .HasDatabaseName("IX_ESPERASDATA_TIPOEVENTOID");
+
+                    b.HasIndex("Situacao", "Inicio")
+                        .HasDatabaseName("IX_ESPERASDATA_SITUACAO_INICIO");
+
+                    b.ToTable("ESPERASDATA", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.Lead", b =>
                 {
                     b.Property<int>("Id")
@@ -5940,6 +6041,47 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK_ENVIOSPROPOSTA_ORCAMENTOS_ORCAMENTOID");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.EsperaData", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Cliente", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_ESPERASDATA_CLIENTES_CLIENTEID");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Espaco", "Espaco")
+                        .WithMany()
+                        .HasForeignKey("EspacoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_ESPERASDATA_ESPACOS_ESPACOID");
+
+                    b.HasOne("BuffetSharp.Domain.Comercial.Lead", "Lead")
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_ESPERASDATA_LEADS_LEADID");
+
+                    b.HasOne("BuffetSharp.Domain.Comercial.Orcamento", null)
+                        .WithMany()
+                        .HasForeignKey("OrcamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_ESPERASDATA_ORCAMENTOS_ORCAMENTOID");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.TipoEvento", "TipoEvento")
+                        .WithMany()
+                        .HasForeignKey("TipoEventoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_ESPERASDATA_TIPOSEVENTO_TIPOEVENTOID");
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Espaco");
+
+                    b.Navigation("Lead");
+
+                    b.Navigation("TipoEvento");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.Lead", b =>
