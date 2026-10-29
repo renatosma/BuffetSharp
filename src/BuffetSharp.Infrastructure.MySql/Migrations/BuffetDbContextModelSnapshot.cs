@@ -835,6 +835,47 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.ToTable("Funcionarios", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.IndisponibilidadeFuncionario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("Fim")
+                        .HasColumnType("date");
+
+                    b.Property<int>("FuncionarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Inicio")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FuncionarioId", "Inicio");
+
+                    b.ToTable("IndisponibilidadesFuncionario", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.ServicoAdicional", b =>
                 {
                     b.Property<int>("Id")
@@ -2822,6 +2863,14 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<int>("EventoId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ExcecaoAutorizadaPor")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("ExcecaoConflito")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
                     b.Property<int?>("FechamentoEquipeId")
                         .HasColumnType("int");
 
@@ -4318,6 +4367,17 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired();
 
                     b.Navigation("Cargo");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.IndisponibilidadeFuncionario", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Funcionario");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Cardapio.FichaTecnicaItem", b =>

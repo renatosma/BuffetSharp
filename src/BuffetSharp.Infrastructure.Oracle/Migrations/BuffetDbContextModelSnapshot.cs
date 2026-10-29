@@ -1073,6 +1073,60 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.ToTable("FUNCIONARIOS", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.IndisponibilidadeFuncionario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<DateTime>("Fim")
+                        .HasColumnType("DATE")
+                        .HasColumnName("FIM");
+
+                    b.Property<int>("FuncionarioId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("FUNCIONARIOID");
+
+                    b.Property<DateTime>("Inicio")
+                        .HasColumnType("DATE")
+                        .HasColumnName("INICIO");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("MOTIVO");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(300)
+                        .HasColumnType("NVARCHAR2(300)")
+                        .HasColumnName("OBSERVACAO");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_INDISPONIBILIDADESFUNCIONARIO");
+
+                    b.HasIndex("FuncionarioId", "Inicio")
+                        .HasDatabaseName("IX_INDISPONIBILIDADESFUNCIONARIO_FUNCIONARIOID_INICIO");
+
+                    b.ToTable("INDISPONIBILIDADESFUNCIONARIO", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.ServicoAdicional", b =>
                 {
                     b.Property<int>("Id")
@@ -3689,6 +3743,16 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("EVENTOID");
 
+                    b.Property<string>("ExcecaoAutorizadaPor")
+                        .HasMaxLength(50)
+                        .HasColumnType("NVARCHAR2(50)")
+                        .HasColumnName("EXCECAOAUTORIZADAPOR");
+
+                    b.Property<string>("ExcecaoConflito")
+                        .HasMaxLength(200)
+                        .HasColumnType("NVARCHAR2(200)")
+                        .HasColumnName("EXCECAOCONFLITO");
+
                     b.Property<int?>("FechamentoEquipeId")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("FECHAMENTOEQUIPEID");
@@ -5632,6 +5696,18 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasConstraintName("FK_FUNCIONARIOS_CARGOS_CARGOID");
 
                     b.Navigation("Cargo");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.IndisponibilidadeFuncionario", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_INDISPONIBILIDADESFUNCIONARIO_FUNCIONARIOS_FUNCIONARIOID");
+
+                    b.Navigation("Funcionario");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Cardapio.FichaTecnicaItem", b =>

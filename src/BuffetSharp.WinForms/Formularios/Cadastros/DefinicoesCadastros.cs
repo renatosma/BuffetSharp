@@ -463,6 +463,32 @@ internal static class DefinicoesCadastros
         }
     };
 
+    public static readonly DefinicaoCadastro<IndisponibilidadeFuncionario> Indisponibilidades = new()
+    {
+        Titulo = "Indisponibilidades da equipe",
+        Singular = "indisponibilidade",
+        Descricao = "Folgas, férias e atestados: no período, o funcionário não pode ser escalado. Escalas já feitas aparecem como conflito.",
+        Consulta = q => q.Include(x => x.Funcionario).OrderByDescending(x => x.Inicio),
+        Colunas = g => g.Texto("Funcionário", x => x.Funcionario?.Nome, 40)
+            .Texto("Motivo", x => IndisponibilidadeFuncionario.Nome(x.Motivo), 18)
+            .Texto("De", x => x.Inicio.ToString("dd/MM/yyyy"), 16)
+            .Texto("Até", x => x.Fim.ToString("dd/MM/yyyy"), 16)
+            .Numero("Dias", x => x.Fim.DayNumber - x.Inicio.DayNumber + 1, peso: 10)
+            .Texto("Observação", x => x.Observacao, 50),
+        TextoBusca = x => $"{x.Funcionario?.Nome} {IndisponibilidadeFuncionario.Nome(x.Motivo)} {x.Observacao}",
+        Nome = x => $"{x.Funcionario?.Nome} - {x.Descricao}",
+        LarguraEditor = 640,
+        Campos = async (e, x, contexto) =>
+        {
+            var funcionarios = await contexto.Lookups.ListarAsync(TipoLookup.Funcionarios);
+            e.Lista("Funcionário", funcionarios, () => x.FuncionarioId, v => x.FuncionarioId = v ?? 0, nameof(x.FuncionarioId), span: 2);
+            e.Opcoes("Motivo", () => x.Motivo, v => x.Motivo = v, nameof(x.Motivo));
+            e.Data("De", () => x.Inicio, v => x.Inicio = v ?? x.Inicio, nameof(x.Inicio));
+            e.Data("Até", () => x.Fim, v => x.Fim = v ?? x.Fim, nameof(x.Fim));
+            e.Texto("Observação", () => x.Observacao, v => x.Observacao = v, nameof(x.Observacao), 300, span: 2, linhas: 2);
+        }
+    };
+
     public static readonly DefinicaoCadastro<Fornecedor> Fornecedores = new()
     {
         Titulo = "Fornecedores",

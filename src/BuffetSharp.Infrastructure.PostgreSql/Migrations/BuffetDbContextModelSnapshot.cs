@@ -1076,6 +1076,60 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("funcionarios", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.IndisponibilidadeFuncionario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<DateOnly>("Fim")
+                        .HasColumnType("date")
+                        .HasColumnName("fim");
+
+                    b.Property<int>("FuncionarioId")
+                        .HasColumnType("integer")
+                        .HasColumnName("funcionarioid");
+
+                    b.Property<DateOnly>("Inicio")
+                        .HasColumnType("date")
+                        .HasColumnName("inicio");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("observacao");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("Id")
+                        .HasName("pk_indisponibilidadesfuncionario");
+
+                    b.HasIndex("FuncionarioId", "Inicio")
+                        .HasDatabaseName("ix_indisponibilidadesfuncionario_funcionarioid_inicio");
+
+                    b.ToTable("indisponibilidadesfuncionario", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.ServicoAdicional", b =>
                 {
                     b.Property<int>("Id")
@@ -3696,6 +3750,16 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("eventoid");
 
+                    b.Property<string>("ExcecaoAutorizadaPor")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("excecaoautorizadapor");
+
+                    b.Property<string>("ExcecaoConflito")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("excecaoconflito");
+
                     b.Property<int?>("FechamentoEquipeId")
                         .HasColumnType("integer")
                         .HasColumnName("fechamentoequipeid");
@@ -5640,6 +5704,18 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_funcionarios_cargos_cargoid");
 
                     b.Navigation("Cargo");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.IndisponibilidadeFuncionario", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_indisponibilidadesfuncionario_funcionarios_funcionarioid");
+
+                    b.Navigation("Funcionario");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Cardapio.FichaTecnicaItem", b =>

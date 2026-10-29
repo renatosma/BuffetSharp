@@ -16,6 +16,12 @@ public sealed class BuffetOptions
     /// <summary>Tempo de montagem/desmontagem exigido entre dois eventos no mesmo espaço.</summary>
     public int IntervaloMinimoEntreEventosMinutos { get; set; } = 120;
 
+    /// <summary>
+    /// Descanso mínimo da equipe entre o fim de um trabalho e o início do próximo (0 = sem exigência). O intervalo entre eventos
+    /// acima também vale para a equipe, como tempo de deslocamento.
+    /// </summary>
+    public int DescansoMinimoEquipeHoras { get; set; } = 11;
+
     public int DiasValidadeOrcamento { get; set; } = 15;
 
     /// <summary>Foro de eleição citado no contrato.</summary>

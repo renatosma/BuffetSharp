@@ -191,24 +191,47 @@ internal sealed partial class FormEventoDetalhe : FormBase
 
     // =========================== Aba Equipe ===========================
 
-    private readonly ComboBox _funcionario = new() { Width = 260, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 5, 6, 0) };
+    private readonly ComboBox _funcionario = new()
+    {
+        Width = 420, DropDownStyle = ComboBoxStyle.DropDownList, DrawMode = DrawMode.OwnerDrawFixed, DropDownWidth = 640, Margin = new Padding(0, 5, 6, 0)
+    };
+    private IReadOnlyDictionary<int, IReadOnlyList<Domain.Eventos.ConflitoEscala>> _conflitosEquipe =
+        new Dictionary<int, IReadOnlyList<Domain.Eventos.ConflitoEscala>>();
     private readonly TextBox _funcao = new() { Width = 150, PlaceholderText = "Função (opcional)", Margin = new Padding(0, 5, 6, 0) };
     private readonly NumericUpDown _diaria = new() { Width = 100, DecimalPlaces = 2, Maximum = 100_000, Margin = new Padding(0, 5, 6, 0), ThousandsSeparator = true };
 
     private TabPage CriarAbaEquipe()
     {
-        _equipe.Texto("Funcionário", f => f.Funcionario?.Nome, 50)
-            .Texto("Função", f => f.Funcao, 30)
-            .Moeda("Diária", f => f.ValorDiaria, 20)
-            .SimNao("Presente", f => f.Presente, 15);
+        _equipe.Texto("Funcionário", f => f.Funcionario?.Nome, 40)
+            .Texto("Função", f => f.Funcao, 24)
+            .Moeda("Diária", f => f.ValorDiaria, 16)
+            .SimNao("Presente", f => f.Presente, 12)
+            .Texto("Conflito", f => _conflitosEquipe.TryGetValue(f.FuncionarioId, out var c) ? string.Join("; ", c.Select(x => x.Descricao)) : null, 50,
+                f => f.ExcecaoConflito is null ? Tema.Perigo : Tema.Alerta)
+            .Texto("Exceção autorizada", f => f.ExcecaoConflito is null ? null : $"{f.ExcecaoConflito} ({f.ExcecaoAutorizadaPor})", 36);
 
         _funcionario.SelectedIndexChanged += (_, _) =>
         {
-            if (_funcionario.SelectedItem is ItemLookup f)
+            if (_funcionario.SelectedItem is SituacaoFuncionario f)
             {
-                _diaria.Value = f.Valor;
-                _funcao.PlaceholderText = f.Info ?? "Função";
+                _diaria.Value = Math.Min(_diaria.Maximum, f.Diaria);
+                _funcao.PlaceholderText = f.Cargo ?? "Função";
             }
+        };
+
+        // Livre em verde, ocupado (ou sem descanso) em laranja e indisponível em vermelho.
+        _funcionario.DrawItem += (_, e) =>
+        {
+            e.DrawBackground();
+            if (e.Index >= 0 && _funcionario.Items[e.Index] is SituacaoFuncionario s)
+            {
+                var cor = (e.State & DrawItemState.Selected) != 0 ? SystemColors.HighlightText
+                    : s.Livre ? Tema.Sucesso
+                    : s.Conflitos.Any(c => !c.AdmiteExcecao) ? Tema.Perigo : Tema.Alerta;
+                TextRenderer.DrawText(e.Graphics, s.ToString(), e.Font ?? Font, e.Bounds, cor,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            }
+            e.DrawFocusRectangle();
         };
 
         var barra = BarraAba();
@@ -234,11 +257,39 @@ internal sealed partial class FormEventoDetalhe : FormBase
 
     private async Task EscalarAsync()
     {
-        if (_funcionario.SelectedItem is not ItemLookup funcionario)
+        if (_funcionario.SelectedItem is not SituacaoFuncionario funcionario)
             return;
-        await Recarregar(_eventos.EscalarFuncionarioAsync(_eventoId, funcionario.Id,
-            string.IsNullOrWhiteSpace(_funcao.Text) ? null : _funcao.Text.Trim(), _diaria.Value));
+        var funcao = string.IsNullOrWhiteSpace(_funcao.Text) ? null : _funcao.Text.Trim();
+        try
+        {
+            await _eventos.EscalarFuncionarioAsync(_eventoId, funcionario.FuncionarioId, funcao, _diaria.Value);
+        }
+        catch (Domain.Eventos.ConflitoEscalaException conflito)
+        {
+            if (_sessao.Usuario?.EhAdministrador != true)
+            {
+                Mensagens.Aviso(this, $"{conflito.Message} Para escalar mesmo assim, peça a um administrador.");
+                return;
+            }
+            if (!AutorizarConflito(funcionario, funcao, conflito))
+                return;
+        }
+        await CarregarAsync();
         _funcao.Clear();
+    }
+
+    /// <summary>O administrador escala apesar do conflito informando o motivo, que fica registrado na escala.</summary>
+    private bool AutorizarConflito(SituacaoFuncionario funcionario, string? funcao, Domain.Eventos.ConflitoEscalaException conflito)
+    {
+        string? motivo = null;
+        var editor = new EditorCampos(1);
+        editor.Texto("Motivo da exceção", () => motivo, v => motivo = v, null, Domain.Eventos.EventoFuncionario.TamanhoMotivoExcecao, linhas: 3,
+            dica: "Ex.: os dois eventos são no mesmo salão, um depois do outro");
+        using var dialogo = new FormEdicao($"Escalar {funcionario.Nome} mesmo com conflito?",
+            string.Join(Environment.NewLine, conflito.Conflitos.Select(c => "• " + c.Descricao)), editor,
+            () => _eventos.EscalarComExcecaoAsync(_eventoId, funcionario.FuncionarioId, funcao, _diaria.Value, motivo ?? ""), 640);
+        dialogo.TextoSalvar("Escalar mesmo assim");
+        return dialogo.ShowDialog(this) == DialogResult.OK;
     }
 
     // =========================== Aba Convidados ===========================
@@ -854,7 +905,6 @@ internal sealed partial class FormEventoDetalhe : FormBase
         base.OnLoad(e);
         await ExecutarAsync(async () =>
         {
-            _funcionario.DataSource = (await _lookups.ListarAsync(TipoLookup.Funcionarios)).ToList();
             _material.DataSource = (await _lookups.ListarAsync(TipoLookup.Materiais)).ToList();
             await CarregarAsync();
         });
@@ -913,7 +963,19 @@ internal sealed partial class FormEventoDetalhe : FormBase
                 return new InsumoPrevisto(produto.Nome, c.Value, produto.UnidadeMedida?.Sigla ?? "", Math.Round(c.Value * produto.CustoMedio, 2));
             }).OrderByDescending(i => i.Custo));
 
+        // Conflitos da equipe já escalada e situação de cada funcionário para a próxima escala.
+        var escalas = _navegador.Servico<EscalaService>();
+        _conflitosEquipe = await escalas.ConflitosDaEquipeAsync(_eventoId);
         _equipe.Carregar(e.Equipe.OrderBy(f => f.Funcao).ThenBy(f => f.Funcionario?.Nome));
+        if (e.Status == StatusEvento.Confirmado)
+        {
+            var escolhido = (_funcionario.SelectedItem as SituacaoFuncionario)?.FuncionarioId;
+            var situacoes = (await escalas.DisponibilidadeAsync(_eventoId)).Where(s => e.Equipe.All(q => q.FuncionarioId != s.FuncionarioId))
+                .OrderBy(s => s.Livre ? 0 : 1).ThenBy(s => s.Nome).ToList();
+            _funcionario.DataSource = situacoes;
+            if (situacoes.FirstOrDefault(s => s.FuncionarioId == escolhido) is { } anterior)
+                _funcionario.SelectedItem = anterior;
+        }
         _convidados.Carregar(e.Convidados.OrderBy(c => c.Nome), _buscaConvidado.Text);
         if (selecionadoConvidado is { } idConvidado)
             _convidados.Selecionar(c => c.Id == idConvidado);

@@ -11,6 +11,7 @@ namespace BuffetSharp.Application.Servicos;
 public sealed class EventoService(
     IBuffetDbContextFactory fabrica,
     DisponibilidadeService disponibilidade,
+    EscalaService escalas,
     IConsultasEstoqueCardapio estoque,
     ISessaoUsuario sessao,
     TimeProvider relogio)
@@ -150,13 +151,37 @@ public sealed class EventoService(
 
     // ------------------------- Equipe -------------------------
 
+    /// <summary>
+    /// Escala o funcionário. Indisponível (folga, férias, atestado) não pode; em conflito com outro evento ou sem o descanso
+    /// mínimo, lança <see cref="ConflitoEscalaException"/> (use <see cref="EscalarComExcecaoAsync"/> para autorizar).
+    /// </summary>
     public Task EscalarFuncionarioAsync(int eventoId, int funcionarioId, string? funcao, decimal? valorDiaria,
         CancellationToken ct = default) =>
-        AlterarAsync(eventoId, q => q.Include(e => e.Equipe), async (db, evento) =>
+        EscalarAsync(eventoId, funcionarioId, funcao, valorDiaria, null, ct);
+
+    /// <summary>Escala apesar do conflito com outro evento (ou do descanso), com o motivo registrado. Somente administradores.</summary>
+    public Task EscalarComExcecaoAsync(int eventoId, int funcionarioId, string? funcao, decimal? valorDiaria, string motivo,
+        CancellationToken ct = default)
+    {
+        Validador.Garantir(sessao.Usuario?.EhAdministrador == true, "Somente um administrador pode escalar com conflito de horário.");
+        return EscalarAsync(eventoId, funcionarioId, funcao, valorDiaria, motivo, ct);
+    }
+
+    private Task EscalarAsync(int eventoId, int funcionarioId, string? funcao, decimal? valorDiaria, string? excecao, CancellationToken ct) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Equipe).Include(e => e.Etapas), async (db, evento) =>
         {
             var funcionario = await db.Funcionarios.Include(f => f.Cargo).FirstOrDefaultAsync(f => f.Id == funcionarioId, ct)
                               ?? throw new RegraNegocioException("Funcionário não encontrado.");
-            evento.EscalarFuncionario(funcionario, funcao, valorDiaria);
+            var escala = evento.EscalarFuncionario(funcionario, funcao, valorDiaria);
+
+            var conflitos = await escalas.ConflitosAsync(db, evento, funcionarioId, ct);
+            if (conflitos.FirstOrDefault(c => !c.AdmiteExcecao) is { } indisponivel)
+                throw new RegraNegocioException($"{funcionario.Nome} está indisponível: {indisponivel.Descricao}.");
+            if (conflitos.Count == 0)
+                return;
+            if (excecao is null)
+                throw new ConflitoEscalaException(funcionario.Nome, conflitos);
+            escala.AutorizarConflito(excecao, sessao.Usuario!.Login);
         }, ct);
 
     public Task RemoverDaEquipeAsync(int eventoId, int funcionarioId, CancellationToken ct = default) =>

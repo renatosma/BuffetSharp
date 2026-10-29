@@ -55,6 +55,23 @@ public class EventoFuncionario
 
     /// <summary>Fechamento de diárias em que esta escala foi paga (nulo enquanto não foi lançada em contas a pagar).</summary>
     public int? FechamentoEquipeId { get; internal set; }
+
+    public const int TamanhoMotivoExcecao = 200;
+
+    /// <summary>Motivo dado por um administrador para escalar apesar do conflito com outro evento (nulo: escala sem conflito).</summary>
+    public string? ExcecaoConflito { get; private set; }
+
+    public string? ExcecaoAutorizadaPor { get; private set; }
+
+    /// <summary>Registra a exceção que permitiu escalar o funcionário mesmo em conflito com outro evento.</summary>
+    public void AutorizarConflito(string motivo, string usuario)
+    {
+        Comum.Validador.Garantir(!string.IsNullOrWhiteSpace(motivo), "Informe o motivo para escalar apesar do conflito.");
+        Comum.Validador.Garantir(motivo.Trim().Length <= TamanhoMotivoExcecao,
+            $"O motivo pode ter no máximo {TamanhoMotivoExcecao} caracteres.");
+        ExcecaoConflito = motivo.Trim();
+        ExcecaoAutorizadaPor = usuario;
+    }
 }
 
 public class Convidado

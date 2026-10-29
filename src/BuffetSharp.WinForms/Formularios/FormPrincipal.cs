@@ -249,6 +249,7 @@ internal sealed class FormPrincipal : FormBase
 
             new("EVENTOS", "Eventos", Icones.Bandeira, todos, () => n.Abrir<FormEventos>()),
             new("EVENTOS", "Produção da cozinha", Icones.Lista, [Adm, Ope], () => n.Abrir<FormProducao>()),
+            new("EVENTOS", "Agenda da equipe", Icones.Pessoas, [Adm, Ope], () => n.Abrir<FormAgendaEquipe>()),
 
             new("CARDÁPIO", "Itens do cardápio", Icones.Lista, [Adm, Com, Ope], () => n.Abrir<FormItensCardapio>()),
             new("CARDÁPIO", "Pacotes", Icones.Biblioteca, [Adm, Com, Ope], () => n.Abrir<FormPacotes>()),
@@ -278,6 +279,7 @@ internal sealed class FormPrincipal : FormBase
             new("CADASTROS", "Serviços adicionais", Icones.Etiqueta, [Adm, Com], () => Cadastro(DefinicoesCadastros.ServicosAdicionais)),
             new("CADASTROS", "Funcionários", Icones.Pessoas, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Funcionarios)),
             new("CADASTROS", "Cargos", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Cargos)),
+            new("CADASTROS", "Indisponibilidades da equipe", Icones.Calendario, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Indisponibilidades)),
             new("CADASTROS", "Modelos de checklist", Icones.Confirmar, [Adm, Com, Ope], () => Cadastro(DefinicoesCadastros.ModelosChecklist)),
             new("CADASTROS", "Modelos de cronograma", Icones.Relogio, [Adm, Com, Ope], () => Cadastro(DefinicoesCadastros.ModelosCronograma)),
             new("CADASTROS", "Fornecedores", Icones.Contato, [Adm, Fin, Ope], () => Cadastro(DefinicoesCadastros.Fornecedores)),

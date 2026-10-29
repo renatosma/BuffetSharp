@@ -88,6 +88,8 @@ internal sealed class EventoFuncionarioConfig : IEntityTypeConfiguration<EventoF
         b.Property(x => x.Funcao).HasMaxLength(80).IsRequired();
         b.HasOne(x => x.Funcionario).WithMany().HasForeignKey(x => x.FuncionarioId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.EventoId, x.FuncionarioId }).IsUnique();
+        b.Property(x => x.ExcecaoConflito).HasMaxLength(EventoFuncionario.TamanhoMotivoExcecao);
+        b.Property(x => x.ExcecaoAutorizadaPor).HasMaxLength(50);
     }
 }
 

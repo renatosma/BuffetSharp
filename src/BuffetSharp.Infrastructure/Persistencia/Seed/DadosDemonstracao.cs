@@ -72,6 +72,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await CriarChecklistsAsync(ct);
         await PagarEquipeAsync(ct);
         await ContratarFornecedoresAsync(ct);
+        await CriarIndisponibilidadesAsync(ct);
     }
 
     // =====================================================================
@@ -1232,6 +1233,23 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         foreach (var evento in eventos.Where(e => e.Id % 2 == 0))
             foreach (var contratacao in evento.Fornecedores)
                 evento.ConfirmarFornecedor(contratacao.Id, Agora.AddDays(-1));
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Férias de um funcionário e a folga de outro nas próximas semanas, para a agenda da equipe.</summary>
+    private async Task CriarIndisponibilidadesAsync(CancellationToken ct)
+    {
+        var funcionarios = _funcionarios.OrderBy(f => f.Id).ToList();
+        db.IndisponibilidadesFuncionario.AddRange(
+            new IndisponibilidadeFuncionario
+            {
+                FuncionarioId = funcionarios[0].Id, Motivo = MotivoIndisponibilidade.Ferias, Inicio = Hoje.AddDays(10), Fim = Hoje.AddDays(24),
+                Observacao = "Férias programadas"
+            },
+            new IndisponibilidadeFuncionario
+            {
+                FuncionarioId = funcionarios[1].Id, Motivo = MotivoIndisponibilidade.Folga, Inicio = Hoje.AddDays(3), Fim = Hoje.AddDays(3)
+            });
         await db.SaveChangesAsync(ct);
     }
 

@@ -22,7 +22,7 @@ public class CronogramaIntegracaoTests(BancoFixture banco)
             ClienteId = (await lookups.ListarAsync(TipoLookup.Clientes, ct: Ct)).First().Id,
             TipoEventoId = (await lookups.ListarAsync(TipoLookup.TiposEvento, ct: Ct)).First().Id,
             EspacoId = espaco.Id,
-            Data = Hoje.AddYears(3).AddDays(Random.Shared.Next(1, 300)),
+            Data = Hoje.AddYears(3).AddDays(Random.Shared.Next(3, 300)),
             HoraInicio = new TimeOnly(8, 0),
             HoraFim = new TimeOnly(11, 0),
             Convidados = 40,

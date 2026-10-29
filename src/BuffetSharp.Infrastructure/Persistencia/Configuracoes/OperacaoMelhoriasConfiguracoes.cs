@@ -111,6 +111,17 @@ internal sealed class EventoFornecedorConfig : IEntityTypeConfiguration<EventoFo
     }
 }
 
+internal sealed class IndisponibilidadeFuncionarioConfig : IEntityTypeConfiguration<IndisponibilidadeFuncionario>
+{
+    public void Configure(EntityTypeBuilder<IndisponibilidadeFuncionario> b)
+    {
+        b.ToTable("IndisponibilidadesFuncionario");
+        b.Ignore(x => x.Descricao);
+        b.HasOne(x => x.Funcionario).WithMany().HasForeignKey(x => x.FuncionarioId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => new { x.FuncionarioId, x.Inicio });
+    }
+}
+
 internal sealed class EspacoMesaConfig : IEntityTypeConfiguration<EspacoMesa>
 {
     public void Configure(EntityTypeBuilder<EspacoMesa> b)
