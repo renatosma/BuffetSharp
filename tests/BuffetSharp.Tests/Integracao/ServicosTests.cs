@@ -146,7 +146,7 @@ public class ServicosTests(BancoFixture banco)
             ]
         }, Ct);
 
-        await eventos.AdicionarConvidadoAsync(eventoId, "Convidado Teste", null, null, 1, "Mesa 1", Ct);
+        await eventos.AdicionarConvidadoAsync(eventoId, "Convidado Teste", null, null, 1, ct: Ct);
         var funcionarioId = await Lookup(TipoLookup.Funcionarios);
         await eventos.EscalarFuncionarioAsync(eventoId, funcionarioId, null, null, Ct);
 

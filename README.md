@@ -156,6 +156,8 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   - insumos previstos;
   - escala da **equipe** com presença;
   - **convidados**, com importação colada do Excel, RSVP e **check-in**;
+  - **mapa de mesas** (aba Mesas): a planta do salão com as mesas arrastáveis, as cadeiras mostrando a ocupação e os
+    convidados sentados com os acompanhantes, arrastando-os até a mesa;
   - **convidados excedentes**: a contagem de quem veio (o check-in já vem preenchido, mais quem entrou pela portaria, com
     as crianças de meia e isentas) é comparada com o contratado e o que passou vira uma cobrança numa parcela própria, ao
     valor por pessoa do contrato, que pode sair na hora pelo PIX. Ao realizar o evento, se o check-in passou do
@@ -242,6 +244,13 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   novo já nasce com o do seu tipo; mudar o horário do evento leva o cronograma junto. Na aba Cronograma, o painel do dia
   mostra a etapa em andamento e a próxima (com quanto falta). Sai impresso para a equipe (completo ou por responsável),
   na ficha do evento e para o cliente, só a programação da festa, em PDF por e-mail ou pelo WhatsApp.
+- **Mapa de mesas**: cada espaço guarda um mapa padrão (Cadastros › Espaços › Mapa de mesas, ou "Salvar como padrão do
+  salão" a partir de um evento), e o evento novo no salão já nasce com ele. No evento, as mesas (redondas, quadradas ou
+  retangulares, com número, nome e lugares) são arrastadas na planta, e o convidado senta junto com os acompanhantes
+  só se couberem todos. A distribuição automática senta quem está sem mesa, os grupos maiores primeiro, e quem avisou
+  que não vai libera o lugar. Na importação da lista, a coluna Mesa ("5", "Mesa 5" ou um nome, como "Noivos") cria a
+  mesa no mapa se ela não existir. Saem impressos a lista da recepção (em ordem alfabética, com a mesa), a planta com
+  quem senta em cada mesa e os cartões de mesa (uma página por mesa).
 - **Pagamento da equipe**: as diárias dos eventos realizados (escalas com presença) viram uma conta a pagar por
   funcionário, na categoria Pessoal. O fechamento pode ser desfeito enquanto a conta não foi paga.
 - **Cobrança por PIX**: QR Code e código "copia e cola" de cada parcela (BR Code do Banco Central), para copiar, salvar
@@ -349,18 +358,18 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **361 testes** (xUnit v3): 331 de domínio, integração e bancos, e 30 das telas.
+São **371 testes** (xUnit v3): 340 de domínio, integração e bancos, e 31 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
-  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, convidados excedentes, diárias da equipe, BR Code do
+  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, mapa de mesas, convidados excedentes, diárias da equipe, BR Code do
   PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada, leitura do XML da NF-e,
   regras da NFS-e e o envio ao Focus NFe, cobrança registrada e a API do Asaas, e o envio pela Z-API (HTTP simulado).
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
   backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, NFS-e, boleto/PIX registrado com baixa automática, lembretes automáticos pelo WhatsApp, ordem de produção,
-  checklist, cronograma, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
+  checklist, cronograma, mapa de mesas, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 
 Para rodar as suítes de integração e de telas em outro banco, copie `BuffetSharp.runsettings.exemplo`

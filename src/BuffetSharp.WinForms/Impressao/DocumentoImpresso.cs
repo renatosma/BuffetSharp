@@ -17,6 +17,8 @@ internal sealed class DocumentoImpresso
     private sealed record BlocoEspaco(float Altura) : Bloco;
     private sealed record BlocoTotal(string Rotulo, string Valor) : Bloco;
     private sealed record BlocoAssinaturas(string[] Nomes, byte[]?[] Imagens, string[] Legendas) : Bloco;
+    private sealed record BlocoDesenho(Action<Graphics, RectangleF> Desenhar, float? Altura) : Bloco;
+    private sealed record BlocoQuebra : Bloco;
 
     private readonly string _titulo;
     private readonly string? _empresa;
@@ -26,6 +28,7 @@ internal sealed class DocumentoImpresso
     private int _blocoAtual;
     private int _linhaTabela;
     private int _pagina;
+    private float _inicioConteudo;
 
     private static readonly Font FonteTexto = new("Segoe UI", 9.5f);
     private static readonly Font FonteNegrito = new("Segoe UI Semibold", 9.5f);
@@ -61,6 +64,12 @@ internal sealed class DocumentoImpresso
     public DocumentoImpresso Assinaturas(params (string Nome, byte[]? Imagem, string? Legenda)[] assinantes) =>
         Add(new BlocoAssinaturas(assinantes.Select(a => a.Nome).ToArray(), assinantes.Select(a => a.Imagem).ToArray(),
             assinantes.Select(a => a.Legenda ?? string.Empty).ToArray()));
+
+    /// <summary>Desenho livre (ex.: a planta do salão) numa faixa da página; sem altura, ocupa o resto da página.</summary>
+    public DocumentoImpresso Desenho(Action<Graphics, RectangleF> desenhar, float? altura = null) => Add(new BlocoDesenho(desenhar, altura));
+
+    /// <summary>O que vem depois começa numa página nova.</summary>
+    public DocumentoImpresso QuebraPagina() => Add(new BlocoQuebra());
 
     /// <summary>Texto fixo no rodapé de todas as páginas (ex.: código de integridade do contrato).</summary>
     public DocumentoImpresso Rodape(string texto)
@@ -171,6 +180,7 @@ internal sealed class DocumentoImpresso
         var area = e.MarginBounds;
         _pagina++;
         var y = DesenharCabecalho(g, area);
+        _inicioConteudo = y;
 
         while (_blocoAtual < _blocos.Count)
         {
@@ -225,6 +235,19 @@ internal sealed class DocumentoImpresso
         {
             case BlocoEspaco espaco:
                 return (y + espaco.Altura, true);
+
+            // No topo da página não há o que quebrar.
+            case BlocoQuebra:
+                return (y, y <= _inicioConteudo);
+
+            case BlocoDesenho desenho:
+            {
+                var altura = desenho.Altura ?? area.Bottom - y;
+                if (y > _inicioConteudo && (desenho.Altura is null ? altura < 200 : y + altura > area.Bottom))
+                    return (y, false);
+                desenho.Desenhar(g, new RectangleF(area.Left, y, area.Width, Math.Min(altura, area.Bottom - y)));
+                return (y + altura + 6, true);
+            }
 
             case BlocoTitulo titulo:
             {

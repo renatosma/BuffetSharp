@@ -1,5 +1,6 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
+using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Cardapio;
@@ -39,6 +40,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
     private Dictionary<string, FormaPagamento> _formas = [];
     private Dictionary<string, Fornecedor> _fornecedores = [];
     private List<Espaco> _espacos = [];
+    private readonly Dictionary<int, List<IMesaPlanta>> _plantas = [];
     private List<Cliente> _clientesPf = [];
     private List<Cliente> _clientesPj = [];
     private List<Funcionario> _funcionarios = [];
@@ -205,6 +207,20 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         db.ContasFinanceiras.Add(_banco);
         db.CartoesCredito.Add(_cartao);
 
+        await db.SaveChangesAsync(ct);
+
+        // Mapa padrão de cada salão: mesas redondas de 10 lugares para a capacidade.
+        foreach (var espaco in _espacos)
+        {
+            var planta = new List<IMesaPlanta>();
+            for (var numero = 1; numero <= Math.Min(espaco.CapacidadeMaxima / PlantaSalao.LugaresPadrao, 40); numero++)
+            {
+                var (x, y) = PlantaSalao.ProximaPosicao(planta);
+                planta.Add(new MesaInput { Numero = numero, X = x, Y = y });
+            }
+            _plantas[espaco.Id] = planta;
+            db.EspacoMesas.AddRange(planta.Select(m => new EspacoMesa(espaco.Id, m)));
+        }
         await db.SaveChangesAsync(ct);
     }
 
@@ -665,8 +681,10 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         if (p.Destino == Destino.Realizado || (p.Destino == Destino.Confirmado && dias <= 45))
             ReservarMateriais(evento, p);
 
-        // Lista de convidados (amostra) - precisa de Id para o check-in, por isso salva antes.
+        // Lista de convidados (amostra), sentados no mapa do salão - precisa de Id para o check-in, por isso salva antes.
+        evento.UsarPlanta(_plantas[evento.EspacoId]);
         AdicionarConvidados(evento);
+        evento.DistribuirConvidados();
         await db.SaveChangesAsync(ct);
 
         // Contrato: assinado para eventos realizados recentes e para a maioria dos confirmados.
@@ -797,12 +815,8 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         while (nomes.Count < quantidade)
             nomes.Add($"{Escolher(PrimeirosNomes)} {Escolher(Sobrenomes)}");
 
-        var mesa = 1;
         foreach (var nome in nomes)
-        {
-            evento.AdicionarConvidado(nome, $"(11) 9{_rnd.Next(1000, 9999)}-{_rnd.Next(1000, 9999)}",
-                acompanhantes: _rnd.Next(0, 3), mesa: $"Mesa {mesa++ / 4 + 1}");
-        }
+            evento.AdicionarConvidado(nome, $"(11) 9{_rnd.Next(1000, 9999)}-{_rnd.Next(1000, 9999)}", acompanhantes: _rnd.Next(0, 3));
     }
 
     /// <summary>Respostas de presença (RSVP) para eventos futuros. Requer os convidados já salvos (com Id).</summary>

@@ -79,6 +79,28 @@ internal sealed class EventoEtapaConfig : IEntityTypeConfiguration<EventoEtapa>
     }
 }
 
+internal sealed class EventoMesaConfig : IEntityTypeConfiguration<EventoMesa>
+{
+    public void Configure(EntityTypeBuilder<EventoMesa> b)
+    {
+        b.ToTable("EventoMesas");
+        b.Property(x => x.Nome).HasMaxLength(PlantaSalao.TamanhoNome);
+        b.HasOne<Evento>().WithMany(e => e.Mesas).HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => new { x.EventoId, x.Numero }).IsUnique();
+    }
+}
+
+internal sealed class EspacoMesaConfig : IEntityTypeConfiguration<EspacoMesa>
+{
+    public void Configure(EntityTypeBuilder<EspacoMesa> b)
+    {
+        b.ToTable("EspacoMesas");
+        b.Property(x => x.Nome).HasMaxLength(PlantaSalao.TamanhoNome);
+        b.HasOne<Espaco>().WithMany().HasForeignKey(x => x.EspacoId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => new { x.EspacoId, x.Numero }).IsUnique();
+    }
+}
+
 internal sealed class FechamentoEquipeConfig : IEntityTypeConfiguration<FechamentoEquipe>
 {
     public void Configure(EntityTypeBuilder<FechamentoEquipe> b)

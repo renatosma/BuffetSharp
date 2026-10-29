@@ -736,6 +736,56 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.ToTable("ESPACOS", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.EspacoMesa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EspacoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ESPACOID");
+
+                    b.Property<string>("Formato")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("FORMATO");
+
+                    b.Property<int>("Lugares")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("LUGARES");
+
+                    b.Property<string>("Nome")
+                        .HasMaxLength(40)
+                        .HasColumnType("NVARCHAR2(40)")
+                        .HasColumnName("NOME");
+
+                    b.Property<int>("Numero")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("NUMERO");
+
+                    b.Property<int>("X")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("X");
+
+                    b.Property<int>("Y")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("Y");
+
+                    b.HasKey("Id")
+                        .HasName("PK_ESPACOMESAS");
+
+                    b.HasIndex("EspacoId", "Numero")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ESPACOMESAS_ESPACOID_NUMERO");
+
+                    b.ToTable("ESPACOMESAS", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.FormaPagamento", b =>
                 {
                     b.Property<int>("Id")
@@ -3239,10 +3289,9 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("EVENTOID");
 
-                    b.Property<string>("Mesa")
-                        .HasMaxLength(20)
-                        .HasColumnType("NVARCHAR2(20)")
-                        .HasColumnName("MESA");
+                    b.Property<int?>("MesaId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("MESAID");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -3263,6 +3312,9 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
 
                     b.HasKey("Id")
                         .HasName("PK_CONVIDADOS");
+
+                    b.HasIndex("MesaId")
+                        .HasDatabaseName("IX_CONVIDADOS_MESAID");
 
                     b.HasIndex("EventoId", "Nome")
                         .HasDatabaseName("IX_CONVIDADOS_EVENTOID_NOME");
@@ -3635,6 +3687,56 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasDatabaseName("IX_EVENTOMATERIAIS_EVENTOID_MATERIALID");
 
                     b.ToTable("EVENTOMATERIAIS", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoMesa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("EVENTOID");
+
+                    b.Property<string>("Formato")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("FORMATO");
+
+                    b.Property<int>("Lugares")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("LUGARES");
+
+                    b.Property<string>("Nome")
+                        .HasMaxLength(40)
+                        .HasColumnType("NVARCHAR2(40)")
+                        .HasColumnName("NOME");
+
+                    b.Property<int>("Numero")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("NUMERO");
+
+                    b.Property<int>("X")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("X");
+
+                    b.Property<int>("Y")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("Y");
+
+                    b.HasKey("Id")
+                        .HasName("PK_EVENTOMESAS");
+
+                    b.HasIndex("EventoId", "Numero")
+                        .IsUnique()
+                        .HasDatabaseName("IX_EVENTOMESAS_EVENTOID_NUMERO");
+
+                    b.ToTable("EVENTOMESAS", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoServico", b =>
@@ -5411,6 +5513,16 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasConstraintName("FK_ENDERECOSADICIONAIS_FUNCIONARIOS_FUNCIONARIOID");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.EspacoMesa", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Espaco", null)
+                        .WithMany()
+                        .HasForeignKey("EspacoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_ESPACOMESAS_ESPACOS_ESPACOID");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Funcionario", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Cadastros.Cargo", "Cargo")
@@ -6043,6 +6155,13 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK_CONVIDADOS_EVENTOS_EVENTOID");
+
+                    b.HasOne("BuffetSharp.Domain.Eventos.EventoMesa", "Mesa")
+                        .WithMany()
+                        .HasForeignKey("MesaId")
+                        .HasConstraintName("FK_CONVIDADOS_EVENTOMESAS_MESAID");
+
+                    b.Navigation("Mesa");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.Evento", b =>
@@ -6172,6 +6291,16 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasConstraintName("FK_EVENTOMATERIAIS_MATERIAIS_MATERIALID");
 
                     b.Navigation("Material");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoMesa", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany("Mesas")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_EVENTOMESAS_EVENTOS_EVENTOID");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoServico", b =>
@@ -6640,6 +6769,8 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("Etapas");
 
                     b.Navigation("Materiais");
+
+                    b.Navigation("Mesas");
 
                     b.Navigation("Parcelas");
 

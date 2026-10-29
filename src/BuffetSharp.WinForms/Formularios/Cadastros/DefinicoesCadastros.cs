@@ -358,7 +358,16 @@ internal static class DefinicoesCadastros
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
             CamposEndereco(e, x.Endereco);
             return Task.CompletedTask;
-        }
+        },
+        Acoes =
+        [
+            new("Mapa de mesas", Icones.Loja, (espaco, ctx) =>
+            {
+                using var mapa = new FormMapaEspaco(ctx.Navegador.Servico<MapaMesasService>(), espaco);
+                mapa.ShowDialog(ctx.Dono);
+                return Task.CompletedTask;
+            })
+        ]
     };
 
     public static readonly DefinicaoCadastro<ServicoAdicional> ServicosAdicionais = new()

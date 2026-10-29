@@ -1,3 +1,5 @@
+using BuffetSharp.Domain.Eventos;
+
 namespace BuffetSharp.Application.Modelos;
 
 // Planejamento da operação: o que comprar e o que produzir para os eventos confirmados.
@@ -79,7 +81,6 @@ public sealed record PratoProducao(string Secao, int OrdemSecao, string Prato, i
 
 public sealed record IngredienteProducao(string Produto, decimal Quantidade, string Unidade);
 
-/// <summary>Tarefa nova (ou alterada) do checklist do evento.</summary>
 /// <summary>Etapa do cronograma do evento (Id 0 = nova).</summary>
 public sealed class EtapaInput
 {
@@ -98,6 +99,30 @@ public sealed class EtapaInput
     public string? Observacao { get; set; }
 }
 
+/// <summary>Mesa do mapa do evento ou do mapa padrão do espaço (Id 0 = nova).</summary>
+public sealed class MesaInput : IMesaPlanta
+{
+    public int Id { get; set; }
+    public int Numero { get; set; }
+    public string? Nome { get; set; }
+    public int Lugares { get; set; } = PlantaSalao.LugaresPadrao;
+    public FormatoMesa Formato { get; set; }
+
+    /// <summary>Posição na planta; nula na mesa nova, que vai para o primeiro lugar livre.</summary>
+    public int? X { get; set; }
+
+    public int? Y { get; set; }
+
+    int IMesaPlanta.X => X ?? 0;
+    int IMesaPlanta.Y => Y ?? 0;
+
+    public static MesaInput De(IMesaPlanta mesa, int id = 0) => new()
+    {
+        Id = id, Numero = mesa.Numero, Nome = mesa.Nome, Lugares = mesa.Lugares, Formato = mesa.Formato, X = mesa.X, Y = mesa.Y
+    };
+}
+
+/// <summary>Tarefa nova (ou alterada) do checklist do evento.</summary>
 public sealed class TarefaInput
 {
     public string Descricao { get; set; } = string.Empty;

@@ -99,7 +99,9 @@ internal sealed class ConvidadoConfig : IEntityTypeConfiguration<Convidado>
         b.Property(x => x.Nome).HasMaxLength(150).IsRequired();
         b.Property(x => x.Telefone).HasMaxLength(20);
         b.Property(x => x.Email).HasMaxLength(150);
-        b.Property(x => x.Mesa).HasMaxLength(20);
         b.HasIndex(x => new { x.EventoId, x.Nome });
+
+        // Sem cascata: o evento tira os convidados da mesa antes de removê-la.
+        b.HasOne(x => x.Mesa).WithMany().HasForeignKey("MesaId").OnDelete(DeleteBehavior.ClientSetNull);
     }
 }

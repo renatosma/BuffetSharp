@@ -23,7 +23,9 @@ public sealed class EventoService(
     public async Task<EventoDetalhe> ObterDetalheAsync(int id, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
-        var evento = await db.Eventos.AsNoTracking()
+
+        // Com resolução de identidade, a mesa de cada convidado é a mesma instância das mesas do mapa.
+        var evento = await db.Eventos.AsNoTrackingWithIdentityResolution()
                          .Include(e => e.Cliente)
                          .Include(e => e.TipoEvento)
                          .Include(e => e.Espaco)
@@ -34,7 +36,8 @@ public sealed class EventoService(
                          .ThenInclude(i => i.Ingredientes).ThenInclude(f => f.Produto!).ThenInclude(p => p.UnidadeMedida)
                          .Include(e => e.Servicos)
                          .Include(e => e.Equipe).ThenInclude(f => f.Funcionario!).ThenInclude(f => f.Cargo)
-                         .Include(e => e.Convidados)
+                         .Include(e => e.Convidados).ThenInclude(c => c.Mesa)
+                         .Include(e => e.Mesas)
                          .Include(e => e.Parcelas).ThenInclude(p => p.FormaPagamento)
                          .Include(e => e.Tarefas)
                          .Include(e => e.Etapas)
@@ -161,19 +164,25 @@ public sealed class EventoService(
 
     // ------------------------- Convidados -------------------------
 
+    /// <param name="mesaId">Mesa do mapa onde o convidado senta (opcional).</param>
     public Task AdicionarConvidadoAsync(int eventoId, string nome, string? telefone, string? email, int acompanhantes,
-        string? mesa, CancellationToken ct = default) =>
-        AlterarAsync(eventoId, q => q.Include(e => e.Convidados),
-            (_, e) => e.AdicionarConvidado(nome, telefone, email, acompanhantes, mesa), ct);
+        int? mesaId = null, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, ComMesas, (_, e) =>
+        {
+            var convidado = e.AdicionarConvidado(nome, telefone, email, acompanhantes);
+            if (mesaId is { } id)
+                e.SentarConvidado(convidado, e.Mesas.FirstOrDefault(m => m.Id == id) ?? throw new RegraNegocioException("Mesa não encontrada."));
+        }, ct);
 
     /// <summary>
     /// Importa convidados colados de uma planilha/texto: uma pessoa por linha no formato
-    /// "Nome;Telefone;Acompanhantes;Mesa" (somente o nome é obrigatório). Retorna a quantidade importada.
+    /// "Nome;Telefone;Acompanhantes;Mesa" (somente o nome é obrigatório). A mesa ("5", "Mesa 5" ou um nome, como "Noivos")
+    /// entra no mapa se ainda não existir; quem não couber nela fica sem mesa. Retorna a quantidade importada.
     /// </summary>
     public async Task<int> ImportarConvidadosAsync(int eventoId, string texto, CancellationToken ct = default)
     {
         var importados = 0;
-        await AlterarAsync(eventoId, q => q.Include(e => e.Convidados), (_, evento) =>
+        await AlterarAsync(eventoId, ComMesas, (_, evento) =>
         {
             foreach (var linha in texto.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
@@ -185,8 +194,10 @@ public sealed class EventoService(
 
                 var telefone = partes.Length > 1 && partes[1].Length > 0 ? partes[1] : null;
                 var acompanhantes = partes.Length > 2 && int.TryParse(partes[2], out var a) ? a : 0;
-                var mesa = partes.Length > 3 && partes[3].Length > 0 ? partes[3] : null;
-                evento.AdicionarConvidado(nome, telefone, null, acompanhantes, mesa);
+                var convidado = evento.AdicionarConvidado(nome, telefone, null, acompanhantes);
+                if (partes.Length > 3 && partes[3].Length > 0 && evento.ObterOuCriarMesa(partes[3]) is var mesa &&
+                    evento.LugaresLivres(mesa) >= convidado.Pessoas)
+                    evento.SentarConvidado(convidado, mesa);
                 importados++;
             }
         }, ct);
@@ -197,7 +208,7 @@ public sealed class EventoService(
         AlterarAsync(eventoId, q => q.Include(e => e.Convidados), (_, e) => e.RemoverConvidado(convidadoId), ct);
 
     public Task DefinirRsvpAsync(int eventoId, int convidadoId, StatusRsvp rsvp, CancellationToken ct = default) =>
-        AlterarAsync(eventoId, q => q.Include(e => e.Convidados), (_, e) => e.DefinirRsvp(convidadoId, rsvp), ct);
+        AlterarAsync(eventoId, ComMesas, (_, e) => e.DefinirRsvp(convidadoId, rsvp), ct);
 
     public Task RegistrarCheckInAsync(int eventoId, int convidadoId, CancellationToken ct = default) =>
         AlterarAsync(eventoId, q => q.Include(e => e.Convidados), (_, e) => e.RegistrarCheckIn(convidadoId, Agora), ct);
@@ -289,6 +300,52 @@ public sealed class EventoService(
         }, ct);
         return incluidas;
     }
+
+    // ------------------------- Mapa de mesas -------------------------
+
+    /// <summary>Inclui ou altera uma mesa do mapa (a posição só muda em <see cref="MoverMesaAsync"/>).</summary>
+    public Task SalvarMesaAsync(int eventoId, MesaInput input, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, ComMesas, (_, e) =>
+        {
+            if (input.Id == 0)
+                e.AdicionarMesa(input.Numero, input.Nome, input.Lugares, input.Formato, input.X, input.Y);
+            else
+                e.AlterarMesa(input.Id, input.Numero, input.Nome, input.Lugares, input.Formato);
+        }, ct);
+
+    public Task MoverMesaAsync(int eventoId, int mesaId, int x, int y, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Mesas), (_, e) => e.MoverMesa(mesaId, x, y), ct);
+
+    public Task RemoverMesaAsync(int eventoId, int mesaId, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, ComMesas, (_, e) => e.RemoverMesa(mesaId), ct);
+
+    /// <summary>Senta o convidado na mesa (nula: tira da mesa).</summary>
+    public Task SentarConvidadoAsync(int eventoId, int convidadoId, int? mesaId, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, ComMesas, (_, e) => e.SentarConvidado(convidadoId, mesaId), ct);
+
+    /// <summary>Distribui os convidados sem mesa pelos lugares livres. Retorna quantos foram sentados.</summary>
+    public async Task<int> DistribuirConvidadosAsync(int eventoId, CancellationToken ct = default)
+    {
+        var sentados = 0;
+        await AlterarAsync(eventoId, ComMesas, (_, e) => sentados = e.DistribuirConvidados(), ct);
+        return sentados;
+    }
+
+    /// <summary>Troca o mapa do evento pelo mapa padrão do espaço. Retorna quantos convidados ficaram sem mesa.</summary>
+    public async Task<int> UsarMapaDoEspacoAsync(int eventoId, CancellationToken ct = default)
+    {
+        var semMesa = 0;
+        await AlterarAsync(eventoId, q => ComMesas(q).Include(e => e.Espaco), async (db, e) =>
+        {
+            var planta = await db.EspacoMesas.Where(m => m.EspacoId == e.EspacoId).ToListAsync(ct);
+            Validador.Garantir(planta.Count > 0,
+                $"O espaço '{e.Espaco?.Nome}' ainda não tem mapa padrão. Monte as mesas aqui e use \"Salvar como padrão do salão\".");
+            semMesa = e.UsarPlanta(planta);
+        }, ct);
+        return semMesa;
+    }
+
+    private static IQueryable<Evento> ComMesas(IQueryable<Evento> eventos) => eventos.Include(e => e.Convidados).Include(e => e.Mesas);
 
     // ------------------------- Financeiro -------------------------
 

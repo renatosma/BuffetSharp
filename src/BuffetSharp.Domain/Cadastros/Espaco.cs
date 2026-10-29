@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using BuffetSharp.Domain.Comum;
+using BuffetSharp.Domain.Eventos;
 
 namespace BuffetSharp.Domain.Cadastros;
 
@@ -25,6 +26,39 @@ public class Espaco : Entidade, IAtivavel
     public bool Ativo { get; set; } = true;
 
     public override string ToString() => $"{Nome} (até {CapacidadeMaxima} pessoas)";
+}
+
+/// <summary>Mesa do mapa padrão do espaço: o evento novo no salão já nasce com este arranjo.</summary>
+public class EspacoMesa : IMesaPlanta
+{
+    private EspacoMesa()
+    {
+    }
+
+    public EspacoMesa(int espacoId, IMesaPlanta mesa)
+    {
+        EspacoId = espacoId;
+        Alterar(mesa);
+    }
+
+    public int Id { get; private set; }
+    public int EspacoId { get; private set; }
+    public int Numero { get; private set; }
+    public string? Nome { get; private set; }
+    public int Lugares { get; private set; }
+    public FormatoMesa Formato { get; private set; }
+    public int X { get; private set; }
+    public int Y { get; private set; }
+
+    public void Alterar(IMesaPlanta mesa)
+    {
+        PlantaSalao.ValidarMesa(mesa.Numero, mesa.Nome, mesa.Lugares);
+        Numero = mesa.Numero;
+        Nome = PlantaSalao.Limpo(mesa.Nome);
+        Lugares = mesa.Lugares;
+        Formato = mesa.Formato;
+        (X, Y) = PlantaSalao.Limitar(mesa.X, mesa.Y);
+    }
 }
 
 /// <summary>DJ, decoração, fotografia, bolo, open bar...</summary>

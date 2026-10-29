@@ -63,13 +63,12 @@ public class Convidado
     {
     }
 
-    internal Convidado(string nome, string? telefone, string? email, int acompanhantes, string? mesa)
+    internal Convidado(string nome, string? telefone, string? email, int acompanhantes)
     {
         Nome = nome;
         Telefone = telefone;
         Email = email;
         Acompanhantes = acompanhantes;
-        Mesa = mesa;
     }
 
     public int Id { get; private set; }
@@ -78,7 +77,12 @@ public class Convidado
     public string? Telefone { get; private set; }
     public string? Email { get; private set; }
     public int Acompanhantes { get; private set; }
-    public string? Mesa { get; private set; }
+    /// <summary>Mesa do mapa onde o convidado senta com os acompanhantes (nula: ainda sem mesa).</summary>
+    public EventoMesa? Mesa { get; internal set; }
+
+    /// <summary>O convidado e os acompanhantes: os lugares que ocupa na mesa.</summary>
+    public int Pessoas => 1 + Acompanhantes;
+
     public StatusRsvp Rsvp { get; internal set; } = StatusRsvp.Pendente;
     public DateTime? CheckInEm { get; internal set; }
 }

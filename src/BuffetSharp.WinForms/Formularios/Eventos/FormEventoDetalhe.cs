@@ -107,6 +107,7 @@ internal sealed partial class FormEventoDetalhe : FormBase
         abas.TabPages.Add(CriarAbaResumo());
         abas.TabPages.Add(CriarAbaEquipe());
         abas.TabPages.Add(CriarAbaConvidados());
+        abas.TabPages.Add(CriarAbaMesas());
         abas.TabPages.Add(CriarAbaMateriais());
         abas.TabPages.Add(CriarAbaCronograma());
         abas.TabPages.Add(CriarAbaChecklist());
@@ -244,17 +245,17 @@ internal sealed partial class FormEventoDetalhe : FormBase
     private readonly TextBox _nomeConvidado = new() { Width = 220, PlaceholderText = "Nome do convidado", Margin = new Padding(0, 5, 6, 0) };
     private readonly MaskedTextBox _telefoneConvidado = new("(00) 00000-0000") { Width = 120, Margin = new Padding(0, 5, 6, 0) };
     private readonly NumericUpDown _acompanhantes = new() { Width = 50, Maximum = 20, Margin = new Padding(0, 5, 6, 0) };
-    private readonly TextBox _mesa = new() { Width = 80, PlaceholderText = "Mesa", Margin = new Padding(0, 5, 6, 0) };
+    private readonly ComboBox _mesa = new() { Width = 150, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 5, 6, 0) };
 
     private TabPage CriarAbaConvidados()
     {
         _convidados.Texto("Nome", c => c.Nome, 50)
             .Texto("Telefone", c => c.Telefone, 25)
             .Numero("Acomp.", c => c.Acompanhantes, peso: 12)
-            .Texto("Mesa", c => c.Mesa, 15)
+            .Texto("Mesa", c => c.Mesa?.Descricao, 20)
             .Status("Presença (RSVP)", c => c.Rsvp, 20)
             .Data("Check-in", c => c.CheckInEm, "dd/MM HH:mm", 20, _ => Tema.Sucesso)
-            .Busca(c => $"{c.Nome} {c.Telefone} {c.Mesa}");
+            .Busca(c => $"{c.Nome} {c.Telefone} {c.Mesa?.Descricao}");
         _buscaConvidado.TextChanged += (_, _) => _convidados.Filtrar(_buscaConvidado.Text);
 
         var cadastro = BarraAba();
@@ -311,7 +312,7 @@ internal sealed partial class FormEventoDetalhe : FormBase
     {
         var telefone = Domain.Comum.Documento.SomenteDigitos(_telefoneConvidado.Text).Length == 0 ? null : _telefoneConvidado.Text;
         await Recarregar(_eventos.AdicionarConvidadoAsync(_eventoId, _nomeConvidado.Text, telefone, null, (int)_acompanhantes.Value,
-            string.IsNullOrWhiteSpace(_mesa.Text) ? null : _mesa.Text.Trim()));
+            (_mesa.SelectedItem as EventoMesa)?.Id));
         _nomeConvidado.Clear();
         _telefoneConvidado.Clear();
         _acompanhantes.Value = 0;
@@ -825,7 +826,7 @@ internal sealed partial class FormEventoDetalhe : FormBase
             doc.Tabela(["Nome", "Acomp.", "Mesa", "Presença", "Check-in"],
                 e.Convidados.OrderBy(c => c.Nome).Select(c => new[]
                 {
-                    c.Nome, c.Acompanhantes.ToString(), c.Mesa ?? "", Textos.Exibir(c.Rsvp), c.CheckInEm?.ToString("HH:mm") ?? "[   ]"
+                    c.Nome, c.Acompanhantes.ToString(), c.Mesa?.Descricao ?? "", Textos.Exibir(c.Rsvp), c.CheckInEm?.ToString("HH:mm") ?? "[   ]"
                 }).ToList(), [4, 1, 1.2f, 1.5f, 1.2f]);
         }
         if (!string.IsNullOrWhiteSpace(e.Observacoes))
@@ -927,6 +928,14 @@ internal sealed partial class FormEventoDetalhe : FormBase
         await CarregarContratosAsync();
 
         CarregarCronograma(e);
+        CarregarMesas(e);
+
+        // Mesa do convidado novo: a escolhida antes, se ainda existir.
+        var mesaEscolhida = (_mesa.SelectedItem as EventoMesa)?.Id;
+        _mesa.Items.Clear();
+        _mesa.Items.Add("(sem mesa)");
+        _mesa.Items.AddRange([.. e.Mesas.OrderBy(m => m.Numero)]);
+        _mesa.SelectedItem = e.Mesas.FirstOrDefault(m => m.Id == mesaEscolhida) ?? (object)"(sem mesa)";
 
         var selecionadaTarefa = _tarefas.Selecionado?.Id;
         _tarefas.Carregar(e.Tarefas.OrderBy(t => t.Prazo).ThenBy(t => t.Ordem));

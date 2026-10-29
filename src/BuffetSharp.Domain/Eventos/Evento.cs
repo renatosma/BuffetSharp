@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Comercial;
@@ -28,6 +29,7 @@ public class Evento : Entidade
     private readonly List<EventoMaterial> _materiais = [];
     private readonly List<EventoTarefa> _tarefas = [];
     private readonly List<EventoEtapa> _etapas = [];
+    private readonly List<EventoMesa> _mesas = [];
 
     private Evento()
     {
@@ -122,6 +124,9 @@ public class Evento : Entidade
     /// <summary>Cronograma (minuto a minuto) da festa.</summary>
     public IReadOnlyCollection<EventoEtapa> Etapas => _etapas;
 
+    /// <summary>Mapa de mesas do salão para esta festa.</summary>
+    public IReadOnlyCollection<EventoMesa> Mesas => _mesas;
+
     public QuantidadesConvidados QuantidadesPorFaixa => new(QuantidadeConvidados, ConvidadosMeia, ConvidadosIsentos);
     public RegraFaixasEtarias RegraFaixas => new(IdadeMaximaIsento, IdadeMaximaMeia, PercentualMeia);
 
@@ -148,9 +153,9 @@ public class Evento : Entidade
     public decimal ValorNaoParcelado =>
         ValorTotal - _parcelas.Where(p => p.Status != StatusTitulo.Cancelado).Sum(p => p.Valor);
 
-    public int TotalPessoasNaLista => _convidados.Sum(c => 1 + c.Acompanhantes);
-    public int PessoasConfirmadas => _convidados.Where(c => c.Rsvp == StatusRsvp.Confirmado).Sum(c => 1 + c.Acompanhantes);
-    public int PessoasPresentes => _convidados.Where(c => c.CheckInEm is not null).Sum(c => 1 + c.Acompanhantes);
+    public int TotalPessoasNaLista => _convidados.Sum(c => c.Pessoas);
+    public int PessoasConfirmadas => _convidados.Where(c => c.Rsvp == StatusRsvp.Confirmado).Sum(c => c.Pessoas);
+    public int PessoasPresentes => _convidados.Where(c => c.CheckInEm is not null).Sum(c => c.Pessoas);
 
     public bool ExcedentesApurados => ExcedentesApuradosEm is not null;
     public ExcedentesConvidados Excedentes => new(ExcedentesInteira, ExcedentesMeia, ExcedentesIsentos, ValorExcedentes);
@@ -286,8 +291,7 @@ public class Evento : Entidade
 
     // ---------------- Convidados ----------------
 
-    public Convidado AdicionarConvidado(string nome, string? telefone = null, string? email = null,
-        int acompanhantes = 0, string? mesa = null)
+    public Convidado AdicionarConvidado(string nome, string? telefone = null, string? email = null, int acompanhantes = 0)
     {
         GarantirConfirmado();
         Validador.Garantir(!string.IsNullOrWhiteSpace(nome), "Informe o nome do convidado.");
@@ -295,7 +299,7 @@ public class Evento : Entidade
         Validador.Garantir(_convidados.All(c => !c.Nome.Equals(nome.Trim(), StringComparison.CurrentCultureIgnoreCase)),
             $"'{nome.Trim()}' já está na lista de convidados.");
 
-        var convidado = new Convidado(nome.Trim(), telefone, email, acompanhantes, mesa);
+        var convidado = new Convidado(nome.Trim(), telefone, email, acompanhantes);
         _convidados.Add(convidado);
         return convidado;
     }
@@ -309,7 +313,12 @@ public class Evento : Entidade
     public void DefinirRsvp(int convidadoId, StatusRsvp rsvp)
     {
         GarantirConfirmado();
-        ObterConvidado(convidadoId).Rsvp = rsvp;
+        var convidado = ObterConvidado(convidadoId);
+        convidado.Rsvp = rsvp;
+
+        // Quem não vai libera o lugar na mesa.
+        if (rsvp == StatusRsvp.Recusado)
+            convidado.Mesa = null;
     }
 
     public void RegistrarCheckIn(int convidadoId, DateTime agora)
@@ -324,6 +333,175 @@ public class Evento : Entidade
     }
 
     public void DesfazerCheckIn(int convidadoId) => ObterConvidado(convidadoId).CheckInEm = null;
+
+    // ---------------- Mapa de mesas ----------------
+
+    public int LugaresNasMesas => _mesas.Sum(m => m.Lugares);
+    public int PessoasSentadas => _convidados.Where(c => c.Mesa is not null).Sum(c => c.Pessoas);
+
+    /// <summary>Quem ainda precisa de lugar: os convidados sem mesa, fora os que avisaram que não vão.</summary>
+    public IEnumerable<Convidado> ConvidadosSemMesa() => _convidados.Where(c => c.Mesa is null && c.Rsvp != StatusRsvp.Recusado);
+
+    public int ProximoNumeroMesa => _mesas.Count == 0 ? 1 : _mesas.Max(m => m.Numero) + 1;
+
+    public IEnumerable<Convidado> ConvidadosDaMesa(EventoMesa mesa) => _convidados.Where(c => MesmaMesa(c.Mesa, mesa));
+    public int LugaresOcupados(EventoMesa mesa) => ConvidadosDaMesa(mesa).Sum(c => c.Pessoas);
+    public int LugaresLivres(EventoMesa mesa) => mesa.Lugares - LugaresOcupados(mesa);
+
+    /// <param name="x">Posição na planta; sem ela, a mesa vai para o primeiro lugar livre.</param>
+    public EventoMesa AdicionarMesa(int numero, string? nome = null, int lugares = PlantaSalao.LugaresPadrao,
+        FormatoMesa formato = FormatoMesa.Redonda, int? x = null, int? y = null)
+    {
+        GarantirConfirmado();
+        ValidarMesa(null, numero, nome, lugares);
+        Validador.Garantir(_mesas.Count < PlantaSalao.MesasMaximo, $"O mapa pode ter no máximo {PlantaSalao.MesasMaximo} mesas.");
+        var (px, py) = x is { } mx && y is { } my ? (mx, my) : PlantaSalao.ProximaPosicao(_mesas);
+        var mesa = new EventoMesa(numero, PlantaSalao.Limpo(nome), lugares, formato, px, py);
+        _mesas.Add(mesa);
+        return mesa;
+    }
+
+    public void AlterarMesa(int mesaId, int numero, string? nome, int lugares, FormatoMesa formato)
+    {
+        GarantirConfirmado();
+        var mesa = ObterMesa(mesaId);
+        ValidarMesa(mesa, numero, nome, lugares);
+        var ocupados = LugaresOcupados(mesa);
+        Validador.Garantir(lugares >= ocupados,
+            $"A {mesa.Descricao} já tem {ocupados} pessoa(s) sentada(s): não pode ficar com {lugares} lugar(es).");
+        mesa.Alterar(numero, PlantaSalao.Limpo(nome), lugares, formato);
+    }
+
+    public void MoverMesa(int mesaId, int x, int y)
+    {
+        GarantirConfirmado();
+        ObterMesa(mesaId).Mover(x, y);
+    }
+
+    /// <summary>Tira a mesa do mapa; quem estava sentado nela fica sem mesa.</summary>
+    public void RemoverMesa(int mesaId)
+    {
+        GarantirConfirmado();
+        var mesa = ObterMesa(mesaId);
+        foreach (var convidado in ConvidadosDaMesa(mesa).ToList())
+            convidado.Mesa = null;
+        _mesas.Remove(mesa);
+    }
+
+    public void SentarConvidado(int convidadoId, int? mesaId) =>
+        SentarConvidado(ObterConvidado(convidadoId), mesaId is { } id ? ObterMesa(id) : null);
+
+    /// <summary>Senta o convidado, com os acompanhantes, na mesa (se couberem). Mesa nula tira o convidado da mesa.</summary>
+    public void SentarConvidado(Convidado convidado, EventoMesa? mesa)
+    {
+        GarantirConfirmado();
+        Validador.Garantir(_convidados.Contains(convidado), "Convidado não encontrado.");
+        if (mesa is null)
+        {
+            convidado.Mesa = null;
+            return;
+        }
+
+        Validador.Garantir(_mesas.Contains(mesa), "Mesa não encontrada no mapa do evento.");
+        if (MesmaMesa(convidado.Mesa, mesa))
+            return;
+        Validador.Garantir(convidado.Rsvp != StatusRsvp.Recusado, $"{convidado.Nome} avisou que não vai ao evento.");
+        var livres = LugaresLivres(mesa);
+        Validador.Garantir(convidado.Pessoas <= livres,
+            $"A {mesa.Descricao} tem {livres} lugar(es) livre(s) e {convidado.Nome} ocupa {convidado.Pessoas}.");
+        convidado.Mesa = mesa;
+    }
+
+    /// <summary>
+    /// Senta os convidados sem mesa (fora os que não vão) onde houver lugar, cada um junto com os acompanhantes: os grupos
+    /// maiores primeiro, na mesa de menor número em que couberem. Retorna quantos convidados foram sentados.
+    /// </summary>
+    public int DistribuirConvidados()
+    {
+        GarantirConfirmado();
+        Validador.Garantir(_mesas.Count > 0, "Monte o mapa com as mesas antes de distribuir os convidados.");
+        var livres = _mesas.ToDictionary(m => m, LugaresLivres);
+        var sentados = 0;
+        foreach (var convidado in ConvidadosSemMesa().OrderByDescending(c => c.Pessoas).ThenBy(c => c.Nome).ToList())
+        {
+            var mesa = _mesas.OrderBy(m => m.Numero).FirstOrDefault(m => livres[m] >= convidado.Pessoas);
+            if (mesa is null)
+                continue;
+            convidado.Mesa = mesa;
+            livres[mesa] -= convidado.Pessoas;
+            sentados++;
+        }
+        return sentados;
+    }
+
+    /// <summary>
+    /// Troca o mapa do evento pelo do salão. As mesas de mesmo número continuam, com quem está sentado nelas enquanto couber;
+    /// as que o salão não tem saem do mapa. Retorna quantos convidados ficaram sem mesa.
+    /// </summary>
+    public int UsarPlanta(IReadOnlyCollection<IMesaPlanta> planta)
+    {
+        GarantirConfirmado();
+        PlantaSalao.Validar(planta);
+        var semMesa = 0;
+        foreach (var mesa in _mesas.ToList())
+        {
+            if (planta.FirstOrDefault(p => p.Numero == mesa.Numero) is not { } nova)
+            {
+                foreach (var convidado in ConvidadosDaMesa(mesa).ToList())
+                {
+                    convidado.Mesa = null;
+                    semMesa++;
+                }
+                _mesas.Remove(mesa);
+                continue;
+            }
+
+            mesa.Alterar(nova.Numero, PlantaSalao.Limpo(nova.Nome), nova.Lugares, nova.Formato);
+            mesa.Mover(nova.X, nova.Y);
+            while (LugaresOcupados(mesa) > mesa.Lugares)
+            {
+                ConvidadosDaMesa(mesa).OrderBy(c => c.Nome).Last().Mesa = null;
+                semMesa++;
+            }
+        }
+
+        foreach (var nova in planta.Where(p => _mesas.All(m => m.Numero != p.Numero)).OrderBy(p => p.Numero))
+            _mesas.Add(new EventoMesa(nova.Numero, PlantaSalao.Limpo(nova.Nome), nova.Lugares, nova.Formato, nova.X, nova.Y));
+        return semMesa;
+    }
+
+    /// <summary>
+    /// A mesa citada numa lista importada: "5" ou "Mesa 5" pelo número, ou o nome (ex.: "Noivos"). Se ainda não existir, entra
+    /// no mapa com <see cref="PlantaSalao.LugaresPadrao"/> lugares.
+    /// </summary>
+    public EventoMesa ObterOuCriarMesa(string texto)
+    {
+        GarantirConfirmado();
+        var limpo = texto.Trim();
+        Validador.Garantir(limpo.Length > 0, "Informe a mesa.");
+        if (_mesas.FirstOrDefault(m => string.Equals(m.Nome, limpo, StringComparison.CurrentCultureIgnoreCase)) is { } porNome)
+            return porNome;
+
+        var numero = Regex.Match(limpo, @"^(mesa\s*)?(\d{1,3})$", RegexOptions.IgnoreCase);
+        if (numero.Success)
+        {
+            var n = int.Parse(numero.Groups[2].Value);
+            return _mesas.FirstOrDefault(m => m.Numero == n) ?? AdicionarMesa(n);
+        }
+        return AdicionarMesa(ProximoNumeroMesa, limpo.Length > PlantaSalao.TamanhoNome ? limpo[..PlantaSalao.TamanhoNome] : limpo);
+    }
+
+    private void ValidarMesa(EventoMesa? propria, int numero, string? nome, int lugares)
+    {
+        PlantaSalao.ValidarMesa(numero, nome, lugares);
+        Validador.Garantir(_mesas.All(m => m == propria || m.Numero != numero), $"Já existe a mesa {numero} no mapa.");
+    }
+
+    private static bool MesmaMesa(EventoMesa? mesa, EventoMesa outra) =>
+        mesa is not null && (ReferenceEquals(mesa, outra) || (mesa.Id != 0 && mesa.Id == outra.Id));
+
+    private EventoMesa ObterMesa(int id) =>
+        _mesas.FirstOrDefault(m => m.Id == id) ?? throw new RegraNegocioException("Mesa não encontrada no mapa do evento.");
 
     // ---------------- Convidados excedentes ----------------
 

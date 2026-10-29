@@ -737,6 +737,56 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("espacos", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.EspacoMesa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EspacoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("espacoid");
+
+                    b.Property<string>("Formato")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("formato");
+
+                    b.Property<int>("Lugares")
+                        .HasColumnType("integer")
+                        .HasColumnName("lugares");
+
+                    b.Property<string>("Nome")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("nome");
+
+                    b.Property<int>("Numero")
+                        .HasColumnType("integer")
+                        .HasColumnName("numero");
+
+                    b.Property<int>("X")
+                        .HasColumnType("integer")
+                        .HasColumnName("x");
+
+                    b.Property<int>("Y")
+                        .HasColumnType("integer")
+                        .HasColumnName("y");
+
+                    b.HasKey("Id")
+                        .HasName("pk_espacomesas");
+
+                    b.HasIndex("EspacoId", "Numero")
+                        .IsUnique()
+                        .HasDatabaseName("ix_espacomesas_espacoid_numero");
+
+                    b.ToTable("espacomesas", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.FormaPagamento", b =>
                 {
                     b.Property<int>("Id")
@@ -3245,10 +3295,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("eventoid");
 
-                    b.Property<string>("Mesa")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("mesa");
+                    b.Property<int?>("MesaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("mesaid");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -3269,6 +3318,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_convidados");
+
+                    b.HasIndex("MesaId")
+                        .HasDatabaseName("ix_convidados_mesaid");
 
                     b.HasIndex("EventoId", "Nome")
                         .HasDatabaseName("ix_convidados_eventoid_nome");
@@ -3642,6 +3694,56 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasDatabaseName("ix_eventomateriais_eventoid_materialid");
 
                     b.ToTable("eventomateriais", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoMesa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("eventoid");
+
+                    b.Property<string>("Formato")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("formato");
+
+                    b.Property<int>("Lugares")
+                        .HasColumnType("integer")
+                        .HasColumnName("lugares");
+
+                    b.Property<string>("Nome")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("nome");
+
+                    b.Property<int>("Numero")
+                        .HasColumnType("integer")
+                        .HasColumnName("numero");
+
+                    b.Property<int>("X")
+                        .HasColumnType("integer")
+                        .HasColumnName("x");
+
+                    b.Property<int>("Y")
+                        .HasColumnType("integer")
+                        .HasColumnName("y");
+
+                    b.HasKey("Id")
+                        .HasName("pk_eventomesas");
+
+                    b.HasIndex("EventoId", "Numero")
+                        .IsUnique()
+                        .HasDatabaseName("ix_eventomesas_eventoid_numero");
+
+                    b.ToTable("eventomesas", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoServico", b =>
@@ -5419,6 +5521,16 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_enderecosadicionais_funcionarios_funcionarioid");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Cadastros.EspacoMesa", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Espaco", null)
+                        .WithMany()
+                        .HasForeignKey("EspacoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_espacomesas_espacos_espacoid");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Cadastros.Funcionario", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Cadastros.Cargo", "Cargo")
@@ -6051,6 +6163,13 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_convidados_eventos_eventoid");
+
+                    b.HasOne("BuffetSharp.Domain.Eventos.EventoMesa", "Mesa")
+                        .WithMany()
+                        .HasForeignKey("MesaId")
+                        .HasConstraintName("fk_convidados_eventomesas_mesaid");
+
+                    b.Navigation("Mesa");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.Evento", b =>
@@ -6180,6 +6299,16 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_eventomateriais_materiais_materialid");
 
                     b.Navigation("Material");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoMesa", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany("Mesas")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_eventomesas_eventos_eventoid");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoServico", b =>
@@ -6648,6 +6777,8 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Etapas");
 
                     b.Navigation("Materiais");
+
+                    b.Navigation("Mesas");
 
                     b.Navigation("Parcelas");
 
