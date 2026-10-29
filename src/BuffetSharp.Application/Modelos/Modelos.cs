@@ -155,6 +155,13 @@ public sealed class PlanoPagamentoInput
     /// </summary>
     public List<VencimentoInput>? Vencimentos { get; set; }
 
+    /// <summary>Gera as parcelas do parcelamento por este plano: os vencimentos prontos ou a quantidade e o intervalo.</summary>
+    public IReadOnlyList<ContaPagar> GerarParcelas(ParcelamentoPagar parcelamento) =>
+        Vencimentos is { Count: > 0 } vencimentos
+            ? parcelamento.GerarParcelas(vencimentos.Select(v => v.ParaPlanejado()).ToList(), FormaPagamentoId)
+            : parcelamento.GerarParcelas(Quantidade, PrimeiroVencimento, ValorEntrada, VencimentoEntrada, FormaPagamentoId,
+                IntervaloDias is > 0 ? IntervaloDias : null);
+
     /// <summary>Preenche o plano com os vencimentos dados pela condição de pagamento.</summary>
     public static PlanoPagamentoInput DaCondicao(CondicaoPagamento condicao, IReadOnlyList<ParcelaPlanejada> parcelas, int? formaPagamentoId)
     {

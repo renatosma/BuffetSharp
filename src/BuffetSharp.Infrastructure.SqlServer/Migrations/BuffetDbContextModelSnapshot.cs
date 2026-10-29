@@ -2842,6 +2842,83 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.ToTable("EventoEtapas", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFornecedor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AvaliadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Comentario")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("ConfirmadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EtapaChegadaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EventoServicoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FornecedorId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Nota")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int?>("PagamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Responsavel")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Servico")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Situacao")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Telefone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EtapaChegadaId");
+
+                    b.HasIndex("EventoId");
+
+                    b.HasIndex("EventoServicoId");
+
+                    b.HasIndex("FornecedorId");
+
+                    b.HasIndex("PagamentoId");
+
+                    b.ToTable("EventoFornecedores", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFuncionario", b =>
                 {
                     b.Property<int>("Id")
@@ -5038,6 +5115,40 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFornecedor", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.EventoEtapa", "EtapaChegada")
+                        .WithMany()
+                        .HasForeignKey("EtapaChegadaId");
+
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany("Fornecedores")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BuffetSharp.Domain.Eventos.EventoServico", null)
+                        .WithMany()
+                        .HasForeignKey("EventoServicoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", "Pagamento")
+                        .WithMany()
+                        .HasForeignKey("PagamentoId");
+
+                    b.Navigation("EtapaChegada");
+
+                    b.Navigation("Fornecedor");
+
+                    b.Navigation("Pagamento");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFuncionario", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
@@ -5509,6 +5620,8 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Navigation("Equipe");
 
                     b.Navigation("Etapas");
+
+                    b.Navigation("Fornecedores");
 
                     b.Navigation("Materiais");
 

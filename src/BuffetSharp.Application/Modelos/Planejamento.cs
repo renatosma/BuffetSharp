@@ -122,6 +122,41 @@ public sealed class MesaInput : IMesaPlanta
     };
 }
 
+/// <summary>Fornecedor contratado para o evento (Id 0 = contratação nova, que gera as contas a pagar pelo plano).</summary>
+public sealed class ContratacaoFornecedorInput
+{
+    public int Id { get; set; }
+    public int FornecedorId { get; set; }
+
+    /// <summary>Serviço vendido ao cliente que o fornecedor executa (base da margem).</summary>
+    public int? EventoServicoId { get; set; }
+
+    public string Servico { get; set; } = string.Empty;
+    public decimal Valor { get; set; }
+
+    /// <summary>Horário de chegada (vira etapa do cronograma); nulo quando não há.</summary>
+    public DateTime? Chegada { get; set; }
+
+    public string? Responsavel { get; set; }
+    public string? Telefone { get; set; }
+    public string? Observacao { get; set; }
+
+    /// <summary>Como o valor vai ser pago (somente na contratação nova e ao refazer o pagamento).</summary>
+    public PlanoPagamentoInput Plano { get; set; } = new();
+}
+
+/// <summary>Nota dada ao fornecedor num evento.</summary>
+public sealed record AvaliacaoFornecedor(int EventoId, string Evento, DateTime Data, string Servico, int Nota, string? Comentario)
+{
+    public string CodigoEvento => $"EVT-{EventoId:D5}";
+}
+
+/// <summary>Média das notas do fornecedor nos eventos.</summary>
+public sealed record MediaAvaliacao(int FornecedorId, decimal Media, int Avaliacoes)
+{
+    public override string ToString() => $"★ {Media:0.0} ({Avaliacoes})";
+}
+
 /// <summary>Tarefa nova (ou alterada) do checklist do evento.</summary>
 public sealed class TarefaInput
 {

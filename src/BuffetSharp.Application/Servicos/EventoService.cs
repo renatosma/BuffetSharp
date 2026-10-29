@@ -38,6 +38,9 @@ public sealed class EventoService(
                          .Include(e => e.Equipe).ThenInclude(f => f.Funcionario!).ThenInclude(f => f.Cargo)
                          .Include(e => e.Convidados).ThenInclude(c => c.Mesa)
                          .Include(e => e.Mesas)
+                         .Include(e => e.Fornecedores).ThenInclude(f => f.Fornecedor)
+                         .Include(e => e.Fornecedores).ThenInclude(f => f.Pagamento!).ThenInclude(p => p.Parcelas)
+                         .Include(e => e.Fornecedores).ThenInclude(f => f.EtapaChegada)
                          .Include(e => e.Parcelas).ThenInclude(p => p.FormaPagamento)
                          .Include(e => e.Tarefas)
                          .Include(e => e.Etapas)
@@ -284,7 +287,7 @@ public sealed class EventoService(
         }, ct);
 
     public Task RemoverEtapaAsync(int eventoId, int etapaId, CancellationToken ct = default) =>
-        AlterarAsync(eventoId, q => q.Include(e => e.Etapas), (_, e) => e.RemoverEtapa(etapaId), ct);
+        AlterarAsync(eventoId, q => q.Include(e => e.Etapas).Include(e => e.Fornecedores), (_, e) => e.RemoverEtapa(etapaId), ct);
 
     /// <summary>Inclui as etapas do modelo (o sugerido para o tipo do evento, se não for informado). Retorna quantas entraram.</summary>
     public async Task<int> AplicarCronogramaAsync(int eventoId, int? modeloId = null, CancellationToken ct = default)
@@ -346,6 +349,91 @@ public sealed class EventoService(
     }
 
     private static IQueryable<Evento> ComMesas(IQueryable<Evento> eventos) => eventos.Include(e => e.Convidados).Include(e => e.Mesas);
+
+    // ------------------------- Fornecedores do evento -------------------------
+
+    /// <summary>Contrata o fornecedor, gerando as contas a pagar pelo plano, ou altera a contratação. Retorna o Id.</summary>
+    public async Task<int> SalvarFornecedorAsync(int eventoId, ContratacaoFornecedorInput input, CancellationToken ct = default)
+    {
+        EventoFornecedor? contratacao = null;
+        await AlterarAsync(eventoId, ComFornecedores, async (db, e) =>
+        {
+            if (input.Id == 0)
+            {
+                var fornecedor = await db.Fornecedores.FindAsync([input.FornecedorId], ct) ?? throw new RegraNegocioException("Selecione o fornecedor.");
+                contratacao = e.ContratarFornecedor(fornecedor, input.Servico, input.Valor, input.EventoServicoId, input.Chegada,
+                    input.Responsavel, input.Telefone, input.Observacao);
+                input.Plano.GerarParcelas(contratacao.Pagamento!);
+            }
+            else
+            {
+                e.AlterarFornecedor(input.Id, input.Servico, input.EventoServicoId, input.Chegada, input.Responsavel, input.Telefone,
+                    input.Observacao);
+                contratacao = e.Fornecedores.First(f => f.Id == input.Id);
+            }
+        }, ct);
+        return contratacao!.Id;
+    }
+
+    /// <summary>Troca o valor combinado e refaz as contas a pagar (nenhuma pode ter sido paga).</summary>
+    public Task RefazerPagamentoFornecedorAsync(int eventoId, int contratacaoId, decimal valor, PlanoPagamentoInput plano,
+        CancellationToken ct = default) =>
+        AlterarAsync(eventoId, ComFornecedores, (db, e) =>
+        {
+            foreach (var item in e.RefazerPagamentoFornecedor(contratacaoId, valor))
+            {
+                switch (item)
+                {
+                    case ContaPagar conta: db.ContasPagar.Remove(conta); break;
+                    case ParcelamentoPagar p: db.ParcelamentosPagar.Remove(p); break;
+                }
+            }
+            plano.GerarParcelas(e.Fornecedores.First(f => f.Id == contratacaoId).Pagamento!);
+        }, ct);
+
+    /// <summary>Cancela a contratação e as contas a pagar em aberto. Retorna quanto já tinha sido pago ao fornecedor.</summary>
+    public async Task<decimal> CancelarFornecedorAsync(int eventoId, int contratacaoId, CancellationToken ct = default)
+    {
+        var pago = 0m;
+        await AlterarAsync(eventoId, ComFornecedores, (_, e) => pago = e.CancelarFornecedor(contratacaoId), ct);
+        return pago;
+    }
+
+    public Task ConfirmarFornecedorAsync(int eventoId, int contratacaoId, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, ComFornecedores, (_, e) => e.ConfirmarFornecedor(contratacaoId, Agora), ct);
+
+    public Task AvaliarFornecedorAsync(int eventoId, int contratacaoId, int nota, string? comentario, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, ComFornecedores, (_, e) => e.AvaliarFornecedor(contratacaoId, nota, comentario, Agora), ct);
+
+    /// <summary>Notas que o fornecedor recebeu nos eventos, da mais recente para a mais antiga.</summary>
+    public async Task<IReadOnlyList<AvaliacaoFornecedor>> AvaliacoesDoFornecedorAsync(int fornecedorId, CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        return await db.Eventos.AsNoTracking()
+            .SelectMany(e => e.Fornecedores.Where(f => f.FornecedorId == fornecedorId && f.Nota != null),
+                (e, f) => new { e.Id, e.Titulo, e.Inicio, f.Servico, Nota = f.Nota!.Value, f.Comentario })
+            .OrderByDescending(a => a.Inicio)
+            .Select(a => new AvaliacaoFornecedor(a.Id, a.Titulo, a.Inicio, a.Servico, a.Nota, a.Comentario))
+            .ToListAsync(ct);
+    }
+
+    /// <summary>Média das notas de cada fornecedor avaliado.</summary>
+    public async Task<IReadOnlyDictionary<int, MediaAvaliacao>> MediasAvaliacaoAsync(CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        var medias = await db.Eventos.AsNoTracking().SelectMany(e => e.Fornecedores).Where(f => f.Nota != null)
+            .GroupBy(f => f.FornecedorId)
+            .Select(g => new { FornecedorId = g.Key, Soma = g.Sum(f => f.Nota!.Value), Quantidade = g.Count() })
+            .ToListAsync(ct);
+        return medias.ToDictionary(m => m.FornecedorId,
+            m => new MediaAvaliacao(m.FornecedorId, Math.Round((decimal)m.Soma / m.Quantidade, 1), m.Quantidade));
+    }
+
+    private static IQueryable<Evento> ComFornecedores(IQueryable<Evento> eventos) =>
+        eventos.Include(e => e.Servicos).Include(e => e.Etapas)
+            .Include(e => e.Fornecedores).ThenInclude(f => f.Fornecedor)
+            .Include(e => e.Fornecedores).ThenInclude(f => f.Pagamento!).ThenInclude(p => p.Parcelas)
+            .Include(e => e.Fornecedores).ThenInclude(f => f.EtapaChegada);
 
     // ------------------------- Financeiro -------------------------
 
@@ -504,7 +592,7 @@ public sealed class EventoService(
     }
 
     public Task CancelarAsync(int eventoId, string motivo, CancellationToken ct = default) =>
-        AlterarAsync(eventoId, q => q.Include(e => e.Parcelas), async (db, e) =>
+        AlterarAsync(eventoId, q => ComFornecedores(q).Include(e => e.Parcelas), async (db, e) =>
         {
             await GarantirSemCobrancaPendenteAsync(db, eventoId, "cancelar o evento", ct);
             e.Cancelar(motivo);

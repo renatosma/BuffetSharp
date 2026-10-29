@@ -156,6 +156,8 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   - insumos previstos;
   - escala da **equipe** com presença;
   - **convidados**, com importação colada do Excel, RSVP e **check-in**;
+  - **fornecedores do evento** (aba Fornecedores): DJ, decoração, fotografia, bolo... com o custo, a margem sobre o
+    serviço vendido ao cliente, a chegada no cronograma, a confirmação e a nota depois da festa;
   - **mapa de mesas** (aba Mesas): a planta do salão com as mesas arrastáveis, as cadeiras mostrando a ocupação e os
     convidados sentados com os acompanhantes, arrastando-os até a mesa;
   - **convidados excedentes**: a contagem de quem veio (o check-in já vem preenchido, mais quem entrou pela portaria, com
@@ -244,6 +246,15 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   novo já nasce com o do seu tipo; mudar o horário do evento leva o cronograma junto. Na aba Cronograma, o painel do dia
   mostra a etapa em andamento e a próxima (com quanto falta). Sai impresso para a equipe (completo ou por responsável),
   na ficha do evento e para o cliente, só a programação da festa, em PDF por e-mail ou pelo WhatsApp.
+- **Fornecedores do evento**: o terceiro contratado para a festa (fornecedor, serviço, valor e quem responde no dia). O
+  valor combinado vira contas a pagar (categoria Serviços, ligadas ao evento e ao fornecedor), parceladas como o usuário
+  definir, e entra no resultado do evento. Ligada ao serviço vendido ao cliente, a contratação mostra a margem, e o evento
+  avisa os serviços vendidos ainda sem fornecedor. O horário de chegada vira uma etapa do cronograma, que acompanha a
+  mudança de horário do evento. A confirmação vai ao fornecedor pelo WhatsApp (ou e-mail) com data, chegada, local e valor,
+  e "Confirmou" registra a resposta. O valor só é refeito enquanto nada foi pago. Cancelar a contratação, ou o evento,
+  cancela as contas em aberto e mantém o que já foi pago. Depois do início da festa, cada contratação recebe uma nota de 1 a
+  5; o histórico e a média ficam em Cadastros › Fornecedores › Avaliações e aparecem ao escolher o fornecedor. A lista do
+  dia (chegada, serviço, contato) sai impressa e também na ficha do evento.
 - **Mapa de mesas**: cada espaço guarda um mapa padrão (Cadastros › Espaços › Mapa de mesas, ou "Salvar como padrão do
   salão" a partir de um evento), e o evento novo no salão já nasce com ele. No evento, as mesas (redondas, quadradas ou
   retangulares, com número, nome e lugares) são arrastadas na planta, e o convidado senta junto com os acompanhantes
@@ -358,18 +369,18 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **371 testes** (xUnit v3): 340 de domínio, integração e bancos, e 31 das telas.
+São **382 testes** (xUnit v3): 350 de domínio, integração e bancos, e 32 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
-  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, mapa de mesas, convidados excedentes, diárias da equipe, BR Code do
+  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, mapa de mesas, fornecedores do evento, convidados excedentes, diárias da equipe, BR Code do
   PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada, leitura do XML da NF-e,
   regras da NFS-e e o envio ao Focus NFe, cobrança registrada e a API do Asaas, e o envio pela Z-API (HTTP simulado).
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
   backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, NFS-e, boleto/PIX registrado com baixa automática, lembretes automáticos pelo WhatsApp, ordem de produção,
-  checklist, cronograma, mapa de mesas, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
+  checklist, cronograma, mapa de mesas, fornecedores do evento, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 
 Para rodar as suítes de integração e de telas em outro banco, copie `BuffetSharp.runsettings.exemplo`

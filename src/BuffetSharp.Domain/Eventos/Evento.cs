@@ -30,6 +30,7 @@ public class Evento : Entidade
     private readonly List<EventoTarefa> _tarefas = [];
     private readonly List<EventoEtapa> _etapas = [];
     private readonly List<EventoMesa> _mesas = [];
+    private readonly List<EventoFornecedor> _fornecedores = [];
 
     private Evento()
     {
@@ -126,6 +127,9 @@ public class Evento : Entidade
 
     /// <summary>Mapa de mesas do salão para esta festa.</summary>
     public IReadOnlyCollection<EventoMesa> Mesas => _mesas;
+
+    /// <summary>Terceiros contratados para a festa (inclui as contratações canceladas).</summary>
+    public IReadOnlyCollection<EventoFornecedor> Fornecedores => _fornecedores;
 
     public QuantidadesConvidados QuantidadesPorFaixa => new(QuantidadeConvidados, ConvidadosMeia, ConvidadosIsentos);
     public RegraFaixasEtarias RegraFaixas => new(IdadeMaximaIsento, IdadeMaximaMeia, PercentualMeia);
@@ -691,7 +695,12 @@ public class Evento : Entidade
     public void RemoverEtapa(int etapaId)
     {
         GarantirConfirmado();
-        _etapas.Remove(ObterEtapa(etapaId));
+        var etapa = ObterEtapa(etapaId);
+        _etapas.Remove(etapa);
+
+        // Sem a etapa, o fornecedor fica sem horário de chegada.
+        foreach (var fornecedor in _fornecedores.Where(f => f.EtapaChegada == etapa))
+            fornecedor.EtapaChegada = null;
     }
 
     /// <summary>
@@ -739,6 +748,163 @@ public class Evento : Entidade
 
     private EventoEtapa ObterEtapa(int id) =>
         _etapas.FirstOrDefault(e => e.Id == id) ?? throw new RegraNegocioException("Etapa do cronograma não encontrada.");
+
+    // ---------------- Fornecedores do evento ----------------
+
+    /// <summary>Custo das contratações ativas (o que vai ser pago aos fornecedores).</summary>
+    public decimal CustoFornecedores => _fornecedores.Where(f => f.Ativo).Sum(f => f.Valor);
+
+    /// <summary>Quanto os fornecedores que executam o serviço vendido ao cliente custam.</summary>
+    public decimal CustoFornecedoresDoServico(EventoServico servico) =>
+        _fornecedores.Where(f => f.Ativo && f.EventoServicoId == servico.Id).Sum(f => f.Valor);
+
+    /// <summary>Serviços vendidos ao cliente que ainda não têm quem os execute.</summary>
+    public IEnumerable<EventoServico> ServicosSemFornecedor() =>
+        _servicos.Where(s => _fornecedores.All(f => !f.Ativo || f.EventoServicoId != s.Id));
+
+    /// <summary>
+    /// Contrata o fornecedor para a festa. O valor vira um parcelamento de contas a pagar (categoria Serviços, ligado ao evento),
+    /// cujas parcelas o serviço de aplicação gera; com horário de chegada, entra uma etapa no cronograma.
+    /// </summary>
+    public EventoFornecedor ContratarFornecedor(Fornecedor fornecedor, string servico, decimal valor, int? eventoServicoId = null,
+        DateTime? chegada = null, string? responsavel = null, string? telefone = null, string? observacao = null)
+    {
+        GarantirConfirmado();
+        Validador.Garantir(fornecedor.Ativo, $"O fornecedor '{fornecedor.NomeExibicao}' está inativo.");
+        Validador.Garantir(valor > 0, "Informe o valor combinado com o fornecedor.");
+        ValidarFornecedor(servico, eventoServicoId, responsavel, telefone, observacao);
+
+        var contratacao = new EventoFornecedor(fornecedor, valor);
+        contratacao.Alterar(servico.Trim(), eventoServicoId, Limpo(responsavel), Limpo(telefone), Limpo(observacao));
+        contratacao.DefinirPagamento(NovoPagamento(contratacao));
+        DefinirChegada(contratacao, chegada);
+        _fornecedores.Add(contratacao);
+        return contratacao;
+    }
+
+    /// <summary>Altera os dados da contratação (o valor muda em <see cref="RefazerPagamentoFornecedor"/>).</summary>
+    public void AlterarFornecedor(int contratacaoId, string servico, int? eventoServicoId, DateTime? chegada, string? responsavel,
+        string? telefone, string? observacao)
+    {
+        GarantirConfirmado();
+        var contratacao = ObterContratacaoAtiva(contratacaoId);
+        ValidarFornecedor(servico, eventoServicoId, responsavel, telefone, observacao);
+        contratacao.Alterar(servico.Trim(), eventoServicoId, Limpo(responsavel), Limpo(telefone), Limpo(observacao));
+        DefinirChegada(contratacao, chegada);
+    }
+
+    /// <summary>
+    /// Troca o valor combinado: o parcelamento antigo, que não pode ter parcela paga, é desfeito e um novo entra no lugar.
+    /// Retorna o que deve ser excluído (as parcelas e o parcelamento antigos).
+    /// </summary>
+    public IReadOnlyList<object> RefazerPagamentoFornecedor(int contratacaoId, decimal valor)
+    {
+        GarantirConfirmado();
+        var contratacao = ObterContratacaoAtiva(contratacaoId);
+        Validador.Garantir(valor > 0, "Informe o valor combinado com o fornecedor.");
+        Validador.Garantir(contratacao.ValorPago == 0,
+            $"Já foram pagos {contratacao.ValorPago:C} a {contratacao.NomeFornecedor}. Estorne o pagamento para refazer o valor.");
+        var remover = contratacao.Pagamento?.Desfazer() ?? [];
+        contratacao.Valor = valor;
+        contratacao.DefinirPagamento(NovoPagamento(contratacao));
+        return remover;
+    }
+
+    /// <summary>
+    /// Cancela a contratação: as contas a pagar em aberto são canceladas (o que já foi pago fica registrado) e a chegada sai
+    /// do cronograma. Retorna o valor já pago ao fornecedor.
+    /// </summary>
+    public decimal CancelarFornecedor(int contratacaoId)
+    {
+        GarantirConfirmado();
+        var contratacao = ObterContratacaoAtiva(contratacaoId);
+        CancelarContratacao(contratacao);
+        return contratacao.ValorPago;
+    }
+
+    /// <summary>O fornecedor confirmou que vem (depois de receber os dados da festa).</summary>
+    public void ConfirmarFornecedor(int contratacaoId, DateTime agora)
+    {
+        GarantirConfirmado();
+        var contratacao = ObterContratacaoAtiva(contratacaoId);
+        contratacao.Situacao = SituacaoFornecedorEvento.Confirmado;
+        contratacao.ConfirmadoEm = agora;
+    }
+
+    /// <summary>Nota de 1 a 5 para o fornecedor, a partir do início da festa (vale também depois de realizada).</summary>
+    public void AvaliarFornecedor(int contratacaoId, int nota, string? comentario, DateTime agora)
+    {
+        Validador.Garantir(Status != StatusEvento.Cancelado, "Evento cancelado.");
+        Validador.Garantir(agora >= Inicio, "O fornecedor é avaliado a partir do início do evento.");
+        Validador.Garantir(nota is >= 1 and <= 5, "A nota vai de 1 a 5.");
+        Validador.Garantir((comentario?.Trim().Length ?? 0) <= EventoFornecedor.TamanhoComentario,
+            $"O comentário pode ter no máximo {EventoFornecedor.TamanhoComentario} caracteres.");
+        var contratacao = ObterContratacaoAtiva(contratacaoId);
+        contratacao.Nota = nota;
+        contratacao.Comentario = Limpo(comentario);
+        contratacao.AvaliadoEm = agora;
+    }
+
+    private ParcelamentoPagar NovoPagamento(EventoFornecedor contratacao)
+    {
+        var descricao = $"{contratacao.Servico} - {contratacao.NomeFornecedor} - {Codigo}";
+        return new ParcelamentoPagar(descricao, CategoriaDespesa.Servicos, contratacao.Valor, contratacao.FornecedorId, EhNovo ? null : Id);
+    }
+
+    private void CancelarContratacao(EventoFornecedor contratacao)
+    {
+        contratacao.Situacao = SituacaoFornecedorEvento.Cancelado;
+        foreach (var conta in contratacao.Pagamento?.Parcelas.Where(p => p.Status == StatusTitulo.Aberto) ?? [])
+            conta.Cancelar();
+        DefinirChegada(contratacao, null);
+    }
+
+    /// <summary>A chegada fica numa etapa do cronograma (marco, sem duração) com o fornecedor como responsável.</summary>
+    private void DefinirChegada(EventoFornecedor contratacao, DateTime? chegada)
+    {
+        var etapa = contratacao.EtapaChegada is { } atual && _etapas.Contains(atual) ? atual : null;
+        if (chegada is not { } horario)
+        {
+            if (etapa is not null)
+                _etapas.Remove(etapa);
+            contratacao.EtapaChegada = null;
+            return;
+        }
+
+        var atividade = $"Chegada: {contratacao.Servico}";
+        atividade = atividade.Length > EventoEtapa.TamanhoAtividade ? atividade[..EventoEtapa.TamanhoAtividade] : atividade;
+        var responsavel = contratacao.NomeFornecedor.Length > EventoEtapa.TamanhoResponsavel
+            ? contratacao.NomeFornecedor[..EventoEtapa.TamanhoResponsavel] : contratacao.NomeFornecedor;
+        var observacao = contratacao.Responsavel is null && contratacao.Telefone is null
+            ? null : $"Contato: {string.Join(" - ", new[] { contratacao.Responsavel, contratacao.Telefone }.Where(t => t is not null))}";
+        ValidarEtapa(horario, 0, atividade, null, responsavel, null, observacao);
+        if (etapa is null)
+            contratacao.EtapaChegada = AdicionarEtapa(horario, 0, atividade, null, responsavel, null, observacao);
+        else
+            etapa.Alterar(horario, etapa.DuracaoMinutos, atividade, etapa.Local, responsavel, null, observacao);
+    }
+
+    private void ValidarFornecedor(string servico, int? eventoServicoId, string? responsavel, string? telefone, string? observacao)
+    {
+        Validador.Garantir(!string.IsNullOrWhiteSpace(servico), "Descreva o serviço do fornecedor.");
+        Validador.Garantir(servico.Trim().Length <= EventoFornecedor.TamanhoServico,
+            $"O serviço pode ter no máximo {EventoFornecedor.TamanhoServico} caracteres.");
+        Validador.Garantir(eventoServicoId is null || _servicos.Any(s => s.Id == eventoServicoId),
+            "O serviço vendido escolhido não é deste evento.");
+        Validador.Garantir((responsavel?.Trim().Length ?? 0) <= EventoFornecedor.TamanhoResponsavel,
+            $"O responsável pode ter no máximo {EventoFornecedor.TamanhoResponsavel} caracteres.");
+        Validador.Garantir((telefone?.Trim().Length ?? 0) <= EventoFornecedor.TamanhoTelefone,
+            $"O telefone pode ter no máximo {EventoFornecedor.TamanhoTelefone} caracteres.");
+        Validador.Garantir((observacao?.Trim().Length ?? 0) <= EventoFornecedor.TamanhoObservacao,
+            $"A observação pode ter no máximo {EventoFornecedor.TamanhoObservacao} caracteres.");
+    }
+
+    private EventoFornecedor ObterContratacaoAtiva(int id)
+    {
+        var contratacao = _fornecedores.FirstOrDefault(f => f.Id == id) ?? throw new RegraNegocioException("Fornecedor não contratado neste evento.");
+        Validador.Garantir(contratacao.Ativo, $"A contratação de {contratacao.NomeFornecedor} foi cancelada.");
+        return contratacao;
+    }
 
     // ---------------- Financeiro ----------------
 
@@ -824,6 +990,10 @@ public class Evento : Entidade
         Validador.Garantir(!string.IsNullOrWhiteSpace(motivo), "Informe o motivo do cancelamento.");
         foreach (var parcela in _parcelas.Where(p => p.Status == StatusTitulo.Aberto))
             parcela.Cancelar();
+
+        // Sem festa, os fornecedores também saem (as contas a pagar em aberto são canceladas).
+        foreach (var contratacao in _fornecedores.Where(f => f.Ativo))
+            CancelarContratacao(contratacao);
         Status = StatusEvento.Cancelado;
         MotivoCancelamento = motivo.Trim();
     }

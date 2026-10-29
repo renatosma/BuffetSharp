@@ -145,12 +145,7 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
             parcelamento = ParcelamentoPagar.Agrupar(contas, input.Descricao, input.Documento, input.Observacao);
         }
 
-        var plano = input.Plano;
-        if (plano.Vencimentos is { Count: > 0 } vencimentos)
-            parcelamento.GerarParcelas(vencimentos.Select(v => v.ParaPlanejado()).ToList(), plano.FormaPagamentoId);
-        else
-            parcelamento.GerarParcelas(plano.Quantidade, plano.PrimeiroVencimento, plano.ValorEntrada, plano.VencimentoEntrada,
-                plano.FormaPagamentoId, plano.IntervaloDias is > 0 ? plano.IntervaloDias : null);
+        input.Plano.GerarParcelas(parcelamento);
         db.ParcelamentosPagar.Add(parcelamento);
         await db.SaveChangesAsync(ct);
         return parcelamento.Id;
@@ -168,6 +163,8 @@ public sealed class FinanceiroService(IBuffetDbContextFactory fabrica, TimeProvi
     {
         await using var db = fabrica.Criar();
         var parcelamento = await CarregarParcelamentoAsync(db, parcelamentoId, ct);
+        Validador.Garantir(!await db.Eventos.AnyAsync(e => e.Fornecedores.Any(f => f.Pagamento!.Id == parcelamentoId), ct),
+            "Este parcelamento é o pagamento de um fornecedor do evento. Para mudar o valor, use \"Refazer pagamento\" na aba Fornecedores do evento.");
         foreach (var entrada in await db.MovimentacoesEstoque.Where(m => m.ParcelamentoPagarId == parcelamentoId).ToListAsync(ct))
             entrada.DesvincularConta();
         foreach (var nota in await db.NotasFiscaisEntrada.Where(n => n.ParcelamentoPagarId == parcelamentoId).ToListAsync(ct))

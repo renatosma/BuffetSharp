@@ -109,6 +109,7 @@ internal sealed partial class FormEventoDetalhe : FormBase
         abas.TabPages.Add(CriarAbaConvidados());
         abas.TabPages.Add(CriarAbaMesas());
         abas.TabPages.Add(CriarAbaMateriais());
+        abas.TabPages.Add(CriarAbaFornecedores());
         abas.TabPages.Add(CriarAbaCronograma());
         abas.TabPages.Add(CriarAbaChecklist());
         abas.TabPages.Add(CriarAbaContrato());
@@ -784,6 +785,15 @@ internal sealed partial class FormEventoDetalhe : FormBase
                 [1.4f, 3.5f, 1.6f, 1.8f]);
         }
 
+        if (ImpressaoFornecedores.Ativos(e) is { Count: > 0 } fornecedores)
+        {
+            doc.Secao("Fornecedores");
+            doc.Tabela(["Chegada", "Serviço", "Fornecedor", "Contato no dia"],
+                fornecedores.Select(f => new[] { f.Chegada?.ToString("dd/MM HH:mm") ?? "-", f.Servico, f.NomeFornecedor, ImpressaoFornecedores.Contato(f) })
+                    .ToList(),
+                [1.2f, 2.6f, 2.2f, 2.4f]);
+        }
+
         if (e.PacoteId is { } pacoteId)
         {
             doc.Secao($"Cardápio - {e.Pacote?.Nome}");
@@ -929,6 +939,7 @@ internal sealed partial class FormEventoDetalhe : FormBase
 
         CarregarCronograma(e);
         CarregarMesas(e);
+        CarregarFornecedores(e);
 
         // Mesa do convidado novo: a escolhida antes, se ainda existir.
         var mesaEscolhida = (_mesa.SelectedItem as EventoMesa)?.Id;

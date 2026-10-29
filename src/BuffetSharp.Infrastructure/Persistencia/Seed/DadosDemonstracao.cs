@@ -71,6 +71,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await CriarLeadsAsync(ct);
         await CriarChecklistsAsync(ct);
         await PagarEquipeAsync(ct);
+        await ContratarFornecedoresAsync(ct);
     }
 
     // =====================================================================
@@ -1185,6 +1186,52 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             foreach (var tarefa in evento.Tarefas.Where(t => t.Prazo < Hoje && rnd.NextDouble() < 0.85))
                 evento.ConcluirTarefa(tarefa.Id, _vendedores[rnd.Next(_vendedores.Count)].Login, tarefa.Prazo.ToDateTime(new TimeOnly(17, 0)));
         }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Fornecedores de serviços (DJ, decoração, fotografia e bolo) contratados para os eventos confirmados dos próximos dois
+    /// meses, com a conta a pagar no dia da festa e a chegada no cronograma; metade já confirmou.
+    /// </summary>
+    private async Task ContratarFornecedoresAsync(CancellationToken ct)
+    {
+        (string Razao, string Fantasia, string Contato, string Telefone, string Servico, int MinutosAntes)[] dados =
+        [
+            ("Som & Luz Eventos Ltda", "Som & Luz", "Diego", "(11) 98201-4410", "DJ e Iluminação", 120),
+            ("Flor de Lis Decorações Ltda", "Flor de Lis", "Patrícia", "(11) 98322-7351", "Decoração Completa", 240),
+            ("Clique Perfeito Fotografia Ltda", "Clique Perfeito", "Renan", "(11) 98433-1092", "Fotografia", 60),
+            ("Doce Arte Confeitaria Ltda", "Doce Arte", "Juliana", "(11) 98544-6620", "Bolo Decorado", 180)
+        ];
+        var porServico = new Dictionary<string, (Fornecedor Fornecedor, int MinutosAntes)>();
+        foreach (var d in dados)
+        {
+            var fornecedor = new Fornecedor
+            {
+                RazaoSocial = d.Razao, NomeFantasia = d.Fantasia, Contato = d.Contato, Telefone = d.Telefone,
+                Email = $"contato@{d.Fantasia.Split(' ')[0].ToLowerInvariant()}.exemplo.com.br",
+                Observacoes = $"Fornecedor de {d.Servico.ToLowerInvariant()} para os eventos."
+            };
+            db.Fornecedores.Add(fornecedor);
+            porServico[d.Servico] = (fornecedor, d.MinutosAntes);
+        }
+        await db.SaveChangesAsync(ct);
+
+        var eventos = _eventos.Where(e => e.Status == StatusEvento.Confirmado && e.DataEvento >= Hoje && e.DataEvento <= Hoje.AddDays(60)).ToList();
+        foreach (var evento in eventos)
+        {
+            foreach (var servico in evento.Servicos.Where(s => porServico.ContainsKey(s.Descricao)).ToList())
+            {
+                var (fornecedor, minutosAntes) = porServico[servico.Descricao];
+                var contratacao = evento.ContratarFornecedor(fornecedor, servico.Descricao, Math.Round(servico.Total * 0.6m, 2), servico.Id,
+                    evento.Inicio.AddMinutes(-minutosAntes), fornecedor.Contato, fornecedor.Telefone);
+                contratacao.Pagamento!.GerarParcelas(1, evento.DataEvento, formaPagamentoId: _formas["PIX"].Id);
+            }
+        }
+        await db.SaveChangesAsync(ct);
+
+        foreach (var evento in eventos.Where(e => e.Id % 2 == 0))
+            foreach (var contratacao in evento.Fornecedores)
+                evento.ConfirmarFornecedor(contratacao.Id, Agora.AddDays(-1));
         await db.SaveChangesAsync(ct);
     }
 

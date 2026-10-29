@@ -495,7 +495,16 @@ internal static class DefinicoesCadastros
             e.Texto("Observações", () => x.Observacoes, v => x.Observacoes = v, nameof(x.Observacoes), 1000, span: 3, linhas: 3);
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
             return Task.CompletedTask;
-        }
+        },
+        Acoes =
+        [
+            new("Avaliações", Icones.Estrela, (fornecedor, ctx) =>
+            {
+                using var avaliacoes = new FormAvaliacoesFornecedor(ctx.Navegador.Servico<EventoService>(), fornecedor);
+                avaliacoes.ShowDialog(ctx.Dono);
+                return Task.CompletedTask;
+            })
+        ]
     };
 
     public static readonly DefinicaoCadastro<Funcionario> Funcionarios = new()

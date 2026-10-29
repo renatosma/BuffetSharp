@@ -3584,6 +3584,105 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("eventoetapas", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFornecedor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AvaliadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("avaliadoem");
+
+                    b.Property<string>("Comentario")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("comentario");
+
+                    b.Property<DateTime?>("ConfirmadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("confirmadoem");
+
+                    b.Property<int?>("EtapaChegadaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("etapachegadaid");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("eventoid");
+
+                    b.Property<int?>("EventoServicoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("eventoservicoid");
+
+                    b.Property<int>("FornecedorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("fornecedorid");
+
+                    b.Property<int?>("Nota")
+                        .HasColumnType("integer")
+                        .HasColumnName("nota");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("observacao");
+
+                    b.Property<int?>("PagamentoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("pagamentoid");
+
+                    b.Property<string>("Responsavel")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("responsavel");
+
+                    b.Property<string>("Servico")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("servico");
+
+                    b.Property<string>("Situacao")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("situacao");
+
+                    b.Property<string>("Telefone")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("telefone");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valor");
+
+                    b.HasKey("Id")
+                        .HasName("pk_eventofornecedores");
+
+                    b.HasIndex("EtapaChegadaId")
+                        .HasDatabaseName("ix_eventofornecedores_etapachegadaid");
+
+                    b.HasIndex("EventoId")
+                        .HasDatabaseName("ix_eventofornecedores_eventoid");
+
+                    b.HasIndex("EventoServicoId")
+                        .HasDatabaseName("ix_eventofornecedores_eventoservicoid");
+
+                    b.HasIndex("FornecedorId")
+                        .HasDatabaseName("ix_eventofornecedores_fornecedorid");
+
+                    b.HasIndex("PagamentoId")
+                        .HasDatabaseName("ix_eventofornecedores_pagamentoid");
+
+                    b.ToTable("eventofornecedores", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFuncionario", b =>
                 {
                     b.Property<int>("Id")
@@ -6258,6 +6357,45 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_eventoetapas_funcionarios_funcionarioid");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFornecedor", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.EventoEtapa", "EtapaChegada")
+                        .WithMany()
+                        .HasForeignKey("EtapaChegadaId")
+                        .HasConstraintName("fk_eventofornecedores_eventoetapas_etapachegadaid");
+
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany("Fornecedores")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_eventofornecedores_eventos_eventoid");
+
+                    b.HasOne("BuffetSharp.Domain.Eventos.EventoServico", null)
+                        .WithMany()
+                        .HasForeignKey("EventoServicoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_eventofornecedores_eventoservicos_eventoservicoid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_eventofornecedores_fornecedores_fornecedorid");
+
+                    b.HasOne("BuffetSharp.Domain.Financeiro.ParcelamentoPagar", "Pagamento")
+                        .WithMany()
+                        .HasForeignKey("PagamentoId")
+                        .HasConstraintName("fk_eventofornecedores_parcelamentospagar_pagamentoid");
+
+                    b.Navigation("EtapaChegada");
+
+                    b.Navigation("Fornecedor");
+
+                    b.Navigation("Pagamento");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFuncionario", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
@@ -6775,6 +6913,8 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Equipe");
 
                     b.Navigation("Etapas");
+
+                    b.Navigation("Fornecedores");
 
                     b.Navigation("Materiais");
 

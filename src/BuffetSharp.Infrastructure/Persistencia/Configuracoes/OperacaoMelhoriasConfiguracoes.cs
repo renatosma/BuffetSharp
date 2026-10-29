@@ -90,6 +90,27 @@ internal sealed class EventoMesaConfig : IEntityTypeConfiguration<EventoMesa>
     }
 }
 
+internal sealed class EventoFornecedorConfig : IEntityTypeConfiguration<EventoFornecedor>
+{
+    public void Configure(EntityTypeBuilder<EventoFornecedor> b)
+    {
+        b.ToTable("EventoFornecedores");
+        b.Property(x => x.Servico).HasMaxLength(EventoFornecedor.TamanhoServico).IsRequired();
+        b.Property(x => x.Responsavel).HasMaxLength(EventoFornecedor.TamanhoResponsavel);
+        b.Property(x => x.Telefone).HasMaxLength(EventoFornecedor.TamanhoTelefone);
+        b.Property(x => x.Observacao).HasMaxLength(EventoFornecedor.TamanhoObservacao);
+        b.Property(x => x.Comentario).HasMaxLength(EventoFornecedor.TamanhoComentario);
+        b.HasOne<Evento>().WithMany(e => e.Fornecedores).HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<EventoServico>().WithMany().HasForeignKey(x => x.EventoServicoId).OnDelete(DeleteBehavior.Restrict);
+
+        // Sem cascata: o evento desfaz os vínculos (pagamento refeito, etapa removida do cronograma).
+        b.HasOne(x => x.Pagamento).WithMany().HasForeignKey("PagamentoId").OnDelete(DeleteBehavior.ClientSetNull);
+        b.HasOne(x => x.EtapaChegada).WithMany().HasForeignKey("EtapaChegadaId").OnDelete(DeleteBehavior.ClientSetNull);
+        b.HasIndex(x => x.FornecedorId);
+    }
+}
+
 internal sealed class EspacoMesaConfig : IEntityTypeConfiguration<EspacoMesa>
 {
     public void Configure(EntityTypeBuilder<EspacoMesa> b)
