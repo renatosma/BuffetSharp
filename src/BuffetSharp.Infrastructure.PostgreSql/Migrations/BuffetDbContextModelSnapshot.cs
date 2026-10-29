@@ -1549,6 +1549,99 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("contratos", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.ConviteEnviado", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<string>("Canal")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("canal");
+
+                    b.Property<bool>("Cancelado")
+                        .HasColumnType("boolean")
+                        .HasColumnName("cancelado");
+
+                    b.Property<string>("Contato")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("contato");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<int?>("DegustacaoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("degustacaoid");
+
+                    b.Property<string>("Destinatario")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("destinatario");
+
+                    b.Property<DateTime>("EnviadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("enviadoem");
+
+                    b.Property<int?>("EventoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("eventoid");
+
+                    b.Property<DateTime>("Fim")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("fim");
+
+                    b.Property<DateTime>("Inicio")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("inicio");
+
+                    b.Property<int>("Sequencia")
+                        .HasColumnType("integer")
+                        .HasColumnName("sequencia");
+
+                    b.Property<string>("Uid")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("uid");
+
+                    b.Property<string>("Usuario")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("usuario");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("Id")
+                        .HasName("pk_convitesenviados");
+
+                    b.HasIndex("DegustacaoId")
+                        .HasDatabaseName("ix_convitesenviados_degustacaoid");
+
+                    b.HasIndex("EventoId")
+                        .HasDatabaseName("ix_convitesenviados_eventoid");
+
+                    b.HasIndex("Uid")
+                        .HasDatabaseName("ix_convitesenviados_uid");
+
+                    b.ToTable("convitesenviados", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.Degustacao", b =>
                 {
                     b.Property<int>("Id")
@@ -6098,6 +6191,21 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_contratos_modeloscontrato_modelocontratoid");
 
                     b.Navigation("Evento");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.ConviteEnviado", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Comercial.Degustacao", null)
+                        .WithMany()
+                        .HasForeignKey("DegustacaoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_convitesenviados_degustacoes_degustacaoid");
+
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany()
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_convitesenviados_eventos_eventoid");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Comercial.Degustacao", b =>

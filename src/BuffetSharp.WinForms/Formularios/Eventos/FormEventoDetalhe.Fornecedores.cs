@@ -1,6 +1,7 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
+using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
 using BuffetSharp.WinForms.Formularios.Comercial;
@@ -37,7 +38,8 @@ internal sealed partial class FormEventoDetalhe
         BotaoAba(barra, "Contratar", Icones.Adicionar, () => EditarContratacaoAsync(null), primario: true);
         BotaoAba(barra, "Editar", Icones.Editar, () => ContratacaoSelecionada() is { } f ? EditarContratacaoAsync(f) : Task.CompletedTask);
         BotaoAba(barra, "Refazer pagamento", Icones.Calculadora, () => ContratacaoSelecionada() is { } f ? RefazerPagamentoAsync(f) : Task.CompletedTask);
-        BotaoAba(barra, "Enviar confirmação", Icones.Mensagem, () => ContratacaoSelecionada() is { } f ? EnviarConfirmacaoAsync(f) : Task.CompletedTask);
+        BotaoAba(barra, "Enviar confirmação", Icones.Mensagem, () => ContratacaoSelecionada() is { } f ? EnviarConfirmacaoAsync(f) : Task.CompletedTask,
+            edicao: false);
         BotaoAba(barra, "Confirmou", Icones.Aceitar, async () =>
         {
             if (ContratacaoSelecionada() is { } f)
@@ -186,23 +188,28 @@ internal sealed partial class FormEventoDetalhe
             Mensagens.Aviso(this, $"Já tinham sido pagos {pago:C} a {f.NomeFornecedor}: o pagamento continua registrado. Se houver devolução, lance no financeiro.");
     }
 
-    private Task EnviarConfirmacaoAsync(EventoFornecedor f)
+    /// <summary>A confirmação vai com o convite de agenda (.ics) do horário de chegada, registrado para as atualizações.</summary>
+    private async Task EnviarConfirmacaoAsync(EventoFornecedor f)
     {
         if (!f.Ativo)
-            return Avisar("A contratação foi cancelada.");
+        {
+            await Avisar("A contratação foi cancelada.");
+            return;
+        }
+        var convites = _navegador.Servico<ConviteService>();
+        var convite = (await convites.DoEventoAsync(_eventoId)).First(c => c.Uid == ConviteService.UidFornecedor(_eventoId, f.Id));
         var texto = ImpressaoFornecedores.Mensagem(Evento, f, _opcoes);
         var telefone = f.Telefone ?? f.Fornecedor?.Telefone ?? "";
         if (string.IsNullOrWhiteSpace(telefone) && f.Fornecedor?.Email is { Length: > 0 } email)
         {
             var envio = new EmailInput { Para = email, Assunto = $"Confirmação de serviço - {Evento.Titulo} ({Evento.Inicio:dd/MM/yyyy})", Mensagem = texto };
-            DialogosEnvio.Email(this, "Enviar a confirmação ao fornecedor", envio, null, null,
-                m => _email.EnviarAsync(new MensagemEmail(m.Para.Trim(), m.Assunto.Trim(),
-                    "<p>" + System.Net.WebUtility.HtmlEncode(m.Mensagem ?? "").Replace("\r\n", "<br>").Replace("\n", "<br>") + "</p>", [])),
-                _email.Destino);
-            return Task.CompletedTask;
+            DialogosEnvio.Email(this, "Enviar a confirmação ao fornecedor (com o convite de agenda)", envio, null, null,
+                m => convites.EnviarEmailAsync(convite, m.Para, m.Assunto, m.Mensagem), _email.Destino);
+            return;
         }
-        DialogosEnvio.WhatsApp(this, new MensagemWhatsApp(telefone, texto), "a confirmação");
-        return Task.CompletedTask;
+        if (DialogosEnvio.WhatsApp(this, new MensagemWhatsApp(telefone, texto), "a confirmação", "o convite", () => convites.Arquivo(convite),
+                "agenda .ics") is { } enviado)
+            await convites.RegistrarAsync(convite, Domain.Comercial.CanalConvite.WhatsApp, enviado);
     }
 
     private async Task AvaliarFornecedorAsync(EventoFornecedor contratacao)

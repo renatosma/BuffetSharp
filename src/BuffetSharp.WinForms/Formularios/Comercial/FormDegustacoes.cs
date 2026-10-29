@@ -1,3 +1,4 @@
+using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
@@ -41,6 +42,10 @@ internal sealed class FormDegustacoes : FormListagem<DegustacaoResumo>
         Botao("Cancelar", Icones.Cancelar, CancelarAsync);
         Separador();
         Botao("Novo orçamento", Icones.Documento, NovoOrcamentoAsync, "Abre um orçamento para o cliente da degustação");
+        Separador();
+        Botao("Convite por e-mail", Icones.Email, () => ConviteAsync((c, s) => Task.FromResult(DialogosConvite.Email(this, s, _navegador.Servico<IEnvioEmail>(), c))),
+            "Convite de agenda (.ics) para o cliente salvar a degustação (também o cancelamento ou o novo horário)");
+        Botao("Convite por WhatsApp", Icones.Mensagem, () => ConviteAsync((c, s) => DialogosConvite.WhatsAppAsync(this, s, c)));
 
         Grade.Data("Data e hora", d => d.DataHora, "ddd dd/MM/yy HH:mm", 36, d => d.Status == StatusDegustacao.Agendada && d.DataHora < DateTime.Now ? Tema.Alerta : null)
             .Texto("Cliente", d => d.Cliente, 45)
@@ -54,6 +59,22 @@ internal sealed class FormDegustacoes : FormListagem<DegustacaoResumo>
                 d => d.Convertida ? Tema.Sucesso : Tema.Neutro)
             .Texto("Comentário / observações", d => d.Comentario ?? d.Observacoes, 60)
             .Busca(d => $"{d.Cliente} {d.Pacote} {d.OrcamentoCodigo} {d.Comentario} {d.Observacoes}");
+    }
+
+    private async Task ConviteAsync(Func<ConviteAgenda, ConviteService, Task<bool>> enviar)
+    {
+        if (Selecionado() is not { } degustacao)
+            return;
+        var convites = _navegador.Servico<ConviteService>();
+        var convite = await convites.DaDegustacaoAsync(degustacao.Id);
+        if (convite.Cancelado && convite.UltimoEnvio is null)
+        {
+            Mensagens.Aviso(this, "Degustação cancelada: não há convite a enviar (o cliente não tinha recebido).");
+            return;
+        }
+        if (!convite.Pendente && !Mensagens.Confirmar(this, $"O convite já foi enviado ({convite.Situacao}). Enviar de novo?"))
+            return;
+        await enviar(convite, convites);
     }
 
     protected override async Task CarregarAsync() =>

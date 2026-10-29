@@ -11,8 +11,9 @@ internal static class DialogosEnvio
     /// <param name="nomeAnexo">O que vai anexado (ex.: "a proposta"); nulo para e-mail sem anexo.</param>
     /// <param name="gerarAnexo">Gera o PDF anexado quando a opção estiver marcada.</param>
     /// <param name="destino">Para onde o e-mail vai (servidor SMTP ou pasta), exibido ao usuário.</param>
+    /// <param name="tipoAnexo">Formato exibido na opção de anexar (PDF, convite .ics...).</param>
     public static bool Email(IWin32Window dono, string titulo, EmailInput email, string? nomeAnexo, Func<AnexoEmail>? gerarAnexo,
-        Func<EmailInput, Task> enviar, string destino)
+        Func<EmailInput, Task> enviar, string destino, string tipoAnexo = "PDF")
     {
         var anexar = gerarAnexo is not null;
         var e = new EditorCampos(1);
@@ -20,7 +21,7 @@ internal static class DialogosEnvio
         e.Texto("Assunto", () => email.Assunto, v => email.Assunto = v ?? "", nameof(email.Assunto), 200);
         e.Texto("Mensagem", () => email.Mensagem, v => email.Mensagem = v, nameof(email.Mensagem), 4000, linhas: 9);
         if (gerarAnexo is not null)
-            e.Marcador($"Anexar {nomeAnexo} (PDF)", () => anexar, v => anexar = v);
+            e.Marcador($"Anexar {nomeAnexo} ({tipoAnexo})", () => anexar, v => anexar = v);
 
         using var dialogo = new FormEdicao(titulo, $"Envio: {destino}", e, async () =>
         {
@@ -46,7 +47,7 @@ internal static class DialogosEnvio
     /// <param name="nomeAnexo">O que pode ir anexado (ex.: "a proposta"); só no envio direto.</param>
     /// <param name="gerarAnexo">Gera o documento anexado quando a opção estiver marcada.</param>
     public static string? WhatsApp(IWin32Window dono, MensagemWhatsApp mensagem, string assunto, string? nomeAnexo = null,
-        Func<AnexoEmail>? gerarAnexo = null)
+        Func<AnexoEmail>? gerarAnexo = null, string tipoAnexo = "PDF")
     {
         var telefone = mensagem.Telefone;
         var texto = mensagem.Texto;
@@ -56,7 +57,7 @@ internal static class DialogosEnvio
         e.Mascara("Celular do cliente", "(00) 00000-0000", () => telefone, v => telefone = v ?? "", "Telefone");
         e.Texto("Mensagem", () => texto, v => texto = v ?? "", "Texto", 4000, linhas: 14);
         if (direto is not null && gerarAnexo is not null)
-            e.Marcador($"Anexar {nomeAnexo} (PDF)", () => anexar, v => anexar = v);
+            e.Marcador($"Anexar {nomeAnexo} ({tipoAnexo})", () => anexar, v => anexar = v);
 
         using var dialogo = new FormEdicao($"Enviar {assunto} por WhatsApp",
             direto is null

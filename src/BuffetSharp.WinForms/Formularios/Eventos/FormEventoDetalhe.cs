@@ -37,6 +37,7 @@ internal sealed partial class FormEventoDetalhe : FormBase
     private readonly Label _titulo = Tema.Titulo("Evento");
     private readonly Label _status = new() { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(12, 8, 0, 0) };
     private readonly Label _subtitulo = Tema.Subtitulo("");
+    private readonly Label _avisoConvites = new() { AutoSize = true, Font = Tema.FonteNegrito, ForeColor = Tema.Alerta, Margin = new Padding(16, 8, 0, 0) };
     private readonly FlowLayoutPanel _botoes = new() { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(16, 0, 16, 4) };
     private readonly CartaoIndicador _valor = new("Valor do contrato", "-", Tema.Primaria);
     private readonly CartaoIndicador _recebido = new("Recebido", "-", Tema.Sucesso);
@@ -78,6 +79,7 @@ internal sealed partial class FormEventoDetalhe : FormBase
         var linhaTitulo = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
         linhaTitulo.Controls.Add(_titulo);
         linhaTitulo.Controls.Add(_status);
+        linhaTitulo.Controls.Add(_avisoConvites);
         cabecalho.Controls.Add(linhaTitulo);
         cabecalho.Controls.Add(_subtitulo);
 
@@ -86,6 +88,7 @@ internal sealed partial class FormEventoDetalhe : FormBase
         AdicionarBotao("Realizar evento", Icones.Confirmar, RealizarAsync, edicao: true);
         AdicionarBotao("Cancelar evento", Icones.Cancelar, CancelarAsync, edicao: true, perigo: true);
         AdicionarBotao("Ficha do evento", Icones.Imprimir, ImprimirFichaAsync);
+        AdicionarBotao("Convites de agenda", Icones.Calendario, ConvitesAsync);
         AdicionarBotao("Ordem de produção", Icones.Lista, async () =>
             ImpressaoOperacao.OrdensProducao(this, [await _navegador.Servico<PlanejamentoService>().OrdemDoEventoAsync(_eventoId)],
                 _opcoes.NomeEmpresa));
@@ -751,7 +754,27 @@ internal sealed partial class FormEventoDetalhe : FormBase
     private async Task EditarAsync()
     {
         if (await DialogosEvento.EditarAsync(this, _eventos, _lookups, _eventoId) is not null)
+        {
             await CarregarAsync();
+            await OferecerAtualizacaoConvitesAsync();
+        }
+    }
+
+    private async Task ConvitesAsync()
+    {
+        using (var convites = _navegador.Criar<FormConvitesEvento>(_eventoId))
+            convites.ShowDialog(this);
+        await CarregarAsync();
+    }
+
+    /// <summary>Depois de mudar o horário ou cancelar: quem já recebeu o convite de agenda precisa da atualização.</summary>
+    private async Task OferecerAtualizacaoConvitesAsync()
+    {
+        var desatualizados = (await _navegador.Servico<ConviteService>().DoEventoAsync(_eventoId)).Count(c => c.Desatualizado);
+        if (desatualizados > 0 && Mensagens.Confirmar(this,
+                $"{desatualizados} pessoa(s) receberam o convite de agenda com o horário antigo. Abrir os convites para mandar a atualização?",
+                "Convites de agenda"))
+            await ConvitesAsync();
     }
 
     private async Task PlanoPagamentoAsync()
@@ -808,6 +831,7 @@ internal sealed partial class FormEventoDetalhe : FormBase
             return;
         await _eventos.CancelarAsync(_eventoId, motivo);
         await CarregarAsync();
+        await OferecerAtualizacaoConvitesAsync();
     }
 
     private async Task ImprimirFichaAsync()
@@ -1002,6 +1026,8 @@ internal sealed partial class FormEventoDetalhe : FormBase
         CarregarCronograma(e);
         CarregarMesas(e);
         CarregarFornecedores(e);
+        var convitesDesatualizados = (await _navegador.Servico<ConviteService>().DoEventoAsync(_eventoId)).Count(c => c.Desatualizado);
+        _avisoConvites.Text = convitesDesatualizados == 0 ? "" : $"⚠ {convitesDesatualizados} convite(s) de agenda desatualizado(s)";
 
         // Mesa do convidado novo: a escolhida antes, se ainda existir.
         var mesaEscolhida = (_mesa.SelectedItem as EventoMesa)?.Id;

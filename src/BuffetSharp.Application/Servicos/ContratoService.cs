@@ -21,6 +21,7 @@ public sealed class ContratoService(
     IConsultasEstoqueCardapio cardapio,
     IEnvioEmail email,
     BuffetOptions opcoes,
+    ConviteService convites,
     TimeProvider relogio)
 {
     private DateTime Agora => relogio.GetLocalNow().DateTime;
@@ -170,8 +171,14 @@ public sealed class ContratoService(
         html.Append($"<p style=\"color:#6e6a66;font-size:12px\">Contrato {contrato.Codigo} • código de integridade (SHA-256): {contrato.HashConteudo[..16]}…</p>");
         html.Append("</div>");
 
-        await email.EnviarAsync(new MensagemEmail(input.Para, input.Assunto, html.ToString(),
-            input.Anexo is null ? [] : [input.Anexo]), ct);
+        // O e-mail do contrato leva o convite do evento para a agenda do cliente (atualizado, se o horário mudou).
+        var convite = (await convites.DoEventoAsync(contrato.EventoId, ct)).First(c => c.Destino == DestinoConvite.Cliente);
+        List<AnexoEmail> anexos = input.Anexo is null ? [] : [input.Anexo];
+        if (!convite.Cancelado)
+            anexos.Add(convites.Arquivo(convite));
+        await email.EnviarAsync(new MensagemEmail(input.Para, input.Assunto, html.ToString(), anexos), ct);
+        if (!convite.Cancelado)
+            await convites.RegistrarAsync(convite, CanalConvite.Email, input.Para, ct);
     }
 
     private async Task AlterarAsync(int contratoId, Action<Contrato> acao, CancellationToken ct)

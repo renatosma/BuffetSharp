@@ -41,8 +41,10 @@ internal sealed class FormAgenda : FormBase
         };
         var proximo = Tema.BotaoSecundario("▶");
         proximo.Click += async (_, _) => await MudarMesAsync(1);
+        var exportar = Tema.BotaoSecundario("Exportar agenda (.ics)", Icones.Exportar);
+        exportar.Click += async (_, _) => await ExecutarAsync(ExportarAsync, exportar, cursorEspera: false);
         barra.Controls.AddRange([anterior, hoje, proximo, _mes,
-            new Label { Text = "Espaço:", AutoSize = true, Margin = new Padding(12, 7, 0, 0), ForeColor = Tema.TextoSuave }, _espaco, _preReservas, _legenda]);
+            new Label { Text = "Espaço:", AutoSize = true, Margin = new Padding(12, 7, 0, 0), ForeColor = Tema.TextoSuave }, _espaco, _preReservas, exportar, _legenda]);
         _espaco.SelectionChangeCommitted += async (_, _) => await CarregarAsync();
         _preReservas.CheckedChanged += async (_, _) => await CarregarAsync();
 
@@ -107,6 +109,25 @@ internal sealed class FormAgenda : FormBase
         });
         await CarregarAsync();
         MostrarDia(_calendario.DiaAtual);
+    }
+
+    /// <summary>
+    /// Eventos e degustações dos próximos 12 meses (a partir do mês exibido) num arquivo para importar no Google Agenda ou Outlook.
+    /// Importar de novo atualiza os mesmos compromissos.
+    /// </summary>
+    private async Task ExportarAsync()
+    {
+        var de = _calendario.Mes;
+        using var salvar = new SaveFileDialog
+        {
+            FileName = $"agenda-buffet-{de:yyyy-MM}.ics", Filter = "Agenda (*.ics)|*.ics", Title = "Exportar a agenda do buffet"
+        };
+        if (salvar.ShowDialog(this) != DialogResult.OK)
+            return;
+        var ics = await _navegador.Servico<Application.Servicos.ConviteService>().AgendaAsync(de, de.AddMonths(12).AddDays(-1));
+        await File.WriteAllTextAsync(salvar.FileName, ics, new System.Text.UTF8Encoding(false));
+        Mensagens.Info(this, $"Agenda de {de:MM/yyyy} a {de.AddMonths(11):MM/yyyy} exportada. Importe o arquivo no Google Agenda (Configurações › " +
+                             "Importar) ou abra no Outlook; importar de novo atualiza os mesmos compromissos.", "Exportar agenda");
     }
 
     private Task MudarMesAsync(int meses)

@@ -123,6 +123,21 @@ internal sealed class IndisponibilidadeFuncionarioConfig : IEntityTypeConfigurat
     }
 }
 
+internal sealed class ConviteEnviadoConfig : IEntityTypeConfiguration<ConviteEnviado>
+{
+    public void Configure(EntityTypeBuilder<ConviteEnviado> b)
+    {
+        b.ToTable("ConvitesEnviados");
+        b.Property(x => x.Uid).HasMaxLength(ConviteEnviado.TamanhoUid).IsRequired();
+        b.Property(x => x.Destinatario).HasMaxLength(ConviteEnviado.TamanhoDestinatario).IsRequired();
+        b.Property(x => x.Contato).HasMaxLength(ConviteEnviado.TamanhoDestinatario);
+        b.Property(x => x.Usuario).HasMaxLength(50);
+        b.HasOne<Evento>().WithMany().HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<Degustacao>().WithMany().HasForeignKey(x => x.DegustacaoId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => x.Uid);
+    }
+}
+
 internal sealed class PesquisaSatisfacaoConfig : IEntityTypeConfiguration<PesquisaSatisfacao>
 {
     public void Configure(EntityTypeBuilder<PesquisaSatisfacao> b)

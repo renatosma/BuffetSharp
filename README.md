@@ -265,6 +265,15 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   que não vai libera o lugar. Na importação da lista, a coluna Mesa ("5", "Mesa 5" ou um nome, como "Noivos") cria a
   mesa no mapa se ela não existir. Saem impressos a lista da recepção (em ordem alfabética, com a mesa), a planta com
   quem senta em cada mesa e os cartões de mesa (uma página por mesa).
+- **Convites de agenda (.ics)**: o arquivo que o Google Agenda, o Outlook e o celular salvam com um clique (horário de
+  Brasília, lembrete na véspera). Na central do evento, "Convites de agenda" lista o cliente, cada funcionário escalado
+  (da montagem à desmontagem) e cada fornecedor (da chegada ao fim), com quem já recebeu e quem falta. "Enviar pendentes"
+  manda por e-mail a quem tem e pelo WhatsApp do buffet (Z-API, com o arquivo anexo) a quem só tem celular; também dá para
+  mandar um a um ou salvar o arquivo. O e-mail do contrato leva o convite do cliente, e a confirmação ao fornecedor leva o
+  dele. Cada compromisso tem um identificador fixo: quando o horário muda, o evento é cancelado ou alguém sai da escala, a
+  central avisa que há convites desatualizados e o reenvio atualiza (ou remove) o mesmo compromisso na agenda de quem
+  recebeu. A degustação tem o convite por e-mail ou WhatsApp, e a Agenda exporta os eventos e degustações dos próximos 12
+  meses num arquivo para importar no Google Agenda ou Outlook da equipe.
 - **Pesquisa de satisfação** (Comercial › Pesquisa de satisfação): um dia depois do evento realizado
   (`Lembretes:DiasPesquisaSatisfacao`), a pesquisa vira lembrete com a mensagem pronta para WhatsApp ou e-mail. Ela tem a
   nota de indicação de 0 a 10 (NPS) e notas de 1 a 5 para comida, atendimento, espaço e organização, mais um comentário. Com
@@ -404,18 +413,18 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **413 testes** (xUnit v3): 377 de domínio, integração e bancos, e 36 das telas.
+São **419 testes** (xUnit v3): 382 de domínio, integração e bancos, e 37 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
-  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, lista de espera, pesquisa de satisfação, convidados excedentes, diárias da equipe, BR Code do
+  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, lista de espera, pesquisa de satisfação, convites .ics, convidados excedentes, diárias da equipe, BR Code do
   PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada, leitura do XML da NF-e,
   regras da NFS-e e o envio ao Focus NFe, cobrança registrada e a API do Asaas, e o envio pela Z-API (HTTP simulado).
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
   backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, NFS-e, boleto/PIX registrado com baixa automática, lembretes automáticos pelo WhatsApp, ordem de produção,
-  checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, lista de espera, pesquisa de satisfação, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
+  checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, lista de espera, pesquisa de satisfação, convites de agenda, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 
 Para rodar as suítes de integração e de telas em outro banco, copie `BuffetSharp.runsettings.exemplo`
