@@ -40,8 +40,11 @@ public class FaixasEtariasIntegracaoTests(BancoFixture banco)
 
         var salvo = await orcamentos.ObterAsync(id, Ct);
         Assert.Equal((100, 20, 10, 40m), (salvo.Convidados, salvo.ConvidadosMeia, salvo.ConvidadosIsentos, salvo.PercentualMeia));
-        var valorMeia = Math.Round(pacote.PrecoPorPessoa * 0.4m, 2);
-        var esperado = pacote.PrecoPorPessoa * 70 + valorMeia * 20 + salvo.ValorEspaco!.Value;
+        // Sem valor negociado, vale a tabela com o ajuste das regras de preço da data.
+        var preco = (await banco.Obter<TabelaPrecoService>().AjusteAsync(input.Data, pacote.Id, input.EspacoId, Ct)).Pessoa(pacote.PrecoPorPessoa);
+        Assert.Equal(preco, salvo.ValorPorPessoa);
+        var valorMeia = Math.Round(preco * 0.4m, 2);
+        var esperado = preco * 70 + valorMeia * 20 + salvo.ValorEspaco!.Value;
         var resumo = (await banco.Obter<IConsultasComercial>().ListarOrcamentosAsync(new FiltroOrcamentos { Texto = $"ORC-{id:D5}" }, Ct)).Single();
         Assert.Equal(esperado, resumo.ValorTotal);
 

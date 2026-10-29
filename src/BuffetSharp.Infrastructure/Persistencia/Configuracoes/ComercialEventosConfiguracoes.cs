@@ -12,6 +12,9 @@ internal sealed class OrcamentoConfig : IEntityTypeConfiguration<Orcamento>
     {
         b.ToTable("Orcamentos");
         b.Property(x => x.PercentualDesconto).HasPrecision(5, 2);
+        b.Property(x => x.AjustePessoaPercentual).HasPrecision(6, 2);
+        b.Property(x => x.AjusteLocacaoPercentual).HasPrecision(6, 2);
+        b.Property(x => x.AjusteDescricao).HasMaxLength(Orcamento.TamanhoDescricaoAjuste);
         b.Property(x => x.Observacoes).HasMaxLength(2000);
         b.Property(x => x.MotivoRecusa).HasMaxLength(500);
 

@@ -30,6 +30,11 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly BuffetOptions _opcoes;
     private readonly ICadastroService<CondicaoPagamento> _condicoesPagamento;
     private readonly AberturaOrcamento _abertura;
+    private readonly TabelaPrecoService _precos;
+
+    /// <summary>Ajuste das regras de preço para a data, o pacote e o espaço, e os valores que ele sugeriu.</summary>
+    private AjustePreco _ajuste = AjustePreco.Nenhum;
+    private decimal? _pessoaSugerida, _locacaoSugerida;
 
     private OrcamentoInput _input = new();
     private EditorCampos _editor = new(3);
@@ -46,6 +51,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly Label _disponivel = new() { AutoSize = true, Font = Tema.FonteNegrito };
     private readonly Label _simulacaoPagamento = new() { AutoSize = true, ForeColor = Tema.TextoSuave };
     private readonly Label _faixas = new() { AutoSize = true, ForeColor = Tema.TextoSuave };
+    private readonly Label _precoData = new() { AutoSize = true, Font = Tema.FonteNegrito };
     private readonly DataGridView _gradeServicos = new() { Height = 150 };
     private readonly ComboBox _novoServico = new() { Width = 260, DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly System.Windows.Forms.Timer _atrasoDisponibilidade = new() { Interval = 450 };
@@ -73,8 +79,9 @@ internal sealed class FormOrcamentoEdicao : FormBase
 
     public FormOrcamentoEdicao(OrcamentoService servico, DisponibilidadeService disponibilidade, IConsultasLookup lookups,
         IConsultasEstoqueCardapio cardapio, BuffetOptions opcoes, ICadastroService<CondicaoPagamento> condicoesPagamento,
-        AberturaOrcamento abertura)
+        AberturaOrcamento abertura, TabelaPrecoService precos)
     {
+        _precos = precos;
         _servico = servico;
         _disponibilidade = disponibilidade;
         _lookups = lookups;
@@ -190,7 +197,11 @@ internal sealed class FormOrcamentoEdicao : FormBase
                 _servicos.Add(s);
             AtualizarCabecalho();
             ConectarEventos();
-            Recalcular();
+
+            // Orçamento novo: o valor por pessoa e a locação ainda não foram negociados.
+            if (_input.Id == 0)
+                (_pessoaSugerida, _locacaoSugerida) = (_valorPessoa.Value, _valorLocacao.Value);
+            await AtualizarPrecoDataAsync();
             await AtualizarComposicaoAsync();
             await VerificarDisponibilidadeAsync();
         });
@@ -226,6 +237,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
         _valorPessoa = e.Decimal("Valor por pessoa (R$)", () => i.ValorPorPessoa ?? 0, v => i.ValorPorPessoa = v);
         _espaco = e.Lista("Espaço", _espacos, () => i.EspacoId, v => i.EspacoId = v, nameof(i.EspacoId), permitirVazio: true, span: 2);
         _valorLocacao = e.Decimal("Valor da locação (R$)", () => i.ValorEspaco ?? 0, v => i.ValorEspaco = v);
+        e.Livre(_precoData);
         e.Livre(_disponivel);
 
         e.Secao("Serviços adicionais");
@@ -319,6 +331,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
             if (_pacote.SelectedItem is ItemLookup { Id: > 0 } pacote)
             {
                 _valorPessoa.Value = pacote.Valor;
+                _pessoaSugerida = pacote.Valor;
                 if (_regrasPacotes.GetValueOrDefault(pacote.Id) is { } regra)
                 {
                     _input.IdadeMaximaIsento = regra.IdadeMaximaIsento;
@@ -328,14 +341,15 @@ internal sealed class FormOrcamentoEdicao : FormBase
             }
             else
                 _valorPessoa.Value = 0;
-            Recalcular();
+            await AtualizarPrecoDataAsync();
             await AtualizarComposicaoAsync();
         };
-        _espaco.SelectedIndexChanged += (_, _) =>
+        _espaco.SelectedIndexChanged += async (_, _) =>
         {
             _valorLocacao.Value = _espaco.SelectedItem is ItemLookup { Id: > 0 } espaco ? espaco.Valor : 0;
-            Recalcular();
+            _locacaoSugerida = _valorLocacao.Value;
             AgendarVerificacao();
+            await AtualizarPrecoDataAsync();
         };
         foreach (var quantidade in new[] { _convidados, _isentos })
             quantidade.ValueChanged += (_, _) =>
@@ -360,9 +374,50 @@ internal sealed class FormOrcamentoEdicao : FormBase
             if (indice >= 0)
                 _forma.SelectedIndex = indice;
         };
-        _data.ValueChanged += (_, _) => Recalcular();
+        _data.ValueChanged += async (_, _) => await AtualizarPrecoDataAsync();
         foreach (var data in new[] { _data, _inicio, _fim })
             data.ValueChanged += (_, _) => AgendarVerificacao();
+    }
+
+    /// <summary>
+    /// Recalcula o ajuste da data e, nos valores que ainda são os sugeridos (não negociados), aplica o ajuste sobre a tabela.
+    /// </summary>
+    private async Task AtualizarPrecoDataAsync()
+    {
+        var pacote = _pacote.SelectedItem is ItemLookup { Id: > 0 } p ? p : null;
+        var espaco = _espaco.SelectedItem is ItemLookup { Id: > 0 } s ? s : null;
+        try
+        {
+            _ajuste = await _precos.AjusteAsync(DateOnly.FromDateTime(_data.Value), pacote?.Id, espaco?.Id);
+        }
+        catch (Exception ex)
+        {
+            Mensagens.Erro(this, ex);
+            return;
+        }
+
+        if (_input.PodeEditar)
+        {
+            if (pacote is not null && _pessoaSugerida == _valorPessoa.Value)
+            {
+                _pessoaSugerida = _ajuste.Pessoa(pacote.Valor);
+                _valorPessoa.Value = _pessoaSugerida.Value;
+            }
+            if (espaco is not null && _locacaoSugerida == _valorLocacao.Value)
+            {
+                _locacaoSugerida = _ajuste.Locacao(espaco.Valor);
+                _valorLocacao.Value = _locacaoSugerida.Value;
+            }
+        }
+        _input.AjustePessoaPercentual = _ajuste.PercentualPessoa;
+        _input.AjusteLocacaoPercentual = _ajuste.PercentualLocacao;
+        _input.AjusteDescricao = _ajuste.Regras.Count == 0 ? null : _ajuste.Descricao;
+        _precoData.Text = _ajuste.Regras.Count == 0
+            ? "Preço da data: tabela, sem ajuste."
+            : $"Preço da data: {_ajuste.Descricao}" + (_ajuste.MinimoConvidados is { } minimo ? $"  •  mínimo de {minimo} pagantes" : "");
+        _precoData.ForeColor = _ajuste.PercentualPessoa > 0 || _ajuste.PercentualLocacao > 0 ? Tema.Alerta
+            : _ajuste.PercentualPessoa < 0 || _ajuste.PercentualLocacao < 0 ? Tema.Sucesso : Tema.TextoSuave;
+        Recalcular();
     }
 
     private void AgendarVerificacao()
@@ -406,6 +461,8 @@ internal sealed class FormOrcamentoEdicao : FormBase
             alertas.Add($"⚠ O pacote exige no mínimo {pacote.Numero} convidados pagantes.");
         if (_espaco.SelectedItem is ItemLookup { Id: > 0 } espaco && convidados > espaco.Numero)
             alertas.Add($"⚠ O espaço comporta no máximo {espaco.Numero} pessoas.");
+        if (_ajuste.MinimoConvidados is { } minimo && faixas.Pagantes < minimo)
+            alertas.Add($"⚠ Nesta data o mínimo é de {minimo} convidados pagantes.");
         _alertas.Text = string.Join(Environment.NewLine, alertas);
 
         var condicao = _condicao.SelectedItem is ItemLookup { Id: > 0 } item ? _condicoes.FirstOrDefault(c => c.Id == item.Id) : null;

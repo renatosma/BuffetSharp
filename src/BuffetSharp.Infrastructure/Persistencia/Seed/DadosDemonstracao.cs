@@ -73,6 +73,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await PagarEquipeAsync(ct);
         await ContratarFornecedoresAsync(ct);
         await CriarIndisponibilidadesAsync(ct);
+        await CriarRegrasPrecoAsync(ct);
     }
 
     // =====================================================================
@@ -1233,6 +1234,30 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         foreach (var evento in eventos.Where(e => e.Id % 2 == 0))
             foreach (var contratacao in evento.Fornecedores)
                 evento.ConfirmarFornecedor(contratacao.Id, Agora.AddDays(-1));
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Preços por data: sábado mais caro, segunda a quinta com desconto, alta temporada de fim de ano e o réveillon com preço
+    /// próprio. Entram por último, para não mudar os orçamentos da base (que foram fechados pelo preço de tabela).
+    /// </summary>
+    private async Task CriarRegrasPrecoAsync(CancellationToken ct)
+    {
+        var sabado = new RegraPreco { Nome = "Sábado", Tipo = TipoRegraPreco.DiaSemana, Percentual = 15, AjustaPessoa = true, AjustaLocacao = true };
+        sabado.DefinirDia(DayOfWeek.Saturday, true);
+        var semana = new RegraPreco { Nome = "Segunda a quinta", Tipo = TipoRegraPreco.DiaSemana, Percentual = -10 };
+        foreach (var dia in new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday })
+            semana.DefinirDia(dia, true);
+        db.RegrasPreco.AddRange(sabado, semana,
+            new RegraPreco
+            {
+                Nome = "Alta temporada", Tipo = TipoRegraPreco.Temporada, Percentual = 10, DiaInicio = 15, MesInicio = 11, DiaFim = 31, MesFim = 1
+            },
+            new RegraPreco
+            {
+                Nome = "Réveillon", Tipo = TipoRegraPreco.DataEspecial, Percentual = 40, Data = new DateOnly(Hoje.Year, 12, 31), Anual = true,
+                Exclusiva = true, AjustaLocacao = true
+            });
         await db.SaveChangesAsync(ct);
     }
 

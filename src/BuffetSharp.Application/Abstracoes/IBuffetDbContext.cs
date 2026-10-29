@@ -63,6 +63,7 @@ public interface IBuffetDbContext : IDisposable, IAsyncDisposable
     DbSet<ModeloCronograma> ModelosCronograma { get; }
     DbSet<EspacoMesa> EspacoMesas { get; }
     DbSet<IndisponibilidadeFuncionario> IndisponibilidadesFuncionario { get; }
+    DbSet<RegraPreco> RegrasPreco { get; }
     DbSet<FechamentoEquipe> FechamentosEquipe { get; }
     DbSet<ConfiguracaoCobranca> ConfiguracoesCobranca { get; }
     DbSet<CobrancaRegistrada> CobrancasRegistradas { get; }

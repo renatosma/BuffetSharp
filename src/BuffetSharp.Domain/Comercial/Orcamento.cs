@@ -81,6 +81,22 @@ public class Orcamento : Entidade
     public decimal PercentualDesconto { get; private set; }
     public decimal ValorTotal { get; private set; }
 
+    public const int TamanhoDescricaoAjuste = 300;
+
+    /// <summary>
+    /// Ajuste de preço da data (regras por dia da semana, temporada e data especial) sobre a tabela, congelado na negociação:
+    /// o valor por pessoa e a locação sugeridos já o incluem.
+    /// </summary>
+    public decimal AjustePessoaPercentual { get; private set; }
+
+    public decimal AjusteLocacaoPercentual { get; private set; }
+
+    /// <summary>Regras que valem na data, para a proposta (ex.: "Sábado +15%; Alta temporada +10%").</summary>
+    public string? AjusteDescricao { get; private set; }
+
+    /// <summary>Mínimo de convidados pagantes exigido pelas regras da data.</summary>
+    public int? MinimoConvidadosData { get; private set; }
+
     /// <summary>Regra de idades do pacote, congelada (a meia pode ser negociada).</summary>
     public int IdadeMaximaIsento { get; private set; } = RegraFaixasEtarias.Padrao.IdadeMaximaIsento;
     public int IdadeMaximaMeia { get; private set; } = RegraFaixasEtarias.Padrao.IdadeMaximaMeia;
@@ -181,6 +197,19 @@ public class Orcamento : Entidade
             ValorEspaco = valorNegociado ?? espaco.ValorLocacao;
         }
         Recalcular();
+    }
+
+    /// <summary>Registra o ajuste das regras de preço da data, que pode exigir um mínimo de convidados pagantes.</summary>
+    public void AplicarRegrasPreco(AjustePreco ajuste)
+    {
+        GarantirEditavel();
+        Validador.Garantir(ajuste.MinimoConvidados is not { } minimo || QuantidadesPorFaixa.Pagantes >= minimo,
+            $"Nesta data ({ajuste.Descricao}) o mínimo é de {ajuste.MinimoConvidados} convidados pagantes.");
+        AjustePessoaPercentual = ajuste.PercentualPessoa;
+        AjusteLocacaoPercentual = ajuste.PercentualLocacao;
+        var descricao = ajuste.Regras.Count == 0 ? null : ajuste.Descricao;
+        AjusteDescricao = descricao is { Length: > TamanhoDescricaoAjuste } ? descricao[..TamanhoDescricaoAjuste] : descricao;
+        MinimoConvidadosData = ajuste.MinimoConvidados;
     }
 
     public void DefinirServicos(IEnumerable<(ServicoAdicional Servico, decimal Quantidade, decimal ValorUnitario)> servicos)
@@ -305,6 +334,10 @@ public class Orcamento : Entidade
             ValorPorPessoa = ValorPorPessoa,
             ValorEspaco = ValorEspaco,
             PercentualDesconto = PercentualDesconto,
+            AjustePessoaPercentual = AjustePessoaPercentual,
+            AjusteLocacaoPercentual = AjusteLocacaoPercentual,
+            AjusteDescricao = AjusteDescricao,
+            MinimoConvidadosData = MinimoConvidadosData,
             IdadeMaximaIsento = IdadeMaximaIsento,
             IdadeMaximaMeia = IdadeMaximaMeia,
             PercentualMeia = PercentualMeia,

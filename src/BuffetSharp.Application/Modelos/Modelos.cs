@@ -99,6 +99,12 @@ public sealed class OrcamentoInput
     public string? Observacoes { get; set; }
     public List<ServicoItemInput> Servicos { get; set; } = [];
 
+    /// <summary>Ajuste das regras de preço da data (somente leitura: recalculado ao salvar).</summary>
+    public decimal AjustePessoaPercentual { get; set; }
+
+    public decimal AjusteLocacaoPercentual { get; set; }
+    public string? AjusteDescricao { get; set; }
+
     // Somente leitura (preenchidos ao carregar)
     public string Codigo { get; set; } = "(novo)";
     public StatusOrcamento Status { get; set; } = StatusOrcamento.Rascunho;

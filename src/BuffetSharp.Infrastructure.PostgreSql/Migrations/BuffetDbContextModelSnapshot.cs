@@ -1960,6 +1960,21 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AjusteDescricao")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("ajustedescricao");
+
+                    b.Property<decimal>("AjusteLocacaoPercentual")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)")
+                        .HasColumnName("ajustelocacaopercentual");
+
+                    b.Property<decimal>("AjustePessoaPercentual")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)")
+                        .HasColumnName("ajustepessoapercentual");
+
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("atualizadoem");
@@ -2015,6 +2030,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("inicio");
+
+                    b.Property<int?>("MinimoConvidadosData")
+                        .HasColumnType("integer")
+                        .HasColumnName("minimoconvidadosdata");
 
                     b.Property<string>("MotivoRecusa")
                         .HasMaxLength(500)
@@ -2284,6 +2303,113 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasDatabaseName("ix_reajustespreco_status_vigenciaem");
 
                     b.ToTable("reajustespreco", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.RegraPreco", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AjustaLocacao")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ajustalocacao");
+
+                    b.Property<bool>("AjustaPessoa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ajustapessoa");
+
+                    b.Property<bool>("Anual")
+                        .HasColumnType("boolean")
+                        .HasColumnName("anual");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<DateOnly?>("Data")
+                        .HasColumnType("date")
+                        .HasColumnName("data");
+
+                    b.Property<int?>("DiaFim")
+                        .HasColumnType("integer")
+                        .HasColumnName("diafim");
+
+                    b.Property<int?>("DiaInicio")
+                        .HasColumnType("integer")
+                        .HasColumnName("diainicio");
+
+                    b.Property<int>("DiasSemana")
+                        .HasColumnType("integer")
+                        .HasColumnName("diassemana");
+
+                    b.Property<int?>("EspacoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("espacoid");
+
+                    b.Property<bool>("Exclusiva")
+                        .HasColumnType("boolean")
+                        .HasColumnName("exclusiva");
+
+                    b.Property<int?>("MesFim")
+                        .HasColumnType("integer")
+                        .HasColumnName("mesfim");
+
+                    b.Property<int?>("MesInicio")
+                        .HasColumnType("integer")
+                        .HasColumnName("mesinicio");
+
+                    b.Property<int?>("MinimoConvidados")
+                        .HasColumnType("integer")
+                        .HasColumnName("minimoconvidados");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("nome");
+
+                    b.Property<int?>("PacoteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("pacoteid");
+
+                    b.Property<decimal>("Percentual")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)")
+                        .HasColumnName("percentual");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("Id")
+                        .HasName("pk_regraspreco");
+
+                    b.HasIndex("EspacoId")
+                        .HasDatabaseName("ix_regraspreco_espacoid");
+
+                    b.HasIndex("PacoteId")
+                        .HasDatabaseName("ix_regraspreco_pacoteid");
+
+                    b.ToTable("regraspreco", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.CodigoProdutoFornecedor", b =>
@@ -5957,6 +6083,25 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_reajusteitens_reajustespreco_reajusteprecoid");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.RegraPreco", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Espaco", "Espaco")
+                        .WithMany()
+                        .HasForeignKey("EspacoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_regraspreco_espacos_espacoid");
+
+                    b.HasOne("BuffetSharp.Domain.Cardapio.Pacote", "Pacote")
+                        .WithMany()
+                        .HasForeignKey("PacoteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_regraspreco_pacotes_pacoteid");
+
+                    b.Navigation("Espaco");
+
+                    b.Navigation("Pacote");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.CodigoProdutoFornecedor", b =>

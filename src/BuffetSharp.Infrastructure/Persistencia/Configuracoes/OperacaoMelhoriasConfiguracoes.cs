@@ -1,4 +1,5 @@
 using BuffetSharp.Domain.Cadastros;
+using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
 using Microsoft.EntityFrameworkCore;
@@ -119,6 +120,19 @@ internal sealed class IndisponibilidadeFuncionarioConfig : IEntityTypeConfigurat
         b.Ignore(x => x.Descricao);
         b.HasOne(x => x.Funcionario).WithMany().HasForeignKey(x => x.FuncionarioId).OnDelete(DeleteBehavior.Cascade);
         b.HasIndex(x => new { x.FuncionarioId, x.Inicio });
+    }
+}
+
+internal sealed class RegraPrecoConfig : IEntityTypeConfiguration<RegraPreco>
+{
+    public void Configure(EntityTypeBuilder<RegraPreco> b)
+    {
+        b.ToTable("RegrasPreco");
+        b.Property(x => x.Percentual).HasPrecision(6, 2);
+        b.Ignore(x => x.Quando);
+        b.Ignore(x => x.Ajuste);
+        b.HasOne(x => x.Pacote).WithMany().HasForeignKey(x => x.PacoteId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Espaco).WithMany().HasForeignKey(x => x.EspacoId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

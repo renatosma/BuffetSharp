@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddTransient<EventoService>();
         services.AddTransient<MapaMesasService>();
         services.AddTransient<EscalaService>();
+        services.AddTransient<TabelaPrecoService>();
         services.AddTransient<FinanceiroService>();
         services.AddTransient<BaixaService>();
         services.AddTransient<ContaFinanceiraService>();

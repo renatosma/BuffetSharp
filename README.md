@@ -264,6 +264,14 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   que não vai libera o lugar. Na importação da lista, a coluna Mesa ("5", "Mesa 5" ou um nome, como "Noivos") cria a
   mesa no mapa se ela não existir. Saem impressos a lista da recepção (em ordem alfabética, com a mesa), a planta com
   quem senta em cada mesa e os cartões de mesa (uma página por mesa).
+- **Preço por data**: regras que ajustam o preço de tabela conforme a data do evento, em Comercial › Preços por data. Elas
+  podem valer por dia da semana (sábado +15%, segunda a quinta -10%), por temporada que se repete todo ano e pode virar o
+  ano (alta de 15/11 a 31/01) ou por data especial (réveillon). As regras que valem no dia se somam; a data especial
+  marcada como exclusiva substitui as demais. Cada regra diz se ajusta o valor por pessoa, a locação do espaço ou ambos,
+  pode valer só para um pacote ou espaço e pode exigir um mínimo de convidados pagantes, conferido ao salvar o orçamento.
+  No orçamento, o valor por pessoa e a locação sugeridos já vêm com o ajuste da data, que é refeito quando a data, o
+  pacote ou o espaço mudam (o valor negociado à mão não é tocado). A proposta impressa mostra as regras da data e o preço
+  de tabela. O Calendário de preços (Comercial) mostra o ajuste de cada dia do mês, para um pacote e espaço.
 - **Conflito de escala da equipe**: o funcionário trabalha da primeira à última etapa do cronograma (montagem e
   desmontagem), ou do início ao fim da festa sem cronograma. Não pode ser escalado em dois eventos cujos períodos se
   sobrepõem contando o deslocamento (o intervalo mínimo entre eventos) nem sem o descanso mínimo entre um trabalho e
@@ -379,18 +387,18 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **390 testes** (xUnit v3): 357 de domínio, integração e bancos, e 33 das telas.
+São **398 testes** (xUnit v3): 364 de domínio, integração e bancos, e 34 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,
-  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, convidados excedentes, diárias da equipe, BR Code do
+  parcelamento de contas a pagar, bloqueio de login, leads, reajuste de preços, checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, convidados excedentes, diárias da equipe, BR Code do
   PIX, leitura de OFX e conciliação, cotação (vencedor por produto), recebimento parcial, nota fiscal de entrada, leitura do XML da NF-e,
   regras da NFS-e e o envio ao Focus NFe, cobrança registrada e a API do Asaas, e o envio pela Z-API (HTTP simulado).
 - **Integração**: criam um banco temporário (por padrão no LocalDB), aplicam as migrations, carregam a
   base de demonstração e executam todas as consultas Dapper e os fluxos dos serviços (aprovação com
   conflito de agenda, pagamento, cancelamento, autenticação e bloqueio, tradução de erros de banco, edição simultânea,
   backup, funil, lembretes, reajuste, excedentes, lista de compras, cotação, recebimento, nota de entrada e importação da NF-e, NFS-e, boleto/PIX registrado com baixa automática, lembretes automáticos pelo WhatsApp, ordem de produção,
-  checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
+  checklist, cronograma, mapa de mesas, fornecedores do evento, conflito de escala, preço por data, pagamento da equipe, PIX, conciliação e DRE). O banco é excluído no final.
 - **Bancos**: sem servidor, conferem o modelo de cada banco, se as migrations estão em dia e o dialeto SQL.
 
 Para rodar as suítes de integração e de telas em outro banco, copie `BuffetSharp.runsettings.exemplo`

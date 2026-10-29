@@ -74,6 +74,17 @@ internal static class ImpressaoProposta
         doc.Tabela(["Descrição", "Valor"], linhas, [4, 1.6f], [false, true]);
         doc.Total("Valor total do evento:", Textos.Moeda(resumo.Total));
         doc.Paragrafo($"Equivale a {Textos.Moeda(o.Convidados == 0 ? 0 : resumo.Total / o.Convidados)} por convidado.");
+        if (o.AjusteDescricao is { } ajuste)
+        {
+            // Preço de tabela e o ajuste da data (dia da semana, temporada ou data especial).
+            var tabela = new List<string>();
+            if (o.AjustePessoaPercentual != 0 && pacotes.FirstOrDefault(p => p.Id == o.PacoteId) is { } pacote)
+                tabela.Add($"por pessoa {Textos.Moeda(pacote.Valor)} ({Percentual(o.AjustePessoaPercentual)})");
+            if (o.AjusteLocacaoPercentual != 0 && espacos.FirstOrDefault(e => e.Id == o.EspacoId) is { } espaco)
+                tabela.Add($"locação {Textos.Moeda(espaco.Valor)} ({Percentual(o.AjusteLocacaoPercentual)})");
+            doc.Paragrafo($"Valores para {o.Data.ToString("dddd, dd/MM/yyyy", Textos.PtBr)}: {ajuste}." +
+                          (tabela.Count > 0 ? $" Preço de tabela: {string.Join("; ", tabela)}." : ""));
+        }
 
         doc.Secao("Condições");
         if (condicao is not null)
@@ -96,4 +107,6 @@ internal static class ImpressaoProposta
         doc.Assinaturas(empresa.NomeEmpresa, Nome(clientes, o.ClienteId));
         return doc;
     }
+
+    private static string Percentual(decimal valor) => $"{(valor >= 0 ? "+" : "")}{valor:0.##}% na data";
 }

@@ -463,6 +463,62 @@ internal static class DefinicoesCadastros
         }
     };
 
+    public static readonly DefinicaoCadastro<RegraPreco> RegrasPreco = new()
+    {
+        Titulo = "Preços por data",
+        Singular = "regra de preço",
+        Descricao = "Ajustes sobre o preço de tabela conforme a data: dia da semana, temporada e datas especiais. As regras que valem " +
+                    "no dia se somam; a data especial exclusiva substitui as demais.",
+        Consulta = q => q.Include(x => x.Pacote).Include(x => x.Espaco).OrderBy(x => x.Tipo).ThenBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome, 30)
+            .Texto("Tipo", x => Textos.Exibir(x.Tipo), 18)
+            .Texto("Quando", x => x.Quando, 34)
+            .Texto("Ajuste", x => x.Ajuste, 12, x => x.Percentual > 0 ? Tema.Alerta : x.Percentual < 0 ? Tema.Sucesso : null)
+            .Texto("Incide em", x => x.AjustaPessoa && x.AjustaLocacao ? "pessoa e locação" : x.AjustaPessoa ? "valor por pessoa" : "locação", 20)
+            .Texto("Somente", x => string.Join(" / ", new[] { x.Pacote?.Nome, x.Espaco?.Nome }.Where(n => n is not null)), 26)
+            .Numero("Mínimo", x => x.MinimoConvidados, peso: 12)
+            .SimNao("Ativo", x => x.Ativo, 12),
+        TextoBusca = x => $"{x.Nome} {x.Quando} {x.Pacote?.Nome} {x.Espaco?.Nome}",
+        Nome = x => x.Nome,
+        ColunasEditor = 4,
+        LarguraEditor = 900,
+        Campos = async (e, x, contexto) =>
+        {
+            var pacotes = await contexto.Lookups.ListarAsync(TipoLookup.Pacotes, somenteAtivos: false);
+            var espacos = await contexto.Lookups.ListarAsync(TipoLookup.Espacos, somenteAtivos: false);
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 60, span: 2, dica: "Ex.: Sábado, Alta temporada, Réveillon");
+            e.Opcoes("Tipo", () => x.Tipo, v => x.Tipo = v, nameof(x.Tipo));
+            e.Decimal("Ajuste (%)", () => x.Percentual, v => x.Percentual = v, nameof(x.Percentual), 2, RegraPreco.PercentualMinimo,
+                RegraPreco.PercentualMaximo);
+
+            e.Secao("Dia da semana");
+            foreach (var dia in new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday,
+                         DayOfWeek.Saturday, DayOfWeek.Sunday })
+                e.Marcador(Textos.PtBr.DateTimeFormat.GetDayName(dia), () => x.ValeNoDia(dia), v => x.DefinirDia(dia, v),
+                    dia == DayOfWeek.Monday ? nameof(x.DiasSemana) : null);
+
+            e.Secao("Temporada (todo ano; pode virar o ano, como 15/11 a 31/01)");
+            e.Inteiro("Início: dia", () => x.DiaInicio ?? 0, v => x.DiaInicio = v == 0 ? null : v, nameof(x.DiaInicio), 0, 31);
+            e.Inteiro("Início: mês", () => x.MesInicio ?? 0, v => x.MesInicio = v == 0 ? null : v, nameof(x.MesInicio), 0, 12);
+            e.Inteiro("Fim: dia", () => x.DiaFim ?? 0, v => x.DiaFim = v == 0 ? null : v, nameof(x.DiaFim), 0, 31);
+            e.Inteiro("Fim: mês", () => x.MesFim ?? 0, v => x.MesFim = v == 0 ? null : v, nameof(x.MesFim), 0, 12);
+
+            e.Secao("Data especial");
+            e.Data("Data", () => x.Data, v => x.Data = v, nameof(x.Data), opcional: true);
+            e.Marcador("Repete todo ano", () => x.Anual, v => x.Anual = v, nameof(x.Anual));
+            e.Marcador("Exclusiva (substitui as demais regras do dia)", () => x.Exclusiva, v => x.Exclusiva = v, nameof(x.Exclusiva), span: 2);
+
+            e.Secao("Onde vale");
+            e.Marcador("Ajusta o valor por pessoa", () => x.AjustaPessoa, v => x.AjustaPessoa = v, nameof(x.AjustaPessoa), span: 2);
+            e.Marcador("Ajusta a locação do espaço", () => x.AjustaLocacao, v => x.AjustaLocacao = v, nameof(x.AjustaLocacao), span: 2);
+            e.Lista("Somente o pacote", pacotes, () => x.PacoteId, v => x.PacoteId = v, nameof(x.PacoteId), permitirVazio: true, span: 2);
+            e.Lista("Somente o espaço", espacos, () => x.EspacoId, v => x.EspacoId = v, nameof(x.EspacoId), permitirVazio: true, span: 2);
+            e.Inteiro("Mínimo de convidados pagantes (0 = sem)", () => x.MinimoConvidados ?? 0, v => x.MinimoConvidados = v == 0 ? null : v,
+                nameof(x.MinimoConvidados), 0, 10_000, span: 2);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+        }
+    };
+
     public static readonly DefinicaoCadastro<IndisponibilidadeFuncionario> Indisponibilidades = new()
     {
         Titulo = "Indisponibilidades da equipe",

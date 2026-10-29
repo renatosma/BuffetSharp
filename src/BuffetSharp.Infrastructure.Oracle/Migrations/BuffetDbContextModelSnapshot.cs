@@ -1955,6 +1955,21 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
 
                     OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AjusteDescricao")
+                        .HasMaxLength(300)
+                        .HasColumnType("NVARCHAR2(300)")
+                        .HasColumnName("AJUSTEDESCRICAO");
+
+                    b.Property<decimal>("AjusteLocacaoPercentual")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("DECIMAL(6,2)")
+                        .HasColumnName("AJUSTELOCACAOPERCENTUAL");
+
+                    b.Property<decimal>("AjustePessoaPercentual")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("DECIMAL(6,2)")
+                        .HasColumnName("AJUSTEPESSOAPERCENTUAL");
+
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("ATUALIZADOEM");
@@ -2010,6 +2025,10 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("INICIO");
+
+                    b.Property<int?>("MinimoConvidadosData")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("MINIMOCONVIDADOSDATA");
 
                     b.Property<string>("MotivoRecusa")
                         .HasMaxLength(500)
@@ -2279,6 +2298,113 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasDatabaseName("IX_REAJUSTESPRECO_STATUS_VIGENCIAEM");
 
                     b.ToTable("REAJUSTESPRECO", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.RegraPreco", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AjustaLocacao")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("AJUSTALOCACAO");
+
+                    b.Property<bool>("AjustaPessoa")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("AJUSTAPESSOA");
+
+                    b.Property<bool>("Anual")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("ANUAL");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("ATIVO");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<DateTime?>("Data")
+                        .HasColumnType("DATE")
+                        .HasColumnName("DATA");
+
+                    b.Property<int?>("DiaFim")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("DIAFIM");
+
+                    b.Property<int?>("DiaInicio")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("DIAINICIO");
+
+                    b.Property<int>("DiasSemana")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("DIASSEMANA");
+
+                    b.Property<int?>("EspacoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ESPACOID");
+
+                    b.Property<bool>("Exclusiva")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("EXCLUSIVA");
+
+                    b.Property<int?>("MesFim")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("MESFIM");
+
+                    b.Property<int?>("MesInicio")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("MESINICIO");
+
+                    b.Property<int?>("MinimoConvidados")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("MINIMOCONVIDADOS");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("NOME");
+
+                    b.Property<int?>("PacoteId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("PACOTEID");
+
+                    b.Property<decimal>("Percentual")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("DECIMAL(6,2)")
+                        .HasColumnName("PERCENTUAL");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("TIPO");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_REGRASPRECO");
+
+                    b.HasIndex("EspacoId")
+                        .HasDatabaseName("IX_REGRASPRECO_ESPACOID");
+
+                    b.HasIndex("PacoteId")
+                        .HasDatabaseName("IX_REGRASPRECO_PACOTEID");
+
+                    b.ToTable("REGRASPRECO", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.CodigoProdutoFornecedor", b =>
@@ -5949,6 +6075,25 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK_REAJUSTEITENS_REAJUSTESPRECO_REAJUSTEPRECOID");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.RegraPreco", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Espaco", "Espaco")
+                        .WithMany()
+                        .HasForeignKey("EspacoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_REGRASPRECO_ESPACOS_ESPACOID");
+
+                    b.HasOne("BuffetSharp.Domain.Cardapio.Pacote", "Pacote")
+                        .WithMany()
+                        .HasForeignKey("PacoteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_REGRASPRECO_PACOTES_PACOTEID");
+
+                    b.Navigation("Espaco");
+
+                    b.Navigation("Pacote");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.CodigoProdutoFornecedor", b =>

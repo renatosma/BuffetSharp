@@ -1573,6 +1573,18 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AjusteDescricao")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("AjusteLocacaoPercentual")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
+
+                    b.Property<decimal>("AjustePessoaPercentual")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
+
                     b.Property<DateTime?>("AtualizadoEm")
                         .HasColumnType("datetime2");
 
@@ -1614,6 +1626,9 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("MinimoConvidadosData")
+                        .HasColumnType("int");
 
                     b.Property<string>("MotivoRecusa")
                         .HasMaxLength(500)
@@ -1826,6 +1841,89 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.HasIndex("Status", "VigenciaEm");
 
                     b.ToTable("ReajustesPreco", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.RegraPreco", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AjustaLocacao")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("AjustaPessoa")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Anual")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("Data")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("DiaFim")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DiaInicio")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DiasSemana")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EspacoId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Exclusiva")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("MesFim")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MesInicio")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MinimoConvidados")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int?>("PacoteId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Percentual")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EspacoId");
+
+                    b.HasIndex("PacoteId");
+
+                    b.ToTable("RegrasPreco", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.CodigoProdutoFornecedor", b =>
@@ -4754,6 +4852,23 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                         .HasForeignKey("ReajustePrecoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Comercial.RegraPreco", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Espaco", "Espaco")
+                        .WithMany()
+                        .HasForeignKey("EspacoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BuffetSharp.Domain.Cardapio.Pacote", "Pacote")
+                        .WithMany()
+                        .HasForeignKey("PacoteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Espaco");
+
+                    b.Navigation("Pacote");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.CodigoProdutoFornecedor", b =>

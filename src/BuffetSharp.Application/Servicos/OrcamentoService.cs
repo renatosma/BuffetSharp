@@ -64,6 +64,9 @@ public sealed class OrcamentoService(
             IdadeMaximaMeia = o.IdadeMaximaMeia,
             ValorEspaco = o.ValorEspaco,
             PercentualDesconto = o.PercentualDesconto,
+            AjustePessoaPercentual = o.AjustePessoaPercentual,
+            AjusteLocacaoPercentual = o.AjusteLocacaoPercentual,
+            AjusteDescricao = o.AjusteDescricao,
             CondicaoPagamentoId = o.CondicaoPagamentoId,
             FormaPagamentoId = o.FormaPagamentoId,
             Observacoes = o.Observacoes,
@@ -100,11 +103,16 @@ public sealed class OrcamentoService(
         orcamento.AlterarDados(input.ClienteId, input.TipoEventoId, input.Data, input.HoraInicio, input.HoraFim,
             input.QuantidadesPorFaixa, input.ValidoAte, input.Observacoes);
 
+        // Preço da data: sem valor negociado, vale a tabela com o ajuste das regras (dia da semana, temporada, data especial).
+        var ajuste = AjustePreco.Calcular(await TabelaPrecoService.RegrasAtivasAsync(db, ct), input.Data, input.PacoteId, input.EspacoId);
+        orcamento.AplicarRegrasPreco(ajuste);
+
         var pacote = input.PacoteId is { } pacoteId ? await db.Pacotes.FindAsync([pacoteId], ct) : null;
-        orcamento.DefinirPacote(pacote, pacote is null ? null : input.ValorPorPessoa, pacote is null ? null : input.PercentualMeia);
+        orcamento.DefinirPacote(pacote, pacote is null ? null : input.ValorPorPessoa ?? ajuste.Pessoa(pacote.PrecoPorPessoa),
+            pacote is null ? null : input.PercentualMeia);
 
         var espaco = input.EspacoId is { } espacoId ? await db.Espacos.FindAsync([espacoId], ct) : null;
-        orcamento.DefinirEspaco(espaco, espaco is null ? null : input.ValorEspaco);
+        orcamento.DefinirEspaco(espaco, espaco is null ? null : input.ValorEspaco ?? ajuste.Locacao(espaco.ValorLocacao));
 
         var idsServicos = input.Servicos.Select(s => s.ServicoAdicionalId).Distinct().ToList();
         var servicos = await db.ServicosAdicionais.Where(s => idsServicos.Contains(s.Id)).ToDictionaryAsync(s => s.Id, ct);
