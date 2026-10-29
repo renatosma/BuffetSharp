@@ -3470,6 +3470,68 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("eventos", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoEtapa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Atividade")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("atividade");
+
+                    b.Property<int>("DuracaoMinutos")
+                        .HasColumnType("integer")
+                        .HasColumnName("duracaominutos");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("eventoid");
+
+                    b.Property<int?>("FuncionarioId")
+                        .HasColumnType("integer")
+                        .HasColumnName("funcionarioid");
+
+                    b.Property<DateTime>("Horario")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("horario");
+
+                    b.Property<string>("Local")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("local");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("observacao");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer")
+                        .HasColumnName("ordem");
+
+                    b.Property<string>("Responsavel")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("responsavel");
+
+                    b.HasKey("Id")
+                        .HasName("pk_eventoetapas");
+
+                    b.HasIndex("FuncionarioId")
+                        .HasDatabaseName("ix_eventoetapas_funcionarioid");
+
+                    b.HasIndex("EventoId", "Horario")
+                        .HasDatabaseName("ix_eventoetapas_eventoid_horario");
+
+                    b.ToTable("eventoetapas", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFuncionario", b =>
                 {
                     b.Property<int>("Id")
@@ -3778,6 +3840,118 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasDatabaseName("ix_modelochecklistitens_modelochecklistid");
 
                     b.ToTable("modelochecklistitens", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloCronograma", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nome");
+
+                    b.Property<int?>("TipoEventoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tipoeventoid");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("Id")
+                        .HasName("pk_modeloscronograma");
+
+                    b.HasIndex("Nome")
+                        .IsUnique()
+                        .HasDatabaseName("ix_modeloscronograma_nome");
+
+                    b.HasIndex("TipoEventoId")
+                        .HasDatabaseName("ix_modeloscronograma_tipoeventoid");
+
+                    b.ToTable("modeloscronograma", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloCronogramaItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Atividade")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("atividade");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<int>("DuracaoMinutos")
+                        .HasColumnType("integer")
+                        .HasColumnName("duracaominutos");
+
+                    b.Property<string>("Local")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("local");
+
+                    b.Property<int>("MinutosDoInicio")
+                        .HasColumnType("integer")
+                        .HasColumnName("minutosdoinicio");
+
+                    b.Property<int>("ModeloCronogramaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("modelocronogramaid");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer")
+                        .HasColumnName("ordem");
+
+                    b.Property<string>("Responsavel")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("responsavel");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("Id")
+                        .HasName("pk_modelocronogramaitens");
+
+                    b.HasIndex("ModeloCronogramaId")
+                        .HasDatabaseName("ix_modelocronogramaitens_modelocronogramaid");
+
+                    b.ToTable("modelocronogramaitens", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Baixa", b =>
@@ -5949,6 +6123,22 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Vendedor");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoEtapa", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany("Etapas")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_eventoetapas_eventos_eventoid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Funcionario", null)
+                        .WithMany()
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_eventoetapas_funcionarios_funcionarioid");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFuncionario", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
@@ -6037,6 +6227,27 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_modelochecklistitens_modeloschecklist_modelochecklistid");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloCronograma", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.TipoEvento", "TipoEvento")
+                        .WithMany()
+                        .HasForeignKey("TipoEventoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_modeloscronograma_tiposevento_tipoeventoid");
+
+                    b.Navigation("TipoEvento");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloCronogramaItem", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.ModeloCronograma", null)
+                        .WithMany("Itens")
+                        .HasForeignKey("ModeloCronogramaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_modelocronogramaitens_modeloscronograma_modelocronogramaid");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaForma", b =>
@@ -6434,6 +6645,8 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.Navigation("Equipe");
 
+                    b.Navigation("Etapas");
+
                     b.Navigation("Materiais");
 
                     b.Navigation("Parcelas");
@@ -6444,6 +6657,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloChecklist", b =>
+                {
+                    b.Navigation("Itens");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloCronograma", b =>
                 {
                     b.Navigation("Itens");
                 });

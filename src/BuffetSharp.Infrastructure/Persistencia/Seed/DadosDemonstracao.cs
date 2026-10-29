@@ -1155,16 +1155,18 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
     }
 
     /// <summary>
-    /// Checklist padrão nos eventos confirmados: as tarefas com prazo vencido ficam quase todas concluídas, algumas
-    /// atrasadas para aparecerem nos lembretes.
+    /// Checklist e cronograma padrão nos eventos confirmados: as tarefas com prazo vencido ficam quase todas concluídas,
+    /// algumas atrasadas para aparecerem nos lembretes.
     /// </summary>
     private async Task CriarChecklistsAsync(CancellationToken ct)
     {
         var rnd = new Random(91);
         var modelo = await db.ModelosChecklist.Include(m => m.Itens).FirstAsync(ct);
+        var cronograma = await db.ModelosCronograma.Include(m => m.Itens).FirstAsync(ct);
         foreach (var evento in _eventos.Where(e => e.Status == StatusEvento.Confirmado))
         {
             evento.AplicarChecklist(modelo);
+            evento.AplicarCronograma(cronograma);
             await db.SaveChangesAsync(ct);
             foreach (var tarefa in evento.Tarefas.Where(t => t.Prazo < Hoje && rnd.NextDouble() < 0.85))
                 evento.ConcluirTarefa(tarefa.Id, _vendedores[rnd.Next(_vendedores.Count)].Login, tarefa.Prazo.ToDateTime(new TimeOnly(17, 0)));

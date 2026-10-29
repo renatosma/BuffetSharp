@@ -13,10 +13,19 @@ internal static class Checklists
             .OrderBy(m => m.TipoEventoId == null ? 1 : 0).ThenBy(m => m.Id)
             .FirstOrDefaultAsync(ct);
 
-    /// <summary>Evento novo já nasce com o checklist do modelo sugerido (quando houver).</summary>
+    /// <summary>Evento novo já nasce com o checklist e o cronograma dos modelos sugeridos (quando houver).</summary>
     public static async Task AplicarSugeridoAsync(IBuffetDbContext db, Evento evento, CancellationToken ct)
     {
         if (await ModeloSugeridoAsync(db, evento.TipoEventoId, ct) is { } modelo)
             evento.AplicarChecklist(modelo);
+        if (await CronogramaSugeridoAsync(db, evento.TipoEventoId, ct) is { } cronograma)
+            evento.AplicarCronograma(cronograma);
     }
+
+    /// <summary>Modelo de cronograma do tipo de evento ou, na falta dele, o geral.</summary>
+    public static async Task<ModeloCronograma?> CronogramaSugeridoAsync(IBuffetDbContext db, int tipoEventoId, CancellationToken ct) =>
+        await db.ModelosCronograma.Include(m => m.Itens)
+            .Where(m => m.Ativo && (m.TipoEventoId == tipoEventoId || m.TipoEventoId == null))
+            .OrderBy(m => m.TipoEventoId == null ? 1 : 0).ThenBy(m => m.Id)
+            .FirstOrDefaultAsync(ct);
 }

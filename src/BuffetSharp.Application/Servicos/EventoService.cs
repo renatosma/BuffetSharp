@@ -37,6 +37,7 @@ public sealed class EventoService(
                          .Include(e => e.Convidados)
                          .Include(e => e.Parcelas).ThenInclude(p => p.FormaPagamento)
                          .Include(e => e.Tarefas)
+                         .Include(e => e.Etapas)
                          .FirstOrDefaultAsync(e => e.Id == id, ct)
                      ?? throw new RegraNegocioException("Evento não encontrado.");
 
@@ -106,7 +107,7 @@ public sealed class EventoService(
         }
         else
         {
-            evento = await db.Eventos.Include(e => e.Parcelas).FirstOrDefaultAsync(e => e.Id == input.Id, ct)
+            evento = await db.Eventos.Include(e => e.Parcelas).Include(e => e.Etapas).FirstOrDefaultAsync(e => e.Id == input.Id, ct)
                      ?? throw new RegraNegocioException("Evento não encontrado.");
             Concorrencia.Conferir(evento, input.Versao);
             evento.AlterarDados(input.Titulo, input.EspacoId, input.Data, input.HoraInicio, input.HoraFim,
@@ -153,7 +154,7 @@ public sealed class EventoService(
         }, ct);
 
     public Task RemoverDaEquipeAsync(int eventoId, int funcionarioId, CancellationToken ct = default) =>
-        AlterarAsync(eventoId, q => q.Include(e => e.Equipe), (_, e) => e.RemoverDaEquipe(funcionarioId), ct);
+        AlterarAsync(eventoId, q => q.Include(e => e.Equipe).Include(e => e.Etapas), (_, e) => e.RemoverDaEquipe(funcionarioId), ct);
 
     public Task RegistrarPresencaAsync(int eventoId, int funcionarioId, bool presente, CancellationToken ct = default) =>
         AlterarAsync(eventoId, q => q.Include(e => e.Equipe), (_, e) => e.RegistrarPresenca(funcionarioId, presente), ct);
@@ -251,6 +252,40 @@ public sealed class EventoService(
                 : await Checklists.ModeloSugeridoAsync(db, evento.TipoEventoId, ct);
             Validador.Garantir(modelo is not null, "Não há modelo de checklist ativo. Cadastre um em Cadastros › Modelos de checklist.");
             incluidas = evento.AplicarChecklist(modelo!);
+        }, ct);
+        return incluidas;
+    }
+
+    // ------------------------- Cronograma -------------------------
+
+    /// <summary>Inclui ou altera uma etapa do cronograma. Com funcionário da escala, o nome dele vira o responsável.</summary>
+    public Task SalvarEtapaAsync(int eventoId, EtapaInput input, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Etapas).Include(e => e.Equipe).ThenInclude(f => f.Funcionario), (_, e) =>
+        {
+            var responsavel = input.FuncionarioId is { } funcionarioId
+                ? e.Equipe.FirstOrDefault(f => f.FuncionarioId == funcionarioId)?.Funcionario?.Nome ?? input.Responsavel
+                : input.Responsavel;
+            if (input.Id == 0)
+                e.AdicionarEtapa(input.Horario, input.DuracaoMinutos, input.Atividade, input.Local, responsavel, input.FuncionarioId, input.Observacao);
+            else
+                e.AlterarEtapa(input.Id, input.Horario, input.DuracaoMinutos, input.Atividade, input.Local, responsavel, input.FuncionarioId,
+                    input.Observacao);
+        }, ct);
+
+    public Task RemoverEtapaAsync(int eventoId, int etapaId, CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Etapas), (_, e) => e.RemoverEtapa(etapaId), ct);
+
+    /// <summary>Inclui as etapas do modelo (o sugerido para o tipo do evento, se não for informado). Retorna quantas entraram.</summary>
+    public async Task<int> AplicarCronogramaAsync(int eventoId, int? modeloId = null, CancellationToken ct = default)
+    {
+        var incluidas = 0;
+        await AlterarAsync(eventoId, q => q.Include(e => e.Etapas), async (db, evento) =>
+        {
+            var modelo = modeloId is { } id
+                ? await db.ModelosCronograma.Include(m => m.Itens).FirstOrDefaultAsync(m => m.Id == id, ct)
+                : await Checklists.CronogramaSugeridoAsync(db, evento.TipoEventoId, ct);
+            Validador.Garantir(modelo is not null, "Não há modelo de cronograma ativo. Cadastre um em Cadastros › Modelos de cronograma.");
+            incluidas = evento.AplicarCronograma(modelo!);
         }, ct);
         return incluidas;
     }

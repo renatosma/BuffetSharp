@@ -279,6 +279,7 @@ internal sealed class FormPrincipal : FormBase
             new("CADASTROS", "Funcionários", Icones.Pessoas, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Funcionarios)),
             new("CADASTROS", "Cargos", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Cargos)),
             new("CADASTROS", "Modelos de checklist", Icones.Confirmar, [Adm, Com, Ope], () => Cadastro(DefinicoesCadastros.ModelosChecklist)),
+            new("CADASTROS", "Modelos de cronograma", Icones.Relogio, [Adm, Com, Ope], () => Cadastro(DefinicoesCadastros.ModelosCronograma)),
             new("CADASTROS", "Fornecedores", Icones.Contato, [Adm, Fin, Ope], () => Cadastro(DefinicoesCadastros.Fornecedores)),
             new("CADASTROS", "Categorias de produto", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.CategoriasProduto)),
             new("CADASTROS", "Seções do cardápio", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.CategoriasCardapio)),

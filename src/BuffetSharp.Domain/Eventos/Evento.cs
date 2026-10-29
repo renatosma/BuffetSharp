@@ -27,6 +27,7 @@ public class Evento : Entidade
     private readonly List<Parcela> _parcelas = [];
     private readonly List<EventoMaterial> _materiais = [];
     private readonly List<EventoTarefa> _tarefas = [];
+    private readonly List<EventoEtapa> _etapas = [];
 
     private Evento()
     {
@@ -118,6 +119,9 @@ public class Evento : Entidade
     public IReadOnlyCollection<EventoMaterial> Materiais => _materiais;
     public IReadOnlyCollection<EventoTarefa> Tarefas => _tarefas;
 
+    /// <summary>Cronograma (minuto a minuto) da festa.</summary>
+    public IReadOnlyCollection<EventoEtapa> Etapas => _etapas;
+
     public QuantidadesConvidados QuantidadesPorFaixa => new(QuantidadeConvidados, ConvidadosMeia, ConvidadosIsentos);
     public RegraFaixasEtarias RegraFaixas => new(IdadeMaximaIsento, IdadeMaximaMeia, PercentualMeia);
 
@@ -200,7 +204,13 @@ public class Evento : Entidade
 
         Titulo = titulo.Trim();
         EspacoId = espacoId;
+        var inicioAnterior = Inicio;
         (Inicio, Fim) = PeriodoEvento.Calcular(data, horaInicio, horaFim);
+
+        // O cronograma acompanha a mudança de data ou de horário.
+        if (Inicio != inicioAnterior)
+            foreach (var etapa in _etapas)
+                etapa.Deslocar(Inicio - inicioAnterior);
         QuantidadeConvidados = convidados.Total;
         ConvidadosMeia = convidados.Meia;
         ConvidadosIsentos = convidados.Isentos;
@@ -262,6 +272,10 @@ public class Evento : Entidade
     {
         GarantirConfirmado();
         _equipe.RemoveAll(e => e.FuncionarioId == funcionarioId);
+
+        // As etapas que ele conduzia ficam com o nome, sem o vínculo com a escala.
+        foreach (var etapa in _etapas.Where(e => e.FuncionarioId == funcionarioId))
+            etapa.DesvincularFuncionario();
     }
 
     public void RegistrarPresenca(int funcionarioId, bool presente)
@@ -474,6 +488,79 @@ public class Evento : Entidade
         GarantirConfirmado();
         _tarefas.Remove(ObterTarefa(tarefaId));
     }
+
+    // ---------------- Cronograma ----------------
+
+    public EventoEtapa AdicionarEtapa(DateTime horario, int duracaoMinutos, string atividade, string? local = null, string? responsavel = null,
+        int? funcionarioId = null, string? observacao = null)
+    {
+        GarantirConfirmado();
+        ValidarEtapa(horario, duracaoMinutos, atividade, local, responsavel, funcionarioId, observacao);
+        var etapa = new EventoEtapa(horario, duracaoMinutos, atividade.Trim(), Limpo(local), Limpo(responsavel), funcionarioId, Limpo(observacao),
+            _etapas.Count == 0 ? 1 : _etapas.Max(e => e.Ordem) + 1);
+        _etapas.Add(etapa);
+        return etapa;
+    }
+
+    public void AlterarEtapa(int etapaId, DateTime horario, int duracaoMinutos, string atividade, string? local, string? responsavel,
+        int? funcionarioId, string? observacao)
+    {
+        GarantirConfirmado();
+        ValidarEtapa(horario, duracaoMinutos, atividade, local, responsavel, funcionarioId, observacao);
+        ObterEtapa(etapaId).Alterar(horario, duracaoMinutos, atividade.Trim(), Limpo(local), Limpo(responsavel), funcionarioId, Limpo(observacao));
+    }
+
+    public void RemoverEtapa(int etapaId)
+    {
+        GarantirConfirmado();
+        _etapas.Remove(ObterEtapa(etapaId));
+    }
+
+    /// <summary>
+    /// Inclui as etapas de um modelo de cronograma, com o horário contado a partir do início do evento. Etapas com a mesma
+    /// atividade no mesmo horário não se repetem. Retorna quantas foram incluídas.
+    /// </summary>
+    public int AplicarCronograma(ModeloCronograma modelo)
+    {
+        GarantirConfirmado();
+        var incluidas = 0;
+        foreach (var item in modelo.Itens.OrderBy(i => i.MinutosDoInicio).ThenBy(i => i.Ordem))
+        {
+            var horario = Inicio.AddMinutes(item.MinutosDoInicio);
+            if (_etapas.Any(e => e.Horario == horario && e.Atividade.Equals(item.Atividade.Trim(), StringComparison.CurrentCultureIgnoreCase)))
+                continue;
+            AdicionarEtapa(horario, item.DuracaoMinutos, item.Atividade, item.Local, item.Responsavel);
+            incluidas++;
+        }
+        return incluidas;
+    }
+
+    /// <summary>Etapa em andamento e a próxima, para acompanhar a festa.</summary>
+    public SituacaoCronograma AndamentoCronograma(DateTime agora) => SituacaoCronograma.Calcular(_etapas, agora);
+
+    private void ValidarEtapa(DateTime horario, int duracaoMinutos, string atividade, string? local, string? responsavel, int? funcionarioId,
+        string? observacao)
+    {
+        Validador.Garantir(!string.IsNullOrWhiteSpace(atividade), "Descreva a atividade da etapa.");
+        Validador.Garantir(atividade.Trim().Length <= EventoEtapa.TamanhoAtividade,
+            $"A atividade pode ter no máximo {EventoEtapa.TamanhoAtividade} caracteres.");
+        Validador.Garantir(duracaoMinutos is >= 0 and <= EventoEtapa.DuracaoMaxima, "A duração da etapa vai de 0 a 12 horas.");
+        Validador.Garantir(horario >= Inicio.AddMinutes(EventoEtapa.MinutosAntesMaximo) && horario <= Inicio.AddMinutes(EventoEtapa.MinutosDepoisMaximo),
+            $"O horário da etapa deve ficar entre {Inicio.AddMinutes(EventoEtapa.MinutosAntesMaximo):dd/MM HH:mm} e " +
+            $"{Inicio.AddMinutes(EventoEtapa.MinutosDepoisMaximo):dd/MM HH:mm} (12 horas antes a 18 horas depois do início).");
+        Validador.Garantir((local?.Trim().Length ?? 0) <= EventoEtapa.TamanhoLocal, $"O local pode ter no máximo {EventoEtapa.TamanhoLocal} caracteres.");
+        Validador.Garantir((responsavel?.Trim().Length ?? 0) <= EventoEtapa.TamanhoResponsavel,
+            $"O responsável pode ter no máximo {EventoEtapa.TamanhoResponsavel} caracteres.");
+        Validador.Garantir((observacao?.Trim().Length ?? 0) <= EventoEtapa.TamanhoObservacao,
+            $"A observação pode ter no máximo {EventoEtapa.TamanhoObservacao} caracteres.");
+        Validador.Garantir(funcionarioId is null || _equipe.Any(e => e.FuncionarioId == funcionarioId),
+            "O responsável precisa estar escalado na equipe do evento.");
+    }
+
+    private static string? Limpo(string? texto) => string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();
+
+    private EventoEtapa ObterEtapa(int id) =>
+        _etapas.FirstOrDefault(e => e.Id == id) ?? throw new RegraNegocioException("Etapa do cronograma não encontrada.");
 
     // ---------------- Financeiro ----------------
 

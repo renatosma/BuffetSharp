@@ -17,7 +17,7 @@ namespace BuffetSharp.WinForms.Formularios.Eventos;
 /// Central do evento: resumo e resultado estimado, equipe, convidados (RSVP e check-in), materiais (reserva,
 /// locação e devolução), contrato com assinatura, financeiro e encerramento com baixa automática de estoque.
 /// </summary>
-internal sealed class FormEventoDetalhe : FormBase
+internal sealed partial class FormEventoDetalhe : FormBase
 {
     private sealed record InsumoPrevisto(string Produto, decimal Quantidade, string Unidade, decimal Custo);
 
@@ -108,6 +108,7 @@ internal sealed class FormEventoDetalhe : FormBase
         abas.TabPages.Add(CriarAbaEquipe());
         abas.TabPages.Add(CriarAbaConvidados());
         abas.TabPages.Add(CriarAbaMateriais());
+        abas.TabPages.Add(CriarAbaCronograma());
         abas.TabPages.Add(CriarAbaChecklist());
         abas.TabPages.Add(CriarAbaContrato());
         abas.TabPages.Add(CriarAbaFinanceiro());
@@ -773,6 +774,15 @@ internal sealed class FormEventoDetalhe : FormBase
             ("Presentes", e.PresentesApurados?.ToString() ?? e.PessoasPresentes.ToString()),
             ("Situação", Textos.Exibir(e.Status)));
 
+        if (e.Etapas.Count > 0)
+        {
+            doc.Secao("Cronograma");
+            doc.Tabela(["Horário", "Atividade", "Local", "Responsável"],
+                ImpressaoCronograma.Etapas(e, cliente: false)
+                    .Select(t => new[] { ImpressaoCronograma.Horario(t), t.Atividade, t.Local ?? "", t.Responsavel ?? "" }).ToList(),
+                [1.4f, 3.5f, 1.6f, 1.8f]);
+        }
+
         if (e.PacoteId is { } pacoteId)
         {
             doc.Secao($"Cardápio - {e.Pacote?.Nome}");
@@ -915,6 +925,8 @@ internal sealed class FormEventoDetalhe : FormBase
                                 $"perdas: {Textos.Moeda(e.Materiais.Sum(m => m.CustoPerdas))}  •  " +
                                 $"pendentes de devolução: {e.MateriaisPendentesDeDevolucao}";
         await CarregarContratosAsync();
+
+        CarregarCronograma(e);
 
         var selecionadaTarefa = _tarefas.Selecionado?.Id;
         _tarefas.Carregar(e.Tarefas.OrderBy(t => t.Prazo).ThenBy(t => t.Ordem));

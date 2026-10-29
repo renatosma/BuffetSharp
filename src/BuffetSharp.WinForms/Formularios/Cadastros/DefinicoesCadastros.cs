@@ -692,4 +692,45 @@ internal static class DefinicoesCadastros
             });
         }
     };
+
+    public static readonly DefinicaoCadastro<ModeloCronograma> ModelosCronograma = new()
+    {
+        Titulo = "Modelos de cronograma",
+        Singular = "modelo de cronograma",
+        Descricao = "O minuto a minuto da festa, aplicado aos eventos novos com o horário contado a partir do início do evento. O modelo " +
+                    "do tipo de evento tem prioridade; na falta dele, vale o modelo sem tipo.",
+        Consulta = q => q.Include(x => x.TipoEvento).Include(x => x.Itens).OrderBy(x => x.Nome),
+        Colunas = g => g.Texto("Nome", x => x.Nome, 50)
+            .Texto("Tipo de evento", x => x.TipoEvento?.Nome ?? "(todos)", 30)
+            .Numero("Etapas", x => x.Itens.Count, peso: 15)
+            .SimNao("Ativo", x => x.Ativo, 15),
+        TextoBusca = x => $"{x.Nome} {x.TipoEvento?.Nome}",
+        Nome = x => x.Nome,
+        ColunasEditor = 2,
+        LarguraEditor = 900,
+        Campos = async (e, x, contexto) =>
+        {
+            var tipos = await contexto.Lookups.ListarAsync(TipoLookup.TiposEvento, somenteAtivos: false);
+            e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 100);
+            e.Lista("Tipo de evento", tipos, () => x.TipoEventoId, v => x.TipoEventoId = v, nameof(x.TipoEventoId), permitirVazio: true);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+
+            e.Secao("Etapas (início em minutos a partir do começo do evento: 0 = no início, -60 = 1 hora antes, 120 = 2 horas depois)");
+            var etapas = new GradeEditavel<LinhaCronograma>(() => new LinhaCronograma(), "Nova etapa", "Remover etapa", 300)
+                .Numero("Início (min)", nameof(LinhaCronograma.MinutosDoInicio), "0", 12)
+                .Numero("Duração (min)", nameof(LinhaCronograma.DuracaoMinutos), "0", 12)
+                .Texto("Atividade", nameof(LinhaCronograma.Atividade), 45, EventoEtapa.TamanhoAtividade)
+                .Texto("Local", nameof(LinhaCronograma.Local), 18, EventoEtapa.TamanhoLocal)
+                .Texto("Responsável", nameof(LinhaCronograma.Responsavel), 18, EventoEtapa.TamanhoResponsavel);
+            e.Livre(etapas.Painel);
+            e.Associar(nameof(x.Itens), etapas.Controle);
+            e.AoCarregar(() => etapas.Carregar(x.Itens.OrderBy(i => i.MinutosDoInicio).ThenBy(i => i.Ordem).Select(LinhaCronograma.De)));
+            e.AoAplicar(() =>
+            {
+                etapas.ConcluirEdicao();
+                x.Itens = etapas.Itens.Where(l => !string.IsNullOrWhiteSpace(l.Atividade))
+                    .OrderBy(l => l.MinutosDoInicio).Select((l, i) => l.ParaItem(i + 1)).ToList();
+            });
+        }
+    };
 }

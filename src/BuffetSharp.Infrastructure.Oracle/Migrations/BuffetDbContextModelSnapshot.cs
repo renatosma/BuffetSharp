@@ -3463,6 +3463,68 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.ToTable("EVENTOS", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoEtapa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Atividade")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("ATIVIDADE");
+
+                    b.Property<int>("DuracaoMinutos")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("DURACAOMINUTOS");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("EVENTOID");
+
+                    b.Property<int?>("FuncionarioId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("FUNCIONARIOID");
+
+                    b.Property<DateTime>("Horario")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("HORARIO");
+
+                    b.Property<string>("Local")
+                        .HasMaxLength(80)
+                        .HasColumnType("NVARCHAR2(80)")
+                        .HasColumnName("LOCAL");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(300)
+                        .HasColumnType("NVARCHAR2(300)")
+                        .HasColumnName("OBSERVACAO");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ORDEM");
+
+                    b.Property<string>("Responsavel")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("RESPONSAVEL");
+
+                    b.HasKey("Id")
+                        .HasName("PK_EVENTOETAPAS");
+
+                    b.HasIndex("FuncionarioId")
+                        .HasDatabaseName("IX_EVENTOETAPAS_FUNCIONARIOID");
+
+                    b.HasIndex("EventoId", "Horario")
+                        .HasDatabaseName("IX_EVENTOETAPAS_EVENTOID_HORARIO");
+
+                    b.ToTable("EVENTOETAPAS", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFuncionario", b =>
                 {
                     b.Property<int>("Id")
@@ -3771,6 +3833,118 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasDatabaseName("IX_MODELOCHECKLISTITENS_MODELOCHECKLISTID");
 
                     b.ToTable("MODELOCHECKLISTITENS", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloCronograma", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("ATIVO");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("NOME");
+
+                    b.Property<int?>("TipoEventoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("TIPOEVENTOID");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_MODELOSCRONOGRAMA");
+
+                    b.HasIndex("Nome")
+                        .IsUnique()
+                        .HasDatabaseName("IX_MODELOSCRONOGRAMA_NOME");
+
+                    b.HasIndex("TipoEventoId")
+                        .HasDatabaseName("IX_MODELOSCRONOGRAMA_TIPOEVENTOID");
+
+                    b.ToTable("MODELOSCRONOGRAMA", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloCronogramaItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Atividade")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("ATIVIDADE");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("ATUALIZADOEM");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("CRIADOEM");
+
+                    b.Property<int>("DuracaoMinutos")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("DURACAOMINUTOS");
+
+                    b.Property<string>("Local")
+                        .HasMaxLength(80)
+                        .HasColumnType("NVARCHAR2(80)")
+                        .HasColumnName("LOCAL");
+
+                    b.Property<int>("MinutosDoInicio")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("MINUTOSDOINICIO");
+
+                    b.Property<int>("ModeloCronogramaId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("MODELOCRONOGRAMAID");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ORDEM");
+
+                    b.Property<string>("Responsavel")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("RESPONSAVEL");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("VERSAO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_MODELOCRONOGRAMAITENS");
+
+                    b.HasIndex("ModeloCronogramaId")
+                        .HasDatabaseName("IX_MODELOCRONOGRAMAITENS_MODELOCRONOGRAMAID");
+
+                    b.ToTable("MODELOCRONOGRAMAITENS", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Baixa", b =>
@@ -5941,6 +6115,22 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("Vendedor");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoEtapa", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany("Etapas")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_EVENTOETAPAS_EVENTOS_EVENTOID");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Funcionario", null)
+                        .WithMany()
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_EVENTOETAPAS_FUNCIONARIOS_FUNCIONARIOID");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoFuncionario", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
@@ -6029,6 +6219,27 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK_MODELOCHECKLISTITENS_MODELOSCHECKLIST_MODELOCHECKLISTID");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloCronograma", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.TipoEvento", "TipoEvento")
+                        .WithMany()
+                        .HasForeignKey("TipoEventoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_MODELOSCRONOGRAMA_TIPOSEVENTO_TIPOEVENTOID");
+
+                    b.Navigation("TipoEvento");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloCronogramaItem", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.ModeloCronograma", null)
+                        .WithMany("Itens")
+                        .HasForeignKey("ModeloCronogramaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_MODELOCRONOGRAMAITENS_MODELOSCRONOGRAMA_MODELOCRONOGRAMAID");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaForma", b =>
@@ -6426,6 +6637,8 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
 
                     b.Navigation("Equipe");
 
+                    b.Navigation("Etapas");
+
                     b.Navigation("Materiais");
 
                     b.Navigation("Parcelas");
@@ -6436,6 +6649,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloChecklist", b =>
+                {
+                    b.Navigation("Itens");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.ModeloCronograma", b =>
                 {
                     b.Navigation("Itens");
                 });

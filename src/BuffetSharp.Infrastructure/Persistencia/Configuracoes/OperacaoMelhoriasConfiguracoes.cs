@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
 using Microsoft.EntityFrameworkCore;
@@ -36,6 +37,45 @@ internal sealed class EventoTarefaConfig : IEntityTypeConfiguration<EventoTarefa
         b.Property(x => x.ConcluidaPor).HasMaxLength(60);
         b.HasOne<Evento>().WithMany(e => e.Tarefas).HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Cascade);
         b.HasIndex(x => new { x.EventoId, x.Prazo });
+    }
+}
+
+internal sealed class ModeloCronogramaConfig : IEntityTypeConfiguration<ModeloCronograma>
+{
+    public void Configure(EntityTypeBuilder<ModeloCronograma> b)
+    {
+        b.ToTable("ModelosCronograma");
+        b.HasOne(x => x.TipoEvento).WithMany().HasForeignKey(x => x.TipoEventoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Itens).WithOne().HasForeignKey(x => x.ModeloCronogramaId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => x.Nome).IsUnique();
+    }
+}
+
+internal sealed class ModeloCronogramaItemConfig : IEntityTypeConfiguration<ModeloCronogramaItem>
+{
+    public void Configure(EntityTypeBuilder<ModeloCronogramaItem> b)
+    {
+        b.ToTable("ModeloCronogramaItens");
+        b.Property(x => x.Atividade).HasMaxLength(EventoEtapa.TamanhoAtividade).IsRequired();
+        b.Property(x => x.Responsavel).HasMaxLength(EventoEtapa.TamanhoResponsavel);
+        b.Property(x => x.Local).HasMaxLength(EventoEtapa.TamanhoLocal);
+    }
+}
+
+internal sealed class EventoEtapaConfig : IEntityTypeConfiguration<EventoEtapa>
+{
+    public void Configure(EntityTypeBuilder<EventoEtapa> b)
+    {
+        b.ToTable("EventoEtapas");
+        b.Property(x => x.Atividade).HasMaxLength(EventoEtapa.TamanhoAtividade).IsRequired();
+        b.Property(x => x.Responsavel).HasMaxLength(EventoEtapa.TamanhoResponsavel);
+        b.Property(x => x.Local).HasMaxLength(EventoEtapa.TamanhoLocal);
+        b.Property(x => x.Observacao).HasMaxLength(EventoEtapa.TamanhoObservacao);
+        b.HasOne<Evento>().WithMany(e => e.Etapas).HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Cascade);
+
+        // Sem cascata: a escala desfaz o vínculo ao tirar o funcionário do evento.
+        b.HasOne<Funcionario>().WithMany().HasForeignKey(x => x.FuncionarioId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.EventoId, x.Horario });
     }
 }
 

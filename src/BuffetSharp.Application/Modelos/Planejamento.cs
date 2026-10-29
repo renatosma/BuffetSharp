@@ -80,6 +80,24 @@ public sealed record PratoProducao(string Secao, int OrdemSecao, string Prato, i
 public sealed record IngredienteProducao(string Produto, decimal Quantidade, string Unidade);
 
 /// <summary>Tarefa nova (ou alterada) do checklist do evento.</summary>
+/// <summary>Etapa do cronograma do evento (Id 0 = nova).</summary>
+public sealed class EtapaInput
+{
+    public int Id { get; set; }
+    public DateTime Horario { get; set; }
+    public int DuracaoMinutos { get; set; } = 30;
+    public string Atividade { get; set; } = string.Empty;
+    public string? Local { get; set; }
+
+    /// <summary>Texto livre ("DJ", "Cerimonial"...) quando não é alguém da escala.</summary>
+    public string? Responsavel { get; set; }
+
+    /// <summary>Funcionário da escala que conduz a etapa.</summary>
+    public int? FuncionarioId { get; set; }
+
+    public string? Observacao { get; set; }
+}
+
 public sealed class TarefaInput
 {
     public string Descricao { get; set; } = string.Empty;

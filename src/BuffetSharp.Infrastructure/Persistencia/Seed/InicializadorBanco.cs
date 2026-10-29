@@ -71,6 +71,13 @@ public sealed class InicializadorBanco(IDbContextFactory<BuffetDbContext> fabric
             await db.SaveChangesAsync(ct);
         }
 
+        if (!await db.ModelosCronograma.AnyAsync(ct))
+        {
+            progresso?.Report("Criando o cronograma padrão dos eventos...");
+            db.ModelosCronograma.Add(CronogramaInicial());
+            await db.SaveChangesAsync(ct);
+        }
+
         if (dadosDemonstracao && !await db.Clientes.AnyAsync(ct))
         {
             progresso?.Report("Gerando dados de demonstração (cadastros, eventos, financeiro)...");
@@ -104,6 +111,38 @@ public sealed class InicializadorBanco(IDbContextFactory<BuffetDbContext> fabric
                 DiasAntes = t.DiasAntes,
                 Descricao = t.Descricao,
                 Responsavel = t.Responsavel,
+                Ordem = i + 1
+            }).ToList()
+        };
+    }
+
+    /// <summary>Minuto a minuto típico de uma festa (minutos a partir do início do evento); pode ser alterado no cadastro.</summary>
+    public static ModeloCronograma CronogramaInicial()
+    {
+        (int Minutos, int Duracao, string Atividade, string Responsavel, string? Local)[] etapas =
+        [
+            (-240, 180, "Montagem do salão e da decoração", "Operacional", "Salão"),
+            (-60, 20, "Reunião com a equipe (briefing)", "Maître", "Cozinha"),
+            (-30, 30, "Equipe a postos, buffet e bar prontos", "Maître", null),
+            (0, 60, "Recepção dos convidados", "Recepção", "Entrada"),
+            (0, 120, "Serviço de bebidas e salgados", "Garçons", "Salão"),
+            (90, 15, "Abertura e homenagem aos anfitriões", "Cerimonial", "Pista"),
+            (120, 90, "Jantar", "Cozinha", "Salão"),
+            (210, 20, "Parabéns e corte do bolo", "Cerimonial", "Mesa do bolo"),
+            (230, 60, "Doces e café", "Copa", null),
+            (300, 0, "Encerramento do serviço", "Maître", null),
+            (330, 90, "Desmontagem e conferência dos materiais", "Operacional", "Salão")
+        ];
+        return new ModeloCronograma
+        {
+            Nome = "Cronograma padrão",
+            Itens = etapas.Select((e, i) => new ModeloCronogramaItem
+            {
+                MinutosDoInicio = e.Minutos,
+                DuracaoMinutos = e.Duracao,
+                Atividade = e.Atividade,
+                Responsavel = e.Responsavel,
+                Local = e.Local,
                 Ordem = i + 1
             }).ToList()
         };
