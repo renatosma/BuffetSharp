@@ -266,6 +266,8 @@ internal sealed class FormPrincipal : FormBase
             new("ESTOQUE", "Produtos", Icones.Carrinho, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Produtos)),
             new("ESTOQUE", "Movimentações", Icones.Historico, [Adm, Ope], () => n.Abrir<FormMovimentacoes>()),
             new("ESTOQUE", "Validades", Icones.Relogio, [Adm, Ope], () => n.Abrir<FormValidades>()),
+            new("ESTOQUE", "Sobras e desperdício", Icones.Lista, [Adm, Ope, Fin], () => n.Abrir<FormRelatorioDesperdicio>()),
+            new("ESTOQUE", "Ajuste da ficha pelas sobras", Icones.Editar, [Adm, Ope], () => n.Abrir<FormSugestoesFicha>()),
             new("ESTOQUE", "Perdas do estoque", Icones.Excluir, [Adm, Ope, Fin], () => n.Abrir<FormPerdasEstoque>()),
             new("ESTOQUE", "Materiais e enxoval", Icones.Pacote, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Materiais)),
 

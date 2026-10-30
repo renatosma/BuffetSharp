@@ -47,7 +47,10 @@ public enum TipoLembrete
     AprovacaoDesconto,
 
     /// <summary>Evento confirmado dos próximos dias com menos equipe que o dimensionado.</summary>
-    EquipeIncompleta
+    EquipeIncompleta,
+
+    /// <summary>Evento encerrado sem as sobras e o desperdício registrados.</summary>
+    SobrasPendentes
 }
 
 public enum CanalLembrete

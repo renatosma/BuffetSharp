@@ -150,6 +150,8 @@ internal static class Textos
         TipoLembrete.ValidadeLote => "Validade de lote",
         TipoLembrete.AprovacaoDesconto => "Aprovação de desconto",
         TipoLembrete.EquipeIncompleta => "Equipe incompleta",
+        TipoLembrete.SobrasPendentes => "Sobras a registrar",
+        TipoMovimentacao.RetornoEvento => "Retorno de evento",
         SituacaoDesconto.DentroDaAlcada => "Dentro da alçada",
         SituacaoDesconto.Aguardando => "Aguardando",
         SituacaoDesconto.Aprovado => "Aprovado",

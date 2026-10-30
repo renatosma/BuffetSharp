@@ -82,6 +82,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await CriarHistoricoPrecosAsync(ct);
         await CriarDevolucoesAsync(ct);
         await CriarRestricoesAlimentaresAsync(ct);
+        await CriarSobrasAsync(ct);
         await CriarLotesValidadeAsync(ct);
     }
 
@@ -1434,6 +1435,54 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                 db.MovimentacoesEstoque.Add(produto.RegistrarCompra(Math.Max(1, Math.Ceiling(produto.EstoqueMinimo * 0.3m)), custo, data,
                     "Compra do mês", _fornecedores[doOutro ? outro! : fornecedor].Id, null));
             }
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Sobras dos últimos eventos encerrados (o mais recente fica sem, para o lembrete): a batata gratinada sobra sempre (entra
+    /// na sugestão de ajuste da ficha) e o refrigerante não usado no último evento volta ao estoque. Usa um sorteio próprio
+    /// para não mudar o resto da demonstração.
+    /// </summary>
+    private async Task CriarSobrasAsync(CancellationToken ct)
+    {
+        var sorteio = new Random(1919);
+        var eventos = await db.Eventos
+            .Include(e => e.Sobras)
+            .Include(e => e.Pacote!).ThenInclude(p => p.Itens).ThenInclude(i => i.ItemCardapio!).ThenInclude(i => i.Ingredientes)
+            .ThenInclude(f => f.Produto)
+            .Where(e => e.Status == StatusEvento.Realizado && e.PacoteId != null)
+            .OrderByDescending(e => e.Inicio).Take(12).ToListAsync(ct);
+        foreach (var evento in eventos.Skip(1))
+        {
+            var pessoas = evento.PessoasAtendidas;
+            var contexto = evento.ContextoConsumo(pessoas);
+            evento.RegistrarSobras(evento.Pacote!.Itens.Select(i => i.ItemCardapio!).Select(prato =>
+            {
+                var percentual = prato.Nome == "Batata gratinada" ? sorteio.Next(18, 27) : sorteio.Next(0, 13);
+                var destino = sorteio.NextDouble() switch
+                {
+                    < 0.6 => DestinoSobra.Descarte,
+                    < 0.8 => DestinoSobra.RefeicaoEquipe,
+                    < 0.95 => DestinoSobra.Doacao,
+                    _ => DestinoSobra.ClienteLevou
+                };
+                var custoPorcao = prato.Ingredientes.Sum(f => f.Quantidade(pessoas, contexto) * (f.Produto?.CustoMedio ?? 0)) / pessoas;
+                return new SobraInformada(prato.Id, prato.Nome, pessoas, Math.Round(custoPorcao, 4), percentual, destino,
+                    destino == DestinoSobra.Doacao ? "Lar São Vicente de Paulo" : null);
+            }).ToList(), "operacional", evento.Fim.AddHours(14));
+        }
+
+        if (eventos.Count > 1)
+        {
+            var ultimo = eventos[1];
+            var refrigerante = _produtos["Refrigerante 2L"];
+            var baixado = await db.MovimentacoesEstoque
+                .Where(m => m.EventoId == ultimo.Id && m.ProdutoId == refrigerante.Id && m.Tipo == TipoMovimentacao.Saida)
+                .SumAsync(m => (decimal?)m.Quantidade, ct) ?? 0;
+            if (baixado >= 6)
+                db.MovimentacoesEstoque.Add(refrigerante.RetornarDoEvento(6, refrigerante.CustoMedio, baixado, ultimo.Fim.AddHours(14), ultimo.Id,
+                    $"Não usado no evento {ultimo.Codigo}"));
         }
         await db.SaveChangesAsync(ct);
     }

@@ -55,6 +55,22 @@ public sealed class BuffetOptions
 
     /// <summary>Impostos sobre a receita e as margens do orçamento (seção "Buffet:Margem").</summary>
     public MargemOptions Margem { get; set; } = new();
+
+    /// <summary>Quando sugerir reduzir a ficha técnica dos pratos que sobram (seção "Buffet:Sobras").</summary>
+    public SobrasOptions Sobras { get; set; } = new();
+}
+
+/// <summary>Parâmetros da sugestão de ajuste da ficha técnica pelas sobras.</summary>
+public sealed class SobrasOptions
+{
+    /// <summary>Sobra média (%) a partir da qual o prato entra nas sugestões.</summary>
+    public decimal LimiteSugestao { get; set; } = 15;
+
+    /// <summary>Quantos dos últimos eventos com sobra registrada entram na média.</summary>
+    public int EventosAnalise { get; set; } = 5;
+
+    /// <summary>Folga (%) mantida ao reduzir: com sobra média de 20% e folga de 5%, a ficha cai 15%.</summary>
+    public decimal Folga { get; set; } = 5;
 }
 
 /// <summary>Parâmetros da margem prevista do orçamento.</summary>

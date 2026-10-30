@@ -331,6 +331,17 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   No orçamento, o valor por pessoa e a locação sugeridos já vêm com o ajuste da data, que é refeito quando a data, o
   pacote ou o espaço mudam (o valor negociado à mão não é tocado). A proposta impressa mostra as regras da data e o preço
   de tabela. O Calendário de preços (Comercial) mostra o ajuste de cada dia do mês, para um pacote e espaço.
+- **Sobras e desperdício**: depois do encerramento, o botão "Sobras" da central do evento registra quanto sobrou de cada
+  prato produzido (as porções vêm do plano do cardápio, com os substitutos) e o destino: descarte, doação (com a
+  instituição), refeição da equipe ou cliente levou. Só o descarte conta como desperdício. Na mesma tela, os insumos levados
+  e não usados voltam ao estoque pelo custo da baixa (no máximo o que foi baixado; os perecíveis não voltam). "Ficha de
+  sobras" imprime a folha para a cozinha preencher no fim do evento. O evento encerrado nos últimos 7 dias
+  (`Lembretes:DiasSobras`) sem as sobras vira lembrete para o operacional. Estoque › Sobras e desperdício mostra, por
+  evento, prato, pacote, tipo de evento ou mês, a sobra, o desperdício (em R$ e em % dos insumos), o doado e a sobra média.
+  Estoque › Ajuste da ficha pelas sobras lista os pratos com sobra média acima de 15% nos últimos 5 eventos registrados
+  (`Buffet:Sobras`) e a ficha técnica reduzida na proporção, com uma folga de 5%; "Aplicar" muda a ficha, e a contagem
+  recomeça das sobras registradas depois disso. O previsto × realizado do evento desconta os insumos que voltaram e
+  informa o desperdício.
 - **Dimensionamento de equipe e bebidas**: em Cadastros › Equipe por tipo de evento, cada cargo tem a regra "1 a cada N
   convidados, com mínimo" (ex.: garçom 1 a cada 15, mínimo 2; maître 1 por evento). Sem tipo de evento é a regra geral, e a
   regra do tipo substitui a geral para o mesmo cargo (ex.: no casamento, garçom 1 a cada 12 e um barman). Na aba Equipe do
@@ -483,7 +494,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **498 testes** (xUnit v3): 451 de domínio, integração e bancos, e 47 das telas.
+São **509 testes** (xUnit v3): 461 de domínio, integração e bancos, e 48 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

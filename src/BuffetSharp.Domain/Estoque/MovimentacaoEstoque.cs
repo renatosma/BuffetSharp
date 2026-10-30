@@ -16,7 +16,10 @@ public enum TipoMovimentacao
     Perda,
 
     /// <summary>Devolução ao fornecedor de parte de um recebimento: sai pelo custo da entrada.</summary>
-    Devolucao
+    Devolucao,
+
+    /// <summary>Insumo levado ao evento e não usado, que volta ao estoque pelo custo da baixa do evento.</summary>
+    RetornoEvento
 }
 
 /// <summary>

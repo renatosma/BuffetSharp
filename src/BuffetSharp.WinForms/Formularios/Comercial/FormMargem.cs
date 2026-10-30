@@ -69,6 +69,9 @@ internal static class TextosMargem
             [3.4f, 1.4f, 1.4f, 1.4f], [false, true, true, true]);
         doc.Total("Margem prevista", $"{Textos.Moeda(c.ReceitaPrevista - c.CustoPrevisto)} ({Percentual(c.MargemPrevista)})");
         doc.Total("Margem realizada", $"{Textos.Moeda(c.ReceitaRealizada - c.CustoRealizado)} ({Percentual(c.MargemRealizada)})");
+        doc.Paragrafo(c.Desperdicio is { } desperdicio
+            ? $"Desperdício (sobras descartadas): {Textos.Moeda(desperdicio)}, já incluído nos insumos realizados. Os insumos que voltaram ao estoque já foram descontados."
+            : "As sobras do evento ainda não foram registradas: o desperdício não aparece aqui.");
         return doc;
     }
 }

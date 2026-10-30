@@ -23,6 +23,9 @@ public sealed class LembretesOptions
     /// <summary>Antecedência do lembrete de evento confirmado com menos equipe que o dimensionado (0 desliga).</summary>
     public int DiasEquipe { get; set; } = 7;
 
+    /// <summary>Por quantos dias depois do encerramento o evento sem as sobras registradas aparece nos lembretes (0 desliga).</summary>
+    public int DiasSobras { get; set; } = 7;
+
     /// <summary>
     /// Envia sozinho, depois do login, os e-mails de lembrete ao cliente (parcela a vencer, degustação, aniversário) para
     /// quem tem e-mail. Desligado por padrão: com ele desligado, o envio é feito pela tela de lembretes.

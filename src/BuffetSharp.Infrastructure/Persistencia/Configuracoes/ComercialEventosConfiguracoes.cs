@@ -56,6 +56,7 @@ internal sealed class EventoConfig : IEntityTypeConfiguration<Evento>
     {
         b.ToTable("Eventos");
         b.Property(x => x.Titulo).HasMaxLength(150).IsRequired();
+        b.Property(x => x.SobrasRegistradasPor).HasMaxLength(60);
         b.Property(x => x.Observacoes).HasMaxLength(2000);
         b.Property(x => x.MotivoCancelamento).HasMaxLength(500);
 
@@ -101,6 +102,20 @@ internal sealed class EventoFuncionarioConfig : IEntityTypeConfiguration<EventoF
         b.HasIndex(x => new { x.EventoId, x.FuncionarioId }).IsUnique();
         b.Property(x => x.ExcecaoConflito).HasMaxLength(EventoFuncionario.TamanhoMotivoExcecao);
         b.Property(x => x.ExcecaoAutorizadaPor).HasMaxLength(50);
+    }
+}
+
+internal sealed class SobraPratoConfig : IEntityTypeConfiguration<SobraPrato>
+{
+    public void Configure(EntityTypeBuilder<SobraPrato> b)
+    {
+        b.ToTable("SobrasPrato");
+        b.Property(x => x.Prato).HasMaxLength(SobraPrato.TamanhoPrato).IsRequired();
+        b.Property(x => x.Instituicao).HasMaxLength(SobraPrato.TamanhoInstituicao);
+        b.Property(x => x.Percentual).HasPrecision(5, 2);
+        b.HasOne<Evento>().WithMany(e => e.Sobras).HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<ItemCardapio>().WithMany().HasForeignKey(x => x.ItemCardapioId).OnDelete(DeleteBehavior.SetNull);
+        b.HasIndex(x => x.ItemCardapioId);
     }
 }
 

@@ -3379,6 +3379,13 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<DateTime?>("RealizadoEm")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("SobrasRegistradasEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SobrasRegistradasPor")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -4084,6 +4091,54 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.HasIndex("TipoEventoId", "CargoId");
 
                     b.ToTable("RegrasEquipe", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.SobraPrato", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Custo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Destino")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Instituicao")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int?>("ItemCardapioId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Percentual")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("Porcoes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Prato")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventoId");
+
+                    b.HasIndex("ItemCardapioId");
+
+                    b.ToTable("SobrasPrato", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Baixa", b =>
@@ -6290,6 +6345,20 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Navigation("TipoEvento");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.SobraPrato", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany("Sobras")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BuffetSharp.Domain.Cardapio.ItemCardapio", null)
+                        .WithMany()
+                        .HasForeignKey("ItemCardapioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaForma", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Financeiro.Baixa", null)
@@ -6679,6 +6748,8 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Navigation("RestricoesAvulsas");
 
                     b.Navigation("Servicos");
+
+                    b.Navigation("Sobras");
 
                     b.Navigation("Tarefas");
                 });

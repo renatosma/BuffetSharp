@@ -32,6 +32,7 @@ public class Evento : Entidade
     private readonly List<EventoMesa> _mesas = [];
     private readonly List<EventoFornecedor> _fornecedores = [];
     private readonly List<EventoRestricao> _restricoesAvulsas = [];
+    private readonly List<SobraPrato> _sobras = [];
 
     private Evento()
     {
@@ -119,6 +120,17 @@ public class Evento : Entidade
     public IReadOnlyCollection<EventoServico> Servicos => _servicos;
     public IReadOnlyCollection<EventoFuncionario> Equipe => _equipe;
     public IReadOnlyCollection<Convidado> Convidados => _convidados;
+
+    /// <summary>Sobra de cada prato produzido, registrada depois do evento.</summary>
+    public IReadOnlyCollection<SobraPrato> Sobras => _sobras;
+
+    /// <summary>Quando as sobras foram registradas (nulo: ainda não).</summary>
+    public DateTime? SobrasRegistradasEm { get; private set; }
+
+    public string? SobrasRegistradasPor { get; private set; }
+
+    /// <summary>Custo do que foi descartado (desperdício).</summary>
+    public decimal CustoDesperdicio => _sobras.Where(s => s.Desperdicio).Sum(s => s.Custo);
 
     /// <summary>Restrições alimentares sem nome (quantidades informadas pelo cliente), além das dos convidados da lista.</summary>
     public IReadOnlyCollection<EventoRestricao> RestricoesAvulsas => _restricoesAvulsas;
@@ -310,6 +322,26 @@ public class Evento : Entidade
         var convidado = new Convidado(nome.Trim(), telefone, email, acompanhantes);
         _convidados.Add(convidado);
         return convidado;
+    }
+
+    /// <summary>
+    /// Registra (ou refaz) a sobra de cada prato do evento realizado: quanto do produzido sobrou e o destino. A doação pede a
+    /// instituição.
+    /// </summary>
+    public void RegistrarSobras(IEnumerable<SobraInformada> sobras, string? usuario, DateTime agora)
+    {
+        Validador.Garantir(Status == StatusEvento.Realizado, "As sobras são registradas depois que o evento é encerrado.");
+        var lista = sobras.ToList();
+        Validador.Garantir(lista.All(s => s.Percentual is >= 0 and <= 100), "A sobra de cada prato vai de 0% a 100%.");
+        Validador.Garantir(lista.All(s => s.Destino != DestinoSobra.Doacao || s.Percentual == 0 || !string.IsNullOrWhiteSpace(s.Instituicao)),
+            "Informe a instituição que recebeu a doação.");
+        Validador.Garantir(lista.All(s => s.Instituicao is null || s.Instituicao.Trim().Length <= SobraPrato.TamanhoInstituicao),
+            $"O nome da instituição tem no máximo {SobraPrato.TamanhoInstituicao} caracteres.");
+        _sobras.Clear();
+        _sobras.AddRange(lista.Select(s => new SobraPrato(s.ItemCardapioId, s.Prato, s.Porcoes, s.Percentual, s.Destino,
+            s.Destino == DestinoSobra.Doacao && !string.IsNullOrWhiteSpace(s.Instituicao) ? s.Instituicao.Trim() : null, s.CustoPorcao)));
+        SobrasRegistradasEm = agora;
+        SobrasRegistradasPor = usuario;
     }
 
     /// <summary>Restrições alimentares de um convidado (o que não couber nas marcadas vai na observação).</summary>

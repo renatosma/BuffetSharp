@@ -117,6 +117,25 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
     }
 
     /// <summary>
+    /// Insumo baixado para o evento e não usado volta ao estoque pelo custo da baixa. Perecível não volta (segurança dos
+    /// alimentos): o que sobrou dele é sobra do evento.
+    /// </summary>
+    /// <param name="naoDevolvido">Quanto do consumo do evento ainda não voltou (a baixa menos os retornos anteriores).</param>
+    public MovimentacaoEstoque RetornarDoEvento(decimal quantidade, decimal custoUnitario, decimal naoDevolvido, DateTime data, int eventoId,
+        string texto)
+    {
+        Validador.Garantir(quantidade > 0, "A quantidade que volta deve ser maior que zero.");
+        Validador.Garantir(!ControlaValidade, $"'{Nome}' é perecível: não volta ao estoque (registre como sobra).");
+        Validador.Garantir(quantidade <= naoDevolvido, $"Do evento voltam no máximo {naoDevolvido:N3} de '{Nome}' (o que foi baixado e ainda não voltou).");
+
+        var saldoValorizado = Math.Max(EstoqueAtual, 0);
+        CustoMedio = Math.Round((saldoValorizado * CustoMedio + quantidade * custoUnitario) / (saldoValorizado + quantidade), 4);
+        EstoqueAtual += quantidade;
+        return new MovimentacaoEstoque(this, TipoMovimentacao.RetornoEvento, quantidade, custoUnitario, data,
+            texto[..Math.Min(texto.Length, 300)], eventoId);
+    }
+
+    /// <summary>
     /// Entrada de uma compra informada na unidade do fornecedor: a quantidade e o custo são convertidos para a unidade do
     /// estoque pela embalagem, e a movimentação guarda o que foi comprado (unidade, quantidade, fator e fornecedor).
     /// </summary>

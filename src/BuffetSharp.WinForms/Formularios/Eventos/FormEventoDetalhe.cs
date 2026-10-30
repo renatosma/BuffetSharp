@@ -89,6 +89,9 @@ internal sealed partial class FormEventoDetalhe : FormBase
         AdicionarBotao("Realizar evento", Icones.Confirmar, RealizarAsync, edicao: true);
         AdicionarBotao("Cancelar evento", Icones.Cancelar, CancelarAsync, edicao: true, perigo: true);
         AdicionarBotao("Ficha do evento", Icones.Imprimir, ImprimirFichaAsync);
+        AdicionarBotao("Sobras", Icones.Lista, SobrasAsync);
+        AdicionarBotao("Ficha de sobras", Icones.Imprimir, async () =>
+            DialogosSobras.Ficha(await _navegador.Servico<SobrasService>().PrepararAsync(_eventoId), _opcoes.NomeEmpresa).Visualizar(this));
         AdicionarBotao("Convites de agenda", Icones.Calendario, ConvitesAsync);
         AdicionarBotao("Ordem de produção", Icones.Lista, async () =>
             ImpressaoOperacao.OrdensProducao(this, [await _navegador.Servico<PlanejamentoService>().OrdemDoEventoAsync(_eventoId)],
@@ -265,6 +268,19 @@ internal sealed partial class FormEventoDetalhe : FormBase
         painel.Controls.Add(dimensionamento);
         painel.Controls.Add(barra);
         return new TabPage("Equipe") { Controls = { painel } };
+    }
+
+    /// <summary>Depois do encerramento: quanto sobrou de cada prato (e o destino) e os insumos que voltam ao estoque.</summary>
+    private async Task SobrasAsync()
+    {
+        if (Evento.Status != StatusEvento.Realizado)
+        {
+            Mensagens.Aviso(this, "As sobras são registradas depois que o evento é encerrado. Antes, imprima a ficha de sobras para a cozinha.");
+            return;
+        }
+        var servico = _navegador.Servico<SobrasService>();
+        if (DialogosSobras.Registrar(this, servico, await servico.PrepararAsync(_eventoId)))
+            await CarregarAsync();
     }
 
     private readonly Label _dimensionamento = new() { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(0, 8, 16, 0), MaximumSize = new Size(900, 0) };

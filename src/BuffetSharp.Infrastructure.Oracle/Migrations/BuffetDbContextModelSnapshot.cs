@@ -4263,6 +4263,15 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("REALIZADOEM");
 
+                    b.Property<DateTime?>("SobrasRegistradasEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("SOBRASREGISTRADASEM");
+
+                    b.Property<string>("SobrasRegistradasPor")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("SOBRASREGISTRADASPOR");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -5157,6 +5166,66 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasDatabaseName("IX_REGRASEQUIPE_TIPOEVENTOID_CARGOID");
 
                     b.ToTable("REGRASEQUIPE", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.SobraPrato", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ID");
+
+                    OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Custo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTO");
+
+                    b.Property<string>("Destino")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("DESTINO");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("EVENTOID");
+
+                    b.Property<string>("Instituicao")
+                        .HasMaxLength(120)
+                        .HasColumnType("NVARCHAR2(120)")
+                        .HasColumnName("INSTITUICAO");
+
+                    b.Property<int?>("ItemCardapioId")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("ITEMCARDAPIOID");
+
+                    b.Property<decimal>("Percentual")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("DECIMAL(5,2)")
+                        .HasColumnName("PERCENTUAL");
+
+                    b.Property<int>("Porcoes")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("PORCOES");
+
+                    b.Property<string>("Prato")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("NVARCHAR2(120)")
+                        .HasColumnName("PRATO");
+
+                    b.HasKey("Id")
+                        .HasName("PK_SOBRASPRATO");
+
+                    b.HasIndex("EventoId")
+                        .HasDatabaseName("IX_SOBRASPRATO_EVENTOID");
+
+                    b.HasIndex("ItemCardapioId")
+                        .HasDatabaseName("IX_SOBRASPRATO_ITEMCARDAPIOID");
+
+                    b.ToTable("SOBRASPRATO", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Baixa", b =>
@@ -7793,6 +7862,22 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("TipoEvento");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.SobraPrato", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany("Sobras")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_SOBRASPRATO_EVENTOS_EVENTOID");
+
+                    b.HasOne("BuffetSharp.Domain.Cardapio.ItemCardapio", null)
+                        .WithMany()
+                        .HasForeignKey("ItemCardapioId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_SOBRASPRATO_ITENSCARDAPIO_ITEMCARDAPIOID");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaForma", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Financeiro.Baixa", null)
@@ -8215,6 +8300,8 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Navigation("RestricoesAvulsas");
 
                     b.Navigation("Servicos");
+
+                    b.Navigation("Sobras");
 
                     b.Navigation("Tarefas");
                 });

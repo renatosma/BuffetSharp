@@ -81,7 +81,9 @@ public sealed record LinhaComparativo(string Item, decimal Previsto, decimal Rea
     public decimal Diferenca => Realizado - Previsto;
 }
 
-public sealed record ComparativoMargem(string Evento, string? Orcamento, IReadOnlyList<LinhaComparativo> Linhas, bool Encerrado)
+/// <param name="Desperdicio">Custo do que foi descartado (já está nos insumos realizados); nulo sem as sobras registradas.</param>
+public sealed record ComparativoMargem(string Evento, string? Orcamento, IReadOnlyList<LinhaComparativo> Linhas, bool Encerrado,
+    decimal? Desperdicio = null)
 {
     public decimal ReceitaPrevista => Linhas.Where(l => l.Receita).Sum(l => l.Previsto);
     public decimal ReceitaRealizada => Linhas.Where(l => l.Receita).Sum(l => l.Realizado);
@@ -177,14 +179,17 @@ public sealed class MargemService(IBuffetDbContextFactory fabrica, BuffetOptions
                          .Include(e => e.Equipe)
                          .Include(e => e.Materiais).ThenInclude(m => m.Material)
                          .Include(e => e.Parcelas).ThenInclude(p => p.FormaPagamento)
+                         .Include(e => e.Sobras)
                          .FirstOrDefaultAsync(e => e.Id == eventoId, ct)
                      ?? throw new RegraNegocioException("Evento não encontrado.");
         var orcamento = evento.Orcamento;
         var previsto = orcamento?.Custos ?? CustosOrcamento.Nenhum;
 
-        var insumos = await db.MovimentacoesEstoque.AsNoTracking()
-            .Where(m => m.EventoId == eventoId && m.Tipo == TipoMovimentacao.Saida)
-            .SumAsync(m => (decimal?)(m.Quantidade * m.CustoUnitario), ct) ?? 0;
+        // Os insumos que voltaram ao estoque (não usados) saem do realizado.
+        var insumos = (await db.MovimentacoesEstoque.AsNoTracking()
+                .Where(m => m.EventoId == eventoId && (m.Tipo == TipoMovimentacao.Saida || m.Tipo == TipoMovimentacao.RetornoEvento))
+                .Select(m => new { m.Tipo, Valor = m.Quantidade * m.CustoUnitario }).ToListAsync(ct))
+            .Sum(m => m.Tipo == TipoMovimentacao.Saida ? Math.Abs(m.Valor) : -Math.Abs(m.Valor));
         var despesas = await db.ContasPagar.AsNoTracking()
             .Where(c => c.EventoId == eventoId && c.Status != StatusTitulo.Cancelado &&
                         c.Categoria != CategoriaDespesa.Pessoal && c.Categoria != CategoriaDespesa.LocacaoMateriais)
@@ -197,7 +202,7 @@ public sealed class MargemService(IBuffetDbContextFactory fabrica, BuffetOptions
         var linhas = new List<LinhaComparativo>
         {
             new("Receita", orcamento?.ValorTotal ?? evento.ValorTotal, receita, Receita: true),
-            Linha("Insumos do cardápio", previsto.Insumos, Math.Abs(insumos)),
+            Linha("Insumos do cardápio", previsto.Insumos, insumos),
             Linha("Equipe", previsto.Equipe, evento.TotalEquipe),
             Linha("Serviços e despesas do evento", previsto.Servicos, despesas),
             Linha("Espaço", previsto.Espaco, evento.Espaco?.CustoPorEvento ?? 0),
@@ -206,7 +211,8 @@ public sealed class MargemService(IBuffetDbContextFactory fabrica, BuffetOptions
             Linha("Impostos", previsto.Impostos, receita * opcoes.Margem.AliquotaImpostos / 100),
             Linha("Taxa das formas de pagamento", previsto.Taxa, taxa)
         };
-        return new ComparativoMargem($"{evento.Codigo} - {evento.Titulo}", orcamento?.Codigo, linhas, evento.Status == StatusEvento.Realizado);
+        return new ComparativoMargem($"{evento.Codigo} - {evento.Titulo}", orcamento?.Codigo, linhas, evento.Status == StatusEvento.Realizado,
+            evento.SobrasRegistradasEm is null ? null : evento.CustoDesperdicio);
     }
 
     private void GarantirCustos() =>
