@@ -11,7 +11,7 @@ namespace BuffetSharp.Application.Servicos;
 /// Pedidos de compra e o que vem depois deles: os recebimentos (a mercadoria entra no estoque, inteira ou em partes) e a
 /// nota fiscal de entrada, que fatura os recebimentos e gera as contas a pagar.
 /// </summary>
-public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuario sessao, TimeProvider relogio)
+public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuario sessao, TimeProvider relogio, PrecoCompraService precos)
 {
     private DateTime Agora => relogio.GetLocalNow().DateTime;
     private DateOnly Hoje => DateOnly.FromDateTime(Agora);
@@ -50,6 +50,13 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
     /// Produtos ativos com as unidades de compra que valem para o fornecedor (a do estoque e as embalagens dele ou de qualquer
     /// fornecedor), para a tela do pedido.
     /// </summary>
+    /// <summary>Alta (em %) sobre o último preço pago que pede confirmação (0 = sem aviso).</summary>
+    public decimal LimiteAltaPreco => precos.LimiteAlta;
+
+    /// <summary>Itens com o preço acima do último pago além do limite: a tela pede confirmação antes de gravar.</summary>
+    public Task<IReadOnlyList<AvisoPreco>> AvisosPrecoAsync(IEnumerable<ItemPreco> itens, CancellationToken ct = default) =>
+        precos.AvisosAsync(itens, ct);
+
     public async Task<IReadOnlyList<ProdutoCompra>> ProdutosAsync(int fornecedorId, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
@@ -59,6 +66,7 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
             .Where(p => p.Ativo)
             .OrderBy(p => p.Nome)
             .ToListAsync(ct);
+        var ultimos = await PrecoCompraService.UltimosAsync(db, fornecedorId, null, ct);
         return produtos.Select(p =>
         {
             var unidade = p.UnidadeMedida?.Sigla ?? "";
@@ -67,7 +75,8 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
                 .Where(e => e.FornecedorId is null || e.FornecedorId == fornecedorId)
                 .OrderBy(e => e.Fator)
                 .Select(e => new UnidadeCompra(e.Id, $"{e.UnidadeMedida?.Sigla} com {e.Fator:0.###} {unidade}", e.Fator)));
-            return new ProdutoCompra(p.Id, p.Nome, unidade, p.CustoMedio, p.FornecedorId, unidades, p.ControlaValidade);
+            var ultimo = ultimos.GetValueOrDefault(p.Id);
+            return new ProdutoCompra(p.Id, p.Nome, unidade, p.CustoMedio, p.FornecedorId, unidades, p.ControlaValidade, ultimo.Geral, ultimo.DoFornecedor);
         }).ToList();
     }
 

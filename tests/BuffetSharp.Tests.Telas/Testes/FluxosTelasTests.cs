@@ -92,6 +92,17 @@ public class FluxosTelasTests(AmbienteTelas ambiente)
                 "patrimônio atualizado na lista");
         });
 
+    /// <summary>
+    /// Domingo fora da alta temporada: as regras de preço da demonstração (segunda a quinta, sábado, temporada de 15/11 a 31/01)
+    /// não mexem no valor, e o total fica o da tabela.
+    /// </summary>
+    private static DateOnly DataSemRegraDePreco(DateOnly data)
+    {
+        while (data.DayOfWeek != DayOfWeek.Sunday || data.Month is 12 or 1 || data is { Month: 11, Day: >= 15 })
+            data = data.AddDays(1);
+        return data;
+    }
+
     [Fact]
     public void Orcamento_novo_calcula_o_total_em_tempo_real_verifica_o_espaco_e_salva() =>
         Robo.Executar(ambiente, robo =>
@@ -104,7 +115,7 @@ public class FluxosTelasTests(AmbienteTelas ambiente)
             {
                 robo.Escolher(editor, "Cliente", "Mariana");
                 robo.Escolher(editor, "Tipo de evento", "Casamento");
-                Robo.Campo<DateTimePicker>(editor, "Data do evento").Value = Hoje.AddYears(3).AddDays(17).ToDateTime(TimeOnly.MinValue);
+                Robo.Campo<DateTimePicker>(editor, "Data do evento").Value = DataSemRegraDePreco(Hoje.AddYears(3).AddDays(17)).ToDateTime(TimeOnly.MinValue);
                 robo.Preencher(editor, "Convidados", 120);
                 robo.Escolher(editor, "Pacote", "Prata");
                 robo.Escolher(editor, "Espaço", "Salão Cristal");

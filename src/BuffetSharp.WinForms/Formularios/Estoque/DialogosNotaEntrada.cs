@@ -442,6 +442,11 @@ internal static class DialogosNotaEntrada
         var colunaEstoque = new DataGridViewTextBoxColumn { HeaderText = "No estoque", FillWeight = 12, ReadOnly = true,
             DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleRight } };
         var colunaSituacao = new DataGridViewTextBoxColumn { HeaderText = "Situação", FillWeight = 22, ReadOnly = true };
+        var colunaVariacao = new DataGridViewTextBoxColumn
+        {
+            HeaderText = "Vs. último", FillWeight = 10, ReadOnly = true, ToolTipText = "Variação do custo sobre o último preço pago pelo produto",
+            DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleRight }
+        };
         grade.Columns.AddRange(
             Coluna("Item da nota", nameof(LinhaItemNfe.Descricao), 27),
             Coluna("Cód.", nameof(LinhaItemNfe.Codigo), 9),
@@ -451,7 +456,8 @@ internal static class DialogosNotaEntrada
             Coluna("Total", nameof(LinhaItemNfe.Total), 11, "N2"),
             colunaProduto, colunaUnidade, colunaEstoque, colunaSituacao,
             new DataGridViewTextBoxColumn { HeaderText = "Lote", DataPropertyName = nameof(LinhaItemNfe.Lote), FillWeight = 10 },
-            new DataGridViewTextBoxColumn { HeaderText = "Validade", DataPropertyName = nameof(LinhaItemNfe.Validade), FillWeight = 10, MaxInputLength = 10 });
+            new DataGridViewTextBoxColumn { HeaderText = "Validade", DataPropertyName = nameof(LinhaItemNfe.Validade), FillWeight = 10, MaxInputLength = 10 },
+            colunaVariacao);
         grade.DataSource = linhas;
         grade.DataError += (_, ev) => ev.ThrowException = false;
 
@@ -474,6 +480,17 @@ internal static class DialogosNotaEntrada
             var unidade = produto?.Unidades.FirstOrDefault(u => u.Id == linha.EmbalagemId);
             if (ev.ColumnIndex == colunaEstoque.Index)
                 ev.Value = linha.ProdutoId > 0 && unidade is not null ? $"{linha.Quantidade * unidade.Fator:0.###} {produto!.Unidade}" : "";
+            else if (ev.ColumnIndex == colunaVariacao.Index)
+            {
+                // Custo da nota na unidade do estoque contra o último preço pago: acima do limite fica vermelho (vai pedir confirmação).
+                var variacao = produto?.Ultimo is { Custo: > 0 } ultimo && unidade is { Fator: > 0 } && linha.Custo > 0
+                    ? PrecoCompraService.Variacao(ultimo.Custo, linha.Custo / unidade.Fator)
+                    : (decimal?)null;
+                ev.Value = variacao is { } v ? v.ToString("+0.0'%';-0.0'%';0'%'", Textos.PtBr) : "";
+                ev.CellStyle!.ForeColor = variacao > compras.LimiteAltaPreco && compras.LimiteAltaPreco > 0 ? Tema.Perigo
+                    : variacao < 0 ? Tema.Sucesso : Tema.Texto;
+                ev.FormattingApplied = true;
+            }
             else if (ev.ColumnIndex == colunaSituacao.Index)
             {
                 var siglaEscolhida = unidade?.Nome.Split(' ')[0];
@@ -567,7 +584,12 @@ internal static class DialogosNotaEntrada
         int? lancada = null;
         using var dialogo = new FormEdicao($"Importar {nota.Descricao} (compra sem pedido)",
             "Confira o produto do sistema de cada item: a quantidade entra no estoque agora, convertida pela unidade escolhida, e a " +
-            "nota vira contas a pagar com os boletos dela.", e, async () => lancada = await importacao.LancarSemPedidoAsync(input), 1150);
+            "nota vira contas a pagar com os boletos dela.", e, async () =>
+            {
+                await AvisoPrecos.ConfirmarAsync(compras.AvisosPrecoAsync(linhas.Where(l => l.ProdutoId > 0)
+                    .Select(l => new ItemPreco(l.ProdutoId, l.EmbalagemId, l.Custo))));
+                lancada = await importacao.LancarSemPedidoAsync(input);
+            }, 1220);
         dialogo.Shown += (_, _) =>
         {
             for (var i = 0; i < linhas.Count; i++)

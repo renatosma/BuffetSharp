@@ -1,3 +1,4 @@
+using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Financeiro;
 
@@ -88,8 +89,14 @@ public sealed class VencimentoInput
 
 /// <summary>Produto que pode ser comprado, com as unidades de compra (embalagens) que valem para o fornecedor.</summary>
 /// <param name="ControlaValidade">Perecível: a entrada pede o lote e a validade.</param>
+/// <param name="Ultimo">Último preço pago pelo produto, de qualquer fornecedor (unidade do estoque).</param>
+/// <param name="UltimoDoFornecedor">Último preço pago a este fornecedor (unidade do estoque): a sugestão de custo no pedido.</param>
 public sealed record ProdutoCompra(int Id, string Nome, string Unidade, decimal CustoMedio, int? FornecedorPadraoId,
-    IReadOnlyList<UnidadeCompra> Unidades, bool ControlaValidade = false);
+    IReadOnlyList<UnidadeCompra> Unidades, bool ControlaValidade = false, UltimoPreco? Ultimo = null, UltimoPreco? UltimoDoFornecedor = null)
+{
+    /// <summary>Custo sugerido na unidade de compra: o último pago a este fornecedor ou, sem compra dele, o custo médio.</summary>
+    public decimal CustoSugerido(decimal fator) => Math.Round((UltimoDoFornecedor?.Custo ?? CustoMedio) * fator, 4);
+}
 
 /// <param name="Id">0 = unidade do estoque.</param>
 /// <param name="Fator">Unidades do estoque em uma unidade de compra.</param>

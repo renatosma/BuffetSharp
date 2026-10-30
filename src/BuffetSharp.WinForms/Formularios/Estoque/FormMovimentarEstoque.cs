@@ -33,10 +33,12 @@ internal static class FormMovimentarEstoque
             Vencimento = DateOnly.FromDateTime(DateTime.Today)
         };
         List<ProdutoEmbalagem> embalagens = [];
+        UltimoPreco? ultimo = null;
         switch (tipo)
         {
             case TipoMovimentacao.Entrada:
                 embalagens = await servico.ListarEmbalagensAsync(produto.Id);
+                ultimo = await contexto.Navegador.Servico<PrecoCompraService>().UltimoAsync(produto.Id);
                 var fornecedores = await contexto.Navegador.Servico<IConsultasLookup>().ListarAsync(TipoLookup.Fornecedores);
                 var fornecedor = editor.Lista("Fornecedor", fornecedores, () => compra.FornecedorId, v => compra.FornecedorId = v,
                     permitirVazio: true);
@@ -45,6 +47,7 @@ internal static class FormMovimentarEstoque
                 var campoQuantidade = editor.Decimal("Quantidade (na unidade de compra)", () => quantidade, v => quantidade = v, casas: 3);
                 var campoCusto = editor.Decimal("Custo por unidade de compra (R$)", () => custo, v => custo = v, casas: 4);
                 var conversao = editor.Informacao("Entra no estoque", () => Conversao(null, quantidade, custo), span: 2);
+                var referencia = editor.Informacao("Último preço pago", () => Referencia(null, custo), span: 2);
                 if (produto.ControlaValidade)
                 {
                     // Perecível: a entrada vira um lote, consumido pela validade (o que vence primeiro sai primeiro).
@@ -82,6 +85,7 @@ internal static class FormMovimentarEstoque
                 void Atualizar()
                 {
                     conversao.Text = Conversao(Selecionada(), campoQuantidade.Value, campoCusto.Value);
+                    referencia.Text = Referencia(Selecionada(), campoCusto.Value);
                     valorCompra.Text = Textos.Moeda(Math.Round(campoQuantidade.Value * campoCusto.Value, 2));
                 }
 
@@ -122,6 +126,9 @@ internal static class FormMovimentarEstoque
 
         using var dialogo = new FormEdicao(titulo, "A movimentação fica registrada no histórico do produto.", editor, async () =>
         {
+            if (tipo == TipoMovimentacao.Entrada)
+                await AvisoPrecos.ConfirmarAsync(contexto.Navegador.Servico<PrecoCompraService>()
+                    .AvisosAsync([new ItemPreco(produto.Id, compra.ProdutoEmbalagemId, custo)]));
             _ = tipo switch
             {
                 TipoMovimentacao.Entrada => await servico.RegistrarCompraAsync(Compra()),
@@ -158,6 +165,17 @@ internal static class FormMovimentarEstoque
         {
             var fator = embalagemEscolhida?.Fator ?? 1;
             return $"{quantidadeCompra * fator:N3} {unidade} a {(fator == 0 ? 0 : custoCompra / fator):C4} por {unidade}";
+        }
+
+        // Último preço pago (na unidade do estoque) e a variação desta compra sobre ele.
+        string Referencia(ProdutoEmbalagem? embalagemEscolhida, decimal custoCompra)
+        {
+            if (ultimo is null)
+                return "Primeira compra deste produto";
+            var fator = embalagemEscolhida?.Fator ?? 1;
+            var novo = fator == 0 ? 0 : custoCompra / fator;
+            return $"{ultimo.Custo:C4} por {unidade} em {ultimo.Data:dd/MM/yyyy} ({ultimo.Fornecedor})" +
+                   (novo > 0 ? $"  •  esta compra: {PrecoCompraService.Variacao(ultimo.Custo, novo):+0.0;-0.0;0}%" : "");
         }
     }
 

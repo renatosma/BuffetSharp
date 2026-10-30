@@ -34,6 +34,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
 
     private Dictionary<string, TipoEvento> _tipos = [];
     private Dictionary<string, Produto> _produtos = [];
+    private readonly Dictionary<int, decimal> _custoAbertura = [];
     private Dictionary<string, ItemCardapio> _itens = [];
     private Dictionary<string, Pacote> _pacotes = [];
     private Dictionary<string, ServicoAdicional> _servicos = [];
@@ -76,6 +77,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await CriarRegrasPrecoAsync(ct);
         await CriarListaEsperaAsync(ct);
         await CriarPesquisasSatisfacaoAsync(ct);
+        await CriarHistoricoPrecosAsync(ct);
         await CriarLotesValidadeAsync(ct);
     }
 
@@ -591,7 +593,9 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             var quantidade = Math.Ceiling(consumoPrevisto.GetValueOrDefault(produto.Id) + saldoFinal);
             var custo = produto.CustoMedio;
             produto.CustoMedio = 0;
-            db.MovimentacoesEstoque.Add(produto.RegistrarEntrada(quantidade, custo, dataCompra, "Estoque inicial / compra de abertura"));
+            _custoAbertura[produto.Id] = custo;
+            db.MovimentacoesEstoque.Add(produto.RegistrarCompra(quantidade, custo, dataCompra, "Estoque inicial / compra de abertura",
+                produto.FornecedorId, null));
         }
         await db.SaveChangesAsync(ct);
     }
@@ -898,8 +902,8 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         {
             var quantidade = Math.Ceiling(produto.EstoqueMinimo * 1.5m);
             var custo = Math.Round(produto.CustoMedio * 1.06m, 2);
-            db.MovimentacoesEstoque.Add(produto.RegistrarEntrada(quantidade, custo, Agora.AddDays(-_rnd.Next(2, 20)),
-                "Reposição de estoque (preço reajustado)"));
+            db.MovimentacoesEstoque.Add(produto.RegistrarCompra(quantidade, custo, Agora.AddDays(-_rnd.Next(2, 20)),
+                "Reposição de estoque (preço reajustado)", produto.FornecedorId, null));
         }
         await db.SaveChangesAsync(ct);
     }
@@ -1301,6 +1305,42 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
     }
 
     /// <summary>
+    /// Histórico de preços de compra: uma compra pequena por mês nos últimos 8 meses, com tendência por produto (a carne e o
+    /// chocolate sobem bem, o óleo cai, o tomate oscila) e, em alguns, um segundo fornecedor mais caro ou mais barato.
+    /// </summary>
+    private async Task CriarHistoricoPrecosAsync(CancellationToken ct)
+    {
+        (string Produto, string Fornecedor, string? Outro, double AltaMes, double DiferencaOutro)[] historicos =
+        [
+            ("Filé mignon", "Boi Nobre", "Atacadão Central", 0.025, 0.06),
+            ("Picanha", "Boi Nobre", null, 0.015, 0),
+            ("Arroz agulhinha", "Atacadão Central", "Vale Verde", 0.003, -0.04),
+            ("Óleo de soja", "Atacadão Central", null, -0.012, 0),
+            ("Refrigerante 2L", "Gelada Bebidas", "Atacadão Central", 0.008, -0.03),
+            ("Cerveja long neck", "Gelada Bebidas", "Atacadão Central", 0.012, 0.02),
+            ("Queijo muçarela", "Serra Azul", "Atacadão Central", 0.018, -0.05),
+            ("Chocolate meio amargo", "Atacadão Central", null, 0.035, 0),
+            ("Tomate", "Vale Verde", null, 0, 0)
+        ];
+        foreach (var (nome, fornecedor, outro, altaMes, diferenca) in historicos)
+        {
+            var produto = _produtos[nome];
+            var abertura = _custoAbertura.GetValueOrDefault(produto.Id, produto.CustoMedio);
+            for (var mes = 1; mes <= 8; mes++)
+            {
+                var doOutro = outro is not null && mes % 2 == 0;
+                var fator = Math.Pow(1 + altaMes, mes) * (doOutro ? 1 + diferenca : 1) * (nome == "Tomate" ? 1 + 0.18 * Math.Sin(mes * 1.3) : 1) *
+                            (1 + (_rnd.NextDouble() - 0.5) * 0.01);
+                var custo = Math.Round(abertura * (decimal)fator, 2);
+                var data = Agora.AddMonths(mes - 9).Date.AddDays(_rnd.Next(5, 20)).AddHours(10);
+                db.MovimentacoesEstoque.Add(produto.RegistrarCompra(Math.Max(1, Math.Ceiling(produto.EstoqueMinimo * 0.3m)), custo, data,
+                    "Compra do mês", _fornecedores[doOutro ? outro! : fornecedor].Id, null));
+            }
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
     /// Validade e lote: os perecíveis passam a controlar validade só no fim (o histórico fica como estava, no saldo sem lote) e
     /// recebem compras recentes com lotes - alguns vencendo nos próximos dias, um já vencido no estoque e um descartado como perda.
     /// </summary>
@@ -1324,14 +1364,14 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         foreach (var (nome, validade, entrada, quantidade) in lotes)
         {
             var produto = _produtos[nome];
-            db.MovimentacoesEstoque.Add(produto.RegistrarEntrada(quantidade, Math.Round(produto.CustoMedio * 1.03m, 2), Agora.AddDays(entrada).Date.AddHours(10),
-                "Compra de perecíveis", [new LoteInformado($"L{Hoje.AddDays(entrada):yyMMdd}-{produto.Id:D2}", Hoje.AddDays(validade))]));
+            db.MovimentacoesEstoque.Add(produto.RegistrarCompra(quantidade, Math.Round(produto.CustoMedio * 1.03m, 2), Agora.AddDays(entrada).Date.AddHours(10),
+                "Compra de perecíveis", produto.FornecedorId, null, [new LoteInformado($"L{Hoje.AddDays(entrada):yyMMdd}-{produto.Id:D2}", Hoje.AddDays(validade))]));
         }
 
         // Morango que passou da validade e foi descartado: alimenta o relatório de perdas.
         var morango = _produtos["Morango"];
-        db.MovimentacoesEstoque.Add(morango.RegistrarEntrada(4, morango.CustoMedio, Agora.AddDays(-12).Date.AddHours(10), "Compra de perecíveis",
-            [new LoteInformado("L-MORANGO-ANT", Hoje.AddDays(-7))]));
+        db.MovimentacoesEstoque.Add(morango.RegistrarCompra(4, morango.CustoMedio, Agora.AddDays(-12).Date.AddHours(10), "Compra de perecíveis",
+            morango.FornecedorId, null, [new LoteInformado("L-MORANGO-ANT", Hoje.AddDays(-7))]));
         var vencido = morango.Lotes.Single(l => l.Numero == "L-MORANGO-ANT");
         db.MovimentacoesEstoque.Add(morango.Descartar(vencido, 1.5m, Agora.AddDays(-6).Date.AddHours(8), "Produto vencido"));
         db.MovimentacoesEstoque.Add(morango.Descartar(vencido, vencido.Saldo, Agora.AddDays(-6).Date.AddHours(8), "Estragado na câmara fria"));

@@ -241,6 +241,15 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
     pelo vínculo de uma nota anterior, pelo código do fornecedor na embalagem ou pelo nome (sugestão para conferir). Itens
     que não são de estoque ficam só no valor da nota. Ao salvar, o fornecedor é cadastrado (se preciso), os itens entram
     no estoque e a nota vira contas a pagar, de uma vez; os vínculos ficam gravados para a próxima nota.
+  - **Histórico de preços**: tirado das entradas no estoque (manual, recebimento e NF-e, sem as estornadas), na unidade
+    do estoque. A tela **Preços de compra** mostra por produto o primeiro, o último, o menor, o maior e o médio do
+    período, a variação e o fornecedor mais barato; o **histórico do produto** tem o gráfico do preço no tempo, uma linha
+    por fornecedor, e cada compra com a variação sobre a anterior. O **comparativo de fornecedores** mostra o último preço
+    de cada um por produto, com o mais barato em destaque, e **Maiores altas de preço** ordena os produtos pela variação
+    no período, com quanto a alta custa a mais por mês. No pedido, o custo já vem com o **último preço pago ao
+    fornecedor** (ou o custo médio), ao lado do último pago e da variação; o pedido, a entrada e a NF-e **pedem
+    confirmação** quando um preço passa do último pago além do limite (`Buffet:LimiteAltaPrecoCompra`, 10% por padrão;
+    0 desliga).
 - **Lista de compras**: o que comprar para os eventos confirmados de um período (ficha técnica × pessoas, menos o
   estoque, opcionalmente repondo o mínimo), na embalagem do fornecedor, impressa por fornecedor ou enviada como pedido
   pelo WhatsApp.
@@ -418,7 +427,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **436 testes** (xUnit v3): 398 de domínio, integração e bancos, e 38 das telas.
+São **441 testes** (xUnit v3): 401 de domínio, integração e bancos, e 40 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

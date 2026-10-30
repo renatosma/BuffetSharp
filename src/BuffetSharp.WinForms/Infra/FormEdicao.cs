@@ -106,6 +106,10 @@ internal sealed class FormEdicao : FormBase
             if (!_editor.MostrarErros(ex) || ex.Erros.Count > 1)
                 Mensagens.Erro(this, ex);
         }
+        catch (OperationCanceledException)
+        {
+            // O usuário desistiu numa confirmação (ex.: preço acima do último pago): o diálogo continua aberto.
+        }
         catch (Exception ex)
         {
             Mensagens.Erro(this, ex);

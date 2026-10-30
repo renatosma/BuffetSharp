@@ -38,4 +38,10 @@ public sealed class BuffetOptions
 
     /// <summary>Degustações simultâneas permitidas (mesmo horário, com tolerância de 1 hora).</summary>
     public int LimiteDegustacoesPorHorario { get; set; } = 3;
+
+    /// <summary>
+    /// Alta de preço (em %) sobre o último preço pago acima da qual o pedido, a entrada e a NF-e pedem confirmação antes de gravar
+    /// (0 desliga o aviso).
+    /// </summary>
+    public decimal LimiteAltaPrecoCompra { get; set; } = 10;
 }

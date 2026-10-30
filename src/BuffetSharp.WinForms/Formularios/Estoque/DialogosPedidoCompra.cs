@@ -20,8 +20,21 @@ internal static class DialogosPedidoCompra
         public decimal Custo { get; set; }
         public decimal Total => Math.Round(Quantidade * Custo, 2);
 
+        /// <summary>Último preço pago pelo produto (unidade do estoque) e o fator da unidade de compra escolhida.</summary>
+        public decimal? Ultimo { get; set; }
+
+        public decimal Fator { get; set; } = 1;
+        public decimal? UltimoPago => Ultimo is null ? null : Math.Round(Ultimo.Value * Fator, 4);
+        public decimal? Variacao => UltimoPago is > 0 && Custo > 0 ? PrecoCompraService.Variacao(UltimoPago.Value, Custo) : null;
+
         public event PropertyChangedEventHandler? PropertyChanged;
-        public void Atualizar() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Total)));
+        public void Atualizar() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(string.Empty));
+
+        public void Referenciar(ProdutoCompra? produto)
+        {
+            Ultimo = produto?.Ultimo?.Custo;
+            Fator = produto?.Unidades.FirstOrDefault(u => u.Id == EmbalagemId)?.Fator ?? 1;
+        }
     }
 
     /// <summary>Abre o pedido (0 = novo) para edição. Retorna o Id gravado, ou nulo se cancelar.</summary>
@@ -56,7 +69,7 @@ internal static class DialogosPedidoCompra
             dica: "Prazo de entrega, contato...");
 
         e.Secao("Itens");
-        var grade = CriarGradeItens(linhas, () => produtos);
+        var grade = CriarGradeItens(linhas, () => produtos, servico.LimiteAltaPreco);
         var total = new Label { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(0, 6, 0, 0) };
         void AtualizarTotal() => total.Text = $"Total do pedido: {Textos.Moeda(linhas.Sum(l => l.Total))}  •  {linhas.Count} item(ns)";
         var incluir = Tema.BotaoSecundario("Incluir produto", Icones.Adicionar);
@@ -108,12 +121,17 @@ internal static class DialogosPedidoCompra
         int? salvo = null;
         using var dialogo = new FormEdicao(pedidoId == 0 ? "Novo pedido de compra" : $"Editar pedido {input.Codigo}",
             "Os itens entram no estoque no recebimento (pode ser em partes); a nota fiscal gera as contas a pagar.", e,
-            async () => salvo = await servico.SalvarAsync(input), 920);
+            async () =>
+            {
+                await AvisoPrecos.ConfirmarAsync(servico.AvisosPrecoAsync(input.Itens.Select(i => new ItemPreco(i.ProdutoId, i.ProdutoEmbalagemId,
+                    i.CustoUnitario))));
+                salvo = await servico.SalvarAsync(input);
+            }, 1020);
         dialogo.Shown += (_, _) => AjustarUnidades(grade, linhas, produtos);
         return dialogo.ShowDialog(dono) == DialogResult.OK ? salvo : null;
     }
 
-    private static DataGridView CriarGradeItens(BindingList<LinhaItem> linhas, Func<IReadOnlyList<ProdutoCompra>> produtos)
+    private static DataGridView CriarGradeItens(BindingList<LinhaItem> linhas, Func<IReadOnlyList<ProdutoCompra>> produtos, decimal limiteAlta)
     {
         var grade = new DataGridView { AutoGenerateColumns = false };
         Tema.EstilizarGrade(grade);
@@ -147,7 +165,26 @@ internal static class DialogosPedidoCompra
             {
                 HeaderText = "Total", DataPropertyName = nameof(LinhaItem.Total), FillWeight = 14, ReadOnly = true,
                 DefaultCellStyle = { Format = "C2", FormatProvider = Textos.PtBr, Alignment = DataGridViewContentAlignment.MiddleRight }
+            },
+            new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Último pago", DataPropertyName = nameof(LinhaItem.UltimoPago), FillWeight = 13, ReadOnly = true,
+                ToolTipText = "Último preço pago pelo produto (de qualquer fornecedor), na unidade de compra",
+                DefaultCellStyle = { Format = "N4", FormatProvider = Textos.PtBr, Alignment = DataGridViewContentAlignment.MiddleRight, ForeColor = Tema.TextoSuave }
+            },
+            new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Variação", DataPropertyName = nameof(LinhaItem.Variacao), FillWeight = 10, ReadOnly = true,
+                DefaultCellStyle = { Format = "+0.0'%';-0.0'%';0'%'", FormatProvider = Textos.PtBr, Alignment = DataGridViewContentAlignment.MiddleRight }
             });
+        var colunaVariacao = grade.Columns[^1];
+        grade.CellFormatting += (_, ev) =>
+        {
+            // Acima do limite de alta fica vermelho (vai pedir confirmação); abaixo do último pago, verde.
+            if (ev.ColumnIndex != colunaVariacao.Index || ev.RowIndex < 0 || ev.RowIndex >= linhas.Count || linhas[ev.RowIndex].Variacao is not { } variacao)
+                return;
+            ev.CellStyle!.ForeColor = limiteAlta > 0 && variacao > limiteAlta ? Tema.Perigo : variacao < 0 ? Tema.Sucesso : Tema.Texto;
+        };
         grade.DataSource = linhas;
 
         // A lista de unidades é de cada célula; enquanto ela não é montada, o valor ligado pode não estar nela.
@@ -165,16 +202,18 @@ internal static class DialogosPedidoCompra
             var produto = produtos().FirstOrDefault(p => p.Id == linha.ProdutoId);
             if (ev.ColumnIndex == colunaProduto.Index && produto is not null)
             {
-                // Produto escolhido: unidade do estoque e o custo médio como sugestão.
+                // Produto escolhido: unidade do estoque e, como sugestão, o último preço pago a este fornecedor (ou o custo médio).
                 linha.EmbalagemId = 0;
-                linha.Custo = produto.CustoMedio;
+                linha.Custo = produto.CustoSugerido(1);
+                linha.Referenciar(produto);
                 AjustarUnidade(grade.Rows[ev.RowIndex], produto);
                 grade.InvalidateRow(ev.RowIndex);
             }
             else if (ev.ColumnIndex == colunaUnidade.Index && produto is not null)
             {
                 var fator = produto.Unidades.FirstOrDefault(u => u.Id == linha.EmbalagemId)?.Fator ?? 1;
-                linha.Custo = Math.Round(produto.CustoMedio * fator, 4);
+                linha.Custo = produto.CustoSugerido(fator);
+                linha.Referenciar(produto);
                 grade.InvalidateRow(ev.RowIndex);
             }
             linha.Atualizar();
@@ -188,7 +227,10 @@ internal static class DialogosPedidoCompra
         for (var i = 0; i < linhas.Count && i < grade.Rows.Count; i++)
         {
             if (produtos.FirstOrDefault(p => p.Id == linhas[i].ProdutoId) is { } produto)
+            {
                 AjustarUnidade(grade.Rows[i], produto);
+                linhas[i].Referenciar(produto);
+            }
         }
         grade.Invalidate();
     }
