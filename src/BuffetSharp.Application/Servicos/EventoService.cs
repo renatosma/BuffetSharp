@@ -600,7 +600,7 @@ public sealed class EventoService(
                 }
 
                 var consumo = evento.Pacote.CalcularConsumo(evento.PessoasAtendidas);
-                var produtos = await db.Produtos.Where(p => consumo.Keys.Contains(p.Id)).ToListAsync(ct);
+                var produtos = await EstoqueService.ComLotes(db.Produtos).Where(p => consumo.Keys.Contains(p.Id)).ToListAsync(ct);
                 foreach (var produto in produtos)
                 {
                     var movimentacao = produto.RegistrarSaida(consumo[produto.Id], agora,

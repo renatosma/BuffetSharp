@@ -697,6 +697,7 @@ internal static class DefinicoesCadastros
             .Numero("Estoque", x => x.EstoqueAtual, "N3", 22, x => x.AbaixoDoMinimo ? Tema.Perigo : null)
             .Numero("Mínimo", x => x.EstoqueMinimo, "N3", 20)
             .Moeda("Valor em estoque", x => x.ValorEmEstoque, 28)
+            .SimNao("Validade", x => x.ControlaValidade, 14)
             .Texto("Situação", x => x.AbaixoDoMinimo ? "Repor" : "OK", 15, x => x.AbaixoDoMinimo ? Tema.Perigo : Tema.Sucesso),
         TextoBusca = x => $"{x.Codigo} {x.Nome} {x.CategoriaProduto?.Nome} {x.Fornecedor?.RazaoSocial} {(x.AbaixoDoMinimo ? "repor" : "")}",
         Nome = x => x.Nome,
@@ -709,6 +710,7 @@ internal static class DefinicoesCadastros
             new("Entrada", Icones.Adicionar, (p, ctx) => FormMovimentarEstoque.AbrirAsync(ctx, p, TipoMovimentacao.Entrada)),
             new("Saída", Icones.Enviar, (p, ctx) => FormMovimentarEstoque.AbrirAsync(ctx, p, TipoMovimentacao.Saida)),
             new("Inventário", Icones.Calculadora, (p, ctx) => FormMovimentarEstoque.AbrirAsync(ctx, p, TipoMovimentacao.Ajuste)),
+            new("Descarte (perda)", Icones.Excluir, (p, ctx) => FormMovimentarEstoque.DescartarAsync(ctx.Dono, ctx.Navegador, p.Id, null, ctx.Recarregar)),
             new("Movimentações", Icones.Historico, (p, ctx) =>
             {
                 ctx.Navegador.Abrir($"movimentacoes:{p.Id}", () => ctx.Navegador.Criar<FormMovimentacoes>(p.Id));
@@ -731,6 +733,8 @@ internal static class DefinicoesCadastros
             e.Decimal("Estoque mínimo", () => x.EstoqueMinimo, v => x.EstoqueMinimo = v, nameof(x.EstoqueMinimo), 3);
             e.Informacao("Saldo atual (via movimentações)", () => x.EstoqueAtual.ToString("N3"));
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+            e.Marcador("Controla lote e validade (perecível)", () => x.ControlaValidade, v => x.ControlaValidade = v, nameof(x.ControlaValidade),
+                span: 2);
 
             // Conversão de unidade: cada fornecedor pode vender em uma embalagem diferente (caixa com 12, fardo com 6...).
             e.Secao("Embalagens de compra - conversão para a unidade do estoque");

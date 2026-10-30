@@ -31,6 +31,7 @@ public sealed class LembreteService(
     PixService pix,
     EsperaService esperas,
     PesquisaService pesquisas,
+    ValidadeService validades,
     ISessaoUsuario sessao,
     TimeProvider relogio,
     ILogger<LembreteService> log)
@@ -69,6 +70,7 @@ public sealed class LembreteService(
         // A espera sai da lista quando o aviso é registrado (a fila anda sozinha), sem precisar de lembrete tratado.
         lembretes.AddRange(await esperas.LembretesAsync(ct));
         lembretes.AddRange(await pesquisas.LembretesAsync(ct));
+        lembretes.AddRange(await validades.LembretesAsync(ct));
         if (lembretes.Count == 0)
             return [];
 

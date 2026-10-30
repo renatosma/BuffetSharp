@@ -288,7 +288,7 @@ public class MelhoriasTelasTests(AmbienteTelas ambiente)
                 robo.Dialogo<FormEdicao>(() => robo.Clicar(tela, "Importar XML da NF-e"), dialogo =>
                 {
                     // O arroz vem reconhecido pelo nome; a vela não é do estoque.
-                    var itens = Robo.Descendentes(dialogo).OfType<DataGridView>().First(g => g.Columns.Count == 10);
+                    var itens = Robo.Descendentes(dialogo).OfType<DataGridView>().First(g => g.Columns.Count == 12); // com lote e validade
                     robo.Esperar(() => itens.Rows.Count == 2, "itens da NF-e");
                     Assert.Equal("Arroz agulhinha", itens.Rows[0].Cells[6].FormattedValue);
                     Assert.Equal("Escolha o produto", itens.Rows[1].Cells[9].FormattedValue);

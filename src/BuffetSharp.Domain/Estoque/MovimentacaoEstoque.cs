@@ -10,7 +10,10 @@ public enum TipoMovimentacao
     Ajuste,
 
     /// <summary>Desfaz uma entrada lançada por engano (tira do estoque a quantidade e o custo dela).</summary>
-    Estorno
+    Estorno,
+
+    /// <summary>Descarte de produto vencido ou estragado: sai do estoque como perda, pelo custo.</summary>
+    Perda
 }
 
 /// <summary>
@@ -18,6 +21,8 @@ public enum TipoMovimentacao
 /// </summary>
 public class MovimentacaoEstoque : Entidade
 {
+    private readonly List<MovimentacaoLote> _lotes = [];
+
     private MovimentacaoEstoque()
     {
     }
@@ -82,6 +87,11 @@ public class MovimentacaoEstoque : Entidade
     public bool DePedidoCompra { get; private set; }
 
     internal void MarcarDePedido() => DePedidoCompra = true;
+
+    /// <summary>Lotes que a movimentação criou (entrada) ou consumiu (saída, ajuste, perda), nos produtos que controlam validade.</summary>
+    public IReadOnlyCollection<MovimentacaoLote> Lotes => _lotes;
+
+    internal void AdicionarLote(LoteEstoque lote, decimal quantidade) => _lotes.Add(new MovimentacaoLote(lote, quantidade));
 
     public decimal ValorTotal => Math.Round(Math.Abs(Quantidade) * CustoUnitario, 2);
 

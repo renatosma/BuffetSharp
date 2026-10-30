@@ -2312,6 +2312,58 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.ToTable("CotacaoPrecos", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.LoteEstoque", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("CustoUnitario")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("EntradaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Numero")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("ProdutoId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("Saldo")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<DateOnly>("Validade")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Validade");
+
+                    b.HasIndex("ProdutoId", "Validade");
+
+                    b.ToTable("LotesEstoque", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.Material", b =>
                 {
                     b.Property<int>("Id")
@@ -2470,6 +2522,33 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.HasIndex("ProdutoId", "Data");
 
                     b.ToTable("MovimentacoesEstoque", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoLote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("LoteEstoqueId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MovimentacaoEstoqueId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LoteEstoqueId");
+
+                    b.HasIndex("MovimentacaoEstoqueId");
+
+                    b.ToTable("MovimentacaoLotes", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", b =>
@@ -2688,6 +2767,9 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<string>("Codigo")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<bool>("ControlaValidade")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
@@ -5237,6 +5319,17 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Navigation("Participante");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.LoteEstoque", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Estoque.Produto", "Produto")
+                        .WithMany("Lotes")
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Produto");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.Material", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
@@ -5287,6 +5380,23 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Navigation("ParcelamentoPagar");
 
                     b.Navigation("Produto");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoLote", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Estoque.LoteEstoque", "Lote")
+                        .WithMany()
+                        .HasForeignKey("LoteEstoqueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", null)
+                        .WithMany("Lotes")
+                        .HasForeignKey("MovimentacaoEstoqueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Lote");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", b =>
@@ -6048,6 +6158,11 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Navigation("Precos");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", b =>
+                {
+                    b.Navigation("Lotes");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", b =>
                 {
                     b.Navigation("Recebimentos");
@@ -6061,6 +6176,8 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.Produto", b =>
                 {
                     b.Navigation("Embalagens");
+
+                    b.Navigation("Lotes");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.RecebimentoCompra", b =>

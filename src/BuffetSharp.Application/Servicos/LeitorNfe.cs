@@ -65,7 +65,12 @@ public static class LeitorNfe
                 Decimal(prod, "qCom"),
                 Decimal(prod, "vUnCom"),
                 Decimal(prod, "vProd"),
-                Decimal(prod, "vDesc"));
+                Decimal(prod, "vDesc"),
+                prod.Elements().Where(e => e.Name.LocalName == "rastro")
+                    .Where(r => Texto(r, "dVal") is not null)
+                    .Select(r => new RastroNfe(Texto(r, "nLote"), Decimal(r, "qLote"), Data(Texto(r, "dVal")),
+                        Texto(r, "dFab") is { } fabricacao ? Data(fabricacao) : null))
+                    .ToList());
         }).ToList();
         if (itens.Count == 0)
             throw new RegraNegocioException("A NF-e não tem itens.");

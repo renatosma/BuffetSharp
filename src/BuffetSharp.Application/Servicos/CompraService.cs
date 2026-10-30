@@ -67,7 +67,7 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
                 .Where(e => e.FornecedorId is null || e.FornecedorId == fornecedorId)
                 .OrderBy(e => e.Fator)
                 .Select(e => new UnidadeCompra(e.Id, $"{e.UnidadeMedida?.Sigla} com {e.Fator:0.###} {unidade}", e.Fator)));
-            return new ProdutoCompra(p.Id, p.Nome, unidade, p.CustoMedio, p.FornecedorId, unidades);
+            return new ProdutoCompra(p.Id, p.Nome, unidade, p.CustoMedio, p.FornecedorId, unidades, p.ControlaValidade);
         }).ToList();
     }
 
@@ -112,15 +112,18 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
                          .FirstOrDefaultAsync(p => p.Id == input.PedidoId, ct)
                      ?? throw new RegraNegocioException("Pedido de compra não encontrado.");
         var quantidades = new Dictionary<PedidoCompraItem, decimal>();
+        var lotes = new Dictionary<PedidoCompraItem, IReadOnlyList<LoteInformado>>();
         foreach (var item in input.Itens.Where(i => i.Quantidade != 0))
         {
             var doPedido = pedido.Itens.FirstOrDefault(i => i.Id == item.PedidoCompraItemId)
                            ?? throw new RegraNegocioException("Um dos itens não é deste pedido.");
             Validador.Garantir(item.Quantidade > 0, $"A quantidade recebida de '{doPedido.Produto?.Nome}' não pode ser negativa.");
             quantidades[doPedido] = quantidades.GetValueOrDefault(doPedido) + item.Quantidade;
+            if (item.Validade is { } validade)
+                lotes[doPedido] = [new LoteInformado(item.Lote, validade)];
         }
 
-        var recebimento = pedido.Receber(input.Data, quantidades, input.Observacoes, sessao.Usuario?.Login, Agora);
+        var recebimento = pedido.Receber(input.Data, quantidades, input.Observacoes, sessao.Usuario?.Login, Agora, lotes);
         db.RecebimentosCompra.Add(recebimento);
         var quando = input.Data == Hoje ? Agora : input.Data.ToDateTime(new TimeOnly(12, 0));
         db.MovimentacoesEstoque.AddRange(recebimento.DarEntrada(quando));

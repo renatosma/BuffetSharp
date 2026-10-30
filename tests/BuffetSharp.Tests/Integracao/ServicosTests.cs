@@ -53,7 +53,8 @@ public class ServicosTests(BancoFixture banco)
         var produtoNaTela = (await cadastro.ObterAsync(produtoId, Ct))!;
 
         // Enquanto a tela está aberta, outra operação movimenta o estoque.
-        await banco.Obter<EstoqueService>().RegistrarEntradaAsync(produtoId, 10, produtoNaTela.CustoMedio, "Teste", Ct);
+        await banco.Obter<EstoqueService>().RegistrarEntradaAsync(produtoId, 10, produtoNaTela.CustoMedio, "Teste",
+            [new Domain.Estoque.LoteInformado(null, DateOnly.FromDateTime(DateTime.Today).AddDays(30))], Ct); // perecível: o lote
 
         produtoNaTela.EstoqueMinimo += 1;
         await cadastro.SalvarAsync(produtoNaTela, Ct);

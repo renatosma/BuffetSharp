@@ -1,6 +1,7 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comercial;
+using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.Domain.Financeiro;
 using BuffetSharp.Domain.Seguranca;
@@ -205,6 +206,13 @@ public sealed class EntradaEstoqueInput
     public decimal CustoUnitario { get; set; }
 
     public string? Observacao { get; set; }
+
+    /// <summary>Lote do fabricante (opcional) e validade: obrigatória nos produtos que controlam validade.</summary>
+    public string? Lote { get; set; }
+
+    public DateOnly? Validade { get; set; }
+
+    public IReadOnlyList<LoteInformado>? LotesInformados => Validade is { } validade ? [new LoteInformado(Lote, validade)] : null;
 
     /// <summary>Lança o valor da compra (quantidade × custo) em contas a pagar, na mesma gravação da entrada.</summary>
     public bool GerarContaPagar { get; set; }

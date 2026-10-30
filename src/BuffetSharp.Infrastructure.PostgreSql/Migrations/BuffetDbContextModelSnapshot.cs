@@ -2905,6 +2905,72 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("cotacaoprecos", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.LoteEstoque", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<decimal>("CustoUnitario")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("custounitario");
+
+                    b.Property<DateTime>("EntradaEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("entradaem");
+
+                    b.Property<string>("Numero")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("numero");
+
+                    b.Property<int>("ProdutoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("produtoid");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("quantidade");
+
+                    b.Property<decimal>("Saldo")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("saldo");
+
+                    b.Property<DateOnly>("Validade")
+                        .HasColumnType("date")
+                        .HasColumnName("validade");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("Id")
+                        .HasName("pk_lotesestoque");
+
+                    b.HasIndex("Validade")
+                        .HasDatabaseName("ix_lotesestoque_validade");
+
+                    b.HasIndex("ProdutoId", "Validade")
+                        .HasDatabaseName("ix_lotesestoque_produtoid_validade");
+
+                    b.ToTable("lotesestoque", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.Material", b =>
                 {
                     b.Property<int>("Id")
@@ -3108,6 +3174,40 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasDatabaseName("ix_movimentacoesestoque_produtoid_data");
 
                     b.ToTable("movimentacoesestoque", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoLote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("LoteEstoqueId")
+                        .HasColumnType("integer")
+                        .HasColumnName("loteestoqueid");
+
+                    b.Property<int>("MovimentacaoEstoqueId")
+                        .HasColumnType("integer")
+                        .HasColumnName("movimentacaoestoqueid");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("quantidade");
+
+                    b.HasKey("Id")
+                        .HasName("pk_movimentacaolotes");
+
+                    b.HasIndex("LoteEstoqueId")
+                        .HasDatabaseName("ix_movimentacaolotes_loteestoqueid");
+
+                    b.HasIndex("MovimentacaoEstoqueId")
+                        .HasDatabaseName("ix_movimentacaolotes_movimentacaoestoqueid");
+
+                    b.ToTable("movimentacaolotes", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", b =>
@@ -3386,6 +3486,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("codigo");
+
+                    b.Property<bool>("ControlaValidade")
+                        .HasColumnType("boolean")
+                        .HasColumnName("controlavalidade");
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone")
@@ -6552,6 +6656,18 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Participante");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.LoteEstoque", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Estoque.Produto", "Produto")
+                        .WithMany("Lotes")
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_lotesestoque_produtos_produtoid");
+
+                    b.Navigation("Produto");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.Material", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", "Fornecedor")
@@ -6609,6 +6725,25 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("ParcelamentoPagar");
 
                     b.Navigation("Produto");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoLote", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Estoque.LoteEstoque", "Lote")
+                        .WithMany()
+                        .HasForeignKey("LoteEstoqueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_movimentacaolotes_lotesestoque_loteestoqueid");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", null)
+                        .WithMany("Lotes")
+                        .HasForeignKey("MovimentacaoEstoqueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_movimentacaolotes_movimentacoesestoque_movimentacaoestoqueid");
+
+                    b.Navigation("Lote");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", b =>
@@ -7456,6 +7591,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Precos");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", b =>
+                {
+                    b.Navigation("Lotes");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", b =>
                 {
                     b.Navigation("Recebimentos");
@@ -7469,6 +7609,8 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.Produto", b =>
                 {
                     b.Navigation("Embalagens");
+
+                    b.Navigation("Lotes");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.RecebimentoCompra", b =>

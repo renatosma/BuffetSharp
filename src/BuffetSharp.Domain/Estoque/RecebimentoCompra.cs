@@ -66,8 +66,8 @@ public class RecebimentoCompra : Entidade
     /// <summary>Valor da mercadoria recebida, pelo custo do pedido.</summary>
     public decimal Total => _itens.Sum(i => i.Total);
 
-    internal void AdicionarItem(PedidoCompraItem item, decimal quantidade) =>
-        _itens.Add(new RecebimentoItem(item, quantidade));
+    internal void AdicionarItem(PedidoCompraItem item, decimal quantidade, IReadOnlyList<LoteInformado>? lotes = null) =>
+        _itens.Add(new RecebimentoItem(item, quantidade, lotes));
 
     /// <summary>
     /// Dá entrada de cada item no estoque (convertido pela embalagem, com o fornecedor). Exige o produto e a embalagem dos
@@ -81,7 +81,7 @@ public class RecebimentoCompra : Entidade
         {
             var doPedido = item.PedidoCompraItem!;
             var entrada = doPedido.Produto!.RegistrarCompra(item.Quantidade, item.CustoUnitario, quando, $"Recebimento do pedido {codigo}",
-                FornecedorId, doPedido.Embalagem);
+                FornecedorId, doPedido.Embalagem, item.LotesInformados);
             entrada.MarcarDePedido();
             item.DefinirEntrada(entrada);
             entradas.Add(entrada);
@@ -136,13 +136,17 @@ public class RecebimentoItem
     {
     }
 
-    internal RecebimentoItem(PedidoCompraItem item, decimal quantidade)
+    internal RecebimentoItem(PedidoCompraItem item, decimal quantidade, IReadOnlyList<LoteInformado>? lotes = null)
     {
         PedidoCompraItem = item;
         PedidoCompraItemId = item.Id;
         Quantidade = quantidade;
         CustoUnitario = item.CustoUnitario;
+        LotesInformados = lotes;
     }
+
+    /// <summary>Lote(s) informados no recebimento, usados na entrada (ficam registrados nos lotes da movimentação).</summary>
+    internal IReadOnlyList<LoteInformado>? LotesInformados { get; }
 
     public int Id { get; private set; }
     public int RecebimentoCompraId { get; private set; }

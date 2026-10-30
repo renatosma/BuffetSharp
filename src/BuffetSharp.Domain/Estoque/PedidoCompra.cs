@@ -123,8 +123,9 @@ public class PedidoCompra : Entidade
     /// Registra o que chegou (quantidades na unidade de compra, por item). A entrada no estoque é feita pelo serviço, que liga
     /// cada movimentação ao item do recebimento.
     /// </summary>
+    /// <param name="lotes">Lote(s) e validade de cada item (quantidades na unidade do estoque), para os produtos que controlam validade.</param>
     public RecebimentoCompra Receber(DateOnly data, IReadOnlyDictionary<PedidoCompraItem, decimal> quantidades, string? observacoes,
-        string? usuario, DateTime agora)
+        string? usuario, DateTime agora, IReadOnlyDictionary<PedidoCompraItem, IReadOnlyList<LoteInformado>>? lotes = null)
     {
         Validador.Garantir(PodeReceber, Status switch
         {
@@ -145,7 +146,7 @@ public class PedidoCompra : Entidade
         foreach (var (item, quantidade) in recebidos)
         {
             item.QuantidadeRecebida += quantidade;
-            recebimento.AdicionarItem(item, quantidade);
+            recebimento.AdicionarItem(item, quantidade, lotes?.GetValueOrDefault(item));
         }
         AtualizarStatus();
         return recebimento;

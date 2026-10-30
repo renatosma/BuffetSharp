@@ -64,7 +64,8 @@ internal sealed class ConsultasCompras(FabricaConexao conexoes) : IConsultasComp
 
     public async Task<IReadOnlyList<PedidoCompraItemResumo>> ItensAsync(int pedidoId, CancellationToken ct = default) =>
         await conexoes.ListarAsync<PedidoCompraItemResumo>("""
-            SELECT i.Id, pr.Nome AS Produto, i.Quantidade, i.QuantidadeRecebida, COALESCE(ue.Sigla, u.Sigla) AS Unidade, i.CustoUnitario
+            SELECT i.Id, pr.Nome AS Produto, i.Quantidade, i.QuantidadeRecebida, COALESCE(ue.Sigla, u.Sigla) AS Unidade, i.CustoUnitario,
+                   pr.ControlaValidade
               FROM PedidoCompraItens i
               JOIN Produtos pr ON pr.Id = i.ProdutoId
               JOIN UnidadesMedida u ON u.Id = pr.UnidadeMedidaId

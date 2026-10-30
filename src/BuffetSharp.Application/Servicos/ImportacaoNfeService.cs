@@ -94,7 +94,7 @@ public sealed class ImportacaoNfeService(IBuffetDbContextFactory fabrica, ISessa
                 ? produto.Embalagens.FirstOrDefault(e => e.Id == escolha.ProdutoEmbalagemId)
                   ?? throw new RegraNegocioException($"A unidade escolhida não é de '{produto.Nome}'.")
                 : null;
-            return (Item: item, Produto: produto, Embalagem: embalagem);
+            return (Item: item, Produto: produto, Embalagem: embalagem, Escolha: escolha);
         }).ToList();
         Validador.Garantir(itens.All(i => i.Item.Quantidade > 0), "A nota tem item sem quantidade.");
 
@@ -117,8 +117,21 @@ public sealed class ImportacaoNfeService(IBuffetDbContextFactory fabrica, ISessa
         pedido.Alterar(fornecedor.Id, nota.DataEmissao, null, input.Categoria, $"Compra sem pedido: {nota.Descricao} importada do XML.");
         pedido.DefinirItens(itens.Select(i => (i.Produto, i.Embalagem, i.Item.Quantidade, i.Item.CustoUnitario)));
         pedido.DefinirPagamento(null, input.FormaPagamentoId);
+        // Lote e validade: os informados na importação ou, sem eles, os do grupo "rastro" da NF-e (convertidos para o estoque).
+        var lotes = new Dictionary<PedidoCompraItem, IReadOnlyList<LoteInformado>>();
+        foreach (var (doPedido, i) in pedido.Itens.Zip(itens))
+        {
+            var fator = i.Embalagem?.Fator ?? 1;
+            IReadOnlyList<LoteInformado>? doItem = i.Escolha.Validade is { } validade
+                ? [new LoteInformado(i.Escolha.Lote, validade)]
+                : i.Item.Lotes.Count > 0 ? i.Item.Lotes.Select(r => new LoteInformado(r.Numero, r.Validade, r.Quantidade * fator)).ToList() : null;
+            Validador.Garantir(!i.Produto.ControlaValidade || doItem is not null,
+                $"'{i.Produto.Nome}' controla validade: informe a validade do item {i.Item.Numero} da nota.");
+            if (doItem is not null)
+                lotes[doPedido] = doItem;
+        }
         var recebimento = pedido.Receber(input.DataRecebimento, pedido.Itens.ToDictionary(i => i, i => i.Quantidade), input.Observacoes,
-            sessao.Usuario?.Login, Agora);
+            sessao.Usuario?.Login, Agora, lotes);
         var quando = input.DataRecebimento == Hoje ? Agora : input.DataRecebimento.ToDateTime(new TimeOnly(12, 0));
         db.PedidosCompra.Add(pedido);
         db.RecebimentosCompra.Add(recebimento);
@@ -143,7 +156,7 @@ public sealed class ImportacaoNfeService(IBuffetDbContextFactory fabrica, ISessa
         var existentes = await db.CodigosProdutoFornecedor
             .Where(v => v.FornecedorId == fornecedor.Id && codigos.Contains(v.Codigo))
             .ToDictionaryAsync(v => v.Codigo, ct);
-        foreach (var (item, produto, embalagem) in itens.Where(i => !string.IsNullOrWhiteSpace(i.Item.Codigo)).DistinctBy(i => i.Item.Codigo))
+        foreach (var (item, produto, embalagem, _) in itens.Where(i => !string.IsNullOrWhiteSpace(i.Item.Codigo)).DistinctBy(i => i.Item.Codigo))
         {
             if (existentes.TryGetValue(item.Codigo, out var vinculo))
                 vinculo.Vincular(item.Descricao, produto.Id, embalagem?.Id);

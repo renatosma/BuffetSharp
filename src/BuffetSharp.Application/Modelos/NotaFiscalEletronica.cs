@@ -56,12 +56,18 @@ public sealed record EmitenteNfe
 /// <param name="Unidade">Unidade comercial (uCom), ex.: CX, UN, KG.</param>
 /// <param name="ValorTotal">Valor bruto do item (vProd).</param>
 /// <param name="Desconto">Desconto do item (vDesc).</param>
+/// <param name="Rastros">Lotes informados pelo fornecedor (grupo "rastro": número, quantidade e validade).</param>
 public sealed record ItemNfe(int Numero, string Codigo, string Descricao, string Unidade, decimal Quantidade, decimal ValorUnitario,
-    decimal ValorTotal, decimal Desconto)
+    decimal ValorTotal, decimal Desconto, IReadOnlyList<RastroNfe>? Rastros = null)
 {
+    public IReadOnlyList<RastroNfe> Lotes => Rastros ?? [];
+
     /// <summary>Custo de uma unidade da nota, já com o desconto do item (o frete fica no total da nota).</summary>
     public decimal CustoUnitario => Quantidade == 0 ? ValorUnitario : Math.Round((ValorTotal - Desconto) / Quantidade, 4);
 }
+
+/// <summary>Lote do item da NF-e (quantidade na unidade comercial da nota).</summary>
+public sealed record RastroNfe(string? Numero, decimal Quantidade, DateOnly Validade, DateOnly? Fabricacao);
 
 public sealed record DuplicataNfe(string? Numero, DateOnly Vencimento, decimal Valor);
 
@@ -170,4 +176,5 @@ public sealed class NotaSemPedidoInput
 
 /// <param name="ProdutoId">Produto do sistema; nulo = o item não entra no estoque (só no valor da nota).</param>
 /// <param name="ProdutoEmbalagemId">Unidade em que o item vem (0 = unidade do estoque).</param>
-public sealed record ItemSemPedidoInput(int Numero, int? ProdutoId, int ProdutoEmbalagemId);
+/// <param name="Validade">Validade informada na importação; nula = a do XML (grupo rastro), quando houver.</param>
+public sealed record ItemSemPedidoInput(int Numero, int? ProdutoId, int ProdutoEmbalagemId, string? Lote = null, DateOnly? Validade = null);

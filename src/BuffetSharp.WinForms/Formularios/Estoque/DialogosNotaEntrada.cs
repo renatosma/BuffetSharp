@@ -365,6 +365,11 @@ internal static class DialogosNotaEntrada
         public int EmbalagemId { get; set; }
         public OrigemVinculo Origem { get; set; }
 
+        /// <summary>Lote e validade (dd/mm/aaaa): vêm do XML (grupo rastro) e podem ser corrigidos; vários lotes ficam com os do XML.</summary>
+        public string? Lote { get; set; }
+
+        public string? Validade { get; set; }
+
         public event PropertyChangedEventHandler? PropertyChanged;
         public void Atualizar() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(string.Empty));
     }
@@ -381,7 +386,9 @@ internal static class DialogosNotaEntrada
         produtos.AddRange(await compras.ProdutosAsync(analise.FornecedorId ?? 0));
         var linhas = new BindingList<LinhaItemNfe>(analise.Itens.Select(i => new LinhaItemNfe
         {
-            Item = i.Item, ProdutoId = i.ProdutoId ?? 0, EmbalagemId = i.ProdutoEmbalagemId, Origem = i.Origem
+            Item = i.Item, ProdutoId = i.ProdutoId ?? 0, EmbalagemId = i.ProdutoEmbalagemId, Origem = i.Origem,
+            Lote = i.Item.Lotes.Count switch { 0 => null, 1 => i.Item.Lotes[0].Numero, var n => $"({n} lotes do XML)" },
+            Validade = i.Item.Lotes.Count == 1 ? i.Item.Lotes[0].Validade.ToString("dd/MM/yyyy") : null
         }).ToList());
         var input = new NotaSemPedidoInput
         {
@@ -442,7 +449,9 @@ internal static class DialogosNotaEntrada
             Coluna("Un.", nameof(LinhaItemNfe.Unidade), 6),
             Coluna("Custo unit.", nameof(LinhaItemNfe.Custo), 11, "N4"),
             Coluna("Total", nameof(LinhaItemNfe.Total), 11, "N2"),
-            colunaProduto, colunaUnidade, colunaEstoque, colunaSituacao);
+            colunaProduto, colunaUnidade, colunaEstoque, colunaSituacao,
+            new DataGridViewTextBoxColumn { HeaderText = "Lote", DataPropertyName = nameof(LinhaItemNfe.Lote), FillWeight = 10 },
+            new DataGridViewTextBoxColumn { HeaderText = "Validade", DataPropertyName = nameof(LinhaItemNfe.Validade), FillWeight = 10, MaxInputLength = 10 });
         grade.DataSource = linhas;
         grade.DataError += (_, ev) => ev.ThrowException = false;
 
@@ -543,7 +552,15 @@ internal static class DialogosNotaEntrada
             var semProduto = linhas.Where(l => l.ProdutoId == 0).Select(l => $"{l.Item.Numero} ({l.Descricao})").ToList();
             Validador.Garantir(semProduto.Count == 0,
                 $"Escolha o produto (ou \"não entra no estoque\") dos itens {string.Join(", ", semProduto.Take(5))}{(semProduto.Count > 5 ? "..." : "")}.");
-            input.Itens = linhas.Select(l => new ItemSemPedidoInput(l.Item.Numero, l.ProdutoId > 0 ? l.ProdutoId : null, l.EmbalagemId)).ToList();
+            input.Itens = linhas.Select(l =>
+            {
+                var perecivel = produtos.FirstOrDefault(p => p.Id == l.ProdutoId)?.ControlaValidade == true;
+                var doXml = l.Item.Lotes.Count > 1 && l.Lote?.StartsWith('(') == true;
+                DateOnly? validade = string.IsNullOrWhiteSpace(l.Validade) || doXml ? null : DialogosPedidoCompra.Validade(l.Descricao, l.Validade);
+                Validador.Garantir(!perecivel || validade is not null || l.Item.Lotes.Count > 0,
+                    $"O item {l.Item.Numero} ({l.Descricao}) é de um produto que controla validade: informe a validade (dd/mm/aaaa).");
+                return new ItemSemPedidoInput(l.Item.Numero, l.ProdutoId > 0 ? l.ProdutoId : null, l.EmbalagemId, doXml ? null : l.Lote, validade);
+            }).ToList();
             input.Vencimentos = vencimentos.Select(v => v.ParaInput()).ToList();
         });
 

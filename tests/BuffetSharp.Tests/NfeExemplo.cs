@@ -6,7 +6,8 @@ namespace BuffetSharp.Tests;
 /// <summary>Monta o XML de uma NF-e autorizada (nfeProc), no leiaute da SEFAZ, para os testes de importação.</summary>
 internal static class NfeExemplo
 {
-    public sealed record Item(string Codigo, string Descricao, string Unidade, decimal Quantidade, decimal ValorUnitario, decimal Desconto = 0);
+    public sealed record Item(string Codigo, string Descricao, string Unidade, decimal Quantidade, decimal ValorUnitario, decimal Desconto = 0,
+        IReadOnlyList<(string Lote, decimal Quantidade, DateOnly Validade)>? Rastros = null);
 
     public static string Xml(string numero, string cnpjEmitente, string nomeEmitente, IReadOnlyList<Item> itens, decimal frete = 0,
         IReadOnlyList<(DateOnly Vencimento, decimal Valor)>? duplicatas = null, DateOnly? emissao = null, string? chave = null, string serie = "1")
@@ -21,7 +22,8 @@ internal static class NfeExemplo
             <det nItem="{n + 1}"><prod><cProd>{i.Codigo}</cProd><cEAN>SEM GTIN</cEAN><xProd>{SecurityElement.Escape(i.Descricao)}</xProd>
             <NCM>10063021</NCM><CFOP>5102</CFOP><uCom>{i.Unidade}</uCom><qCom>{i.Quantidade.ToString("0.0000", CultureInfo.InvariantCulture)}</qCom>
             <vUnCom>{V(i.ValorUnitario)}</vUnCom><vProd>{V(Math.Round(i.Quantidade * i.ValorUnitario, 2))}</vProd>
-            {(i.Desconto > 0 ? $"<vDesc>{V(i.Desconto)}</vDesc>" : "")}<indTot>1</indTot></prod>
+            {(i.Desconto > 0 ? $"<vDesc>{V(i.Desconto)}</vDesc>" : "")}<indTot>1</indTot>{string.Concat((i.Rastros ?? []).Select(r =>
+                $"<rastro><nLote>{r.Lote}</nLote><qLote>{r.Quantidade.ToString("0.000", CultureInfo.InvariantCulture)}</qLote><dFab>{r.Validade.AddMonths(-1):yyyy-MM-dd}</dFab><dVal>{r.Validade:yyyy-MM-dd}</dVal></rastro>"))}</prod>
             <imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS></imposto></det>
             """));
         var cobr = duplicatas is { Count: > 0 }

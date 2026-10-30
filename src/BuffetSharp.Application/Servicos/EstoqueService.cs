@@ -10,8 +10,8 @@ namespace BuffetSharp.Application.Servicos;
 public sealed class EstoqueService(IBuffetDbContextFactory fabrica, TimeProvider relogio)
 {
     public Task<MovimentacaoEstoque> RegistrarEntradaAsync(int produtoId, decimal quantidade, decimal custoUnitario,
-        string? observacao, CancellationToken ct = default) =>
-        MovimentarAsync(produtoId, (p, agora) => p.RegistrarEntrada(quantidade, custoUnitario, agora, observacao), ct);
+        string? observacao, IReadOnlyList<LoteInformado>? lotes = null, CancellationToken ct = default) =>
+        MovimentarAsync(produtoId, (p, agora) => p.RegistrarEntrada(quantidade, custoUnitario, agora, observacao, lotes), ct);
 
     /// <summary>
     /// Entrada de uma compra: converte a embalagem do fornecedor para a unidade do estoque e, se pedido, lança o valor em
@@ -28,7 +28,7 @@ public sealed class EstoqueService(IBuffetDbContextFactory fabrica, TimeProvider
             : null;
 
         var movimentacao = produto.RegistrarCompra(input.Quantidade, input.CustoUnitario, relogio.GetLocalNow().DateTime,
-            input.Observacao, input.FornecedorId, embalagem);
+            input.Observacao, input.FornecedorId, embalagem, input.LotesInformados);
         db.MovimentacoesEstoque.Add(movimentacao);
         if (input.GerarContaPagar)
             LancarContaPagar(db, input, produto, embalagem, movimentacao);
@@ -77,6 +77,7 @@ public sealed class EstoqueService(IBuffetDbContextFactory fabrica, TimeProvider
         await using var db = fabrica.Criar();
         var entrada = await db.MovimentacoesEstoque
                           .Include(m => m.Produto)
+                          .Include(m => m.Lotes).ThenInclude(l => l.Lote)
                           .Include(m => m.ContaPagar)
                           .Include(m => m.ParcelamentoPagar!).ThenInclude(p => p.Parcelas)
                           .FirstOrDefaultAsync(m => m.Id == movimentacaoId, ct)
@@ -119,11 +120,23 @@ public sealed class EstoqueService(IBuffetDbContextFactory fabrica, TimeProvider
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Descarte de produto vencido ou estragado: baixa como perda, pelo custo. Nos produtos que controlam validade, informe o
+    /// lote (sem ele, sai do saldo sem lote).
+    /// </summary>
+    public Task<MovimentacaoEstoque> DescartarAsync(int produtoId, int? loteId, decimal quantidade, string motivo, CancellationToken ct = default) =>
+        MovimentarAsync(produtoId, (p, agora) => p.Descartar(loteId is { } id
+            ? p.Lotes.FirstOrDefault(l => l.Id == id) ?? throw new RegraNegocioException("Lote não encontrado (ou já sem saldo).")
+            : null, quantidade, agora, motivo), ct);
+
+    /// <summary>Produto com os lotes que ainda têm saldo: as saídas, ajustes e descartes consomem deles.</summary>
+    public static IQueryable<Produto> ComLotes(IQueryable<Produto> produtos) => produtos.Include(p => p.Lotes.Where(l => l.Saldo > 0));
+
     private async Task<MovimentacaoEstoque> MovimentarAsync(int produtoId,
         Func<Produto, DateTime, MovimentacaoEstoque> operacao, CancellationToken ct)
     {
         await using var db = fabrica.Criar();
-        var produto = await db.Produtos.FirstOrDefaultAsync(p => p.Id == produtoId, ct)
+        var produto = await ComLotes(db.Produtos).FirstOrDefaultAsync(p => p.Id == produtoId, ct)
                       ?? throw new RegraNegocioException("Produto não encontrado.");
 
         var movimentacao = operacao(produto, relogio.GetLocalNow().DateTime);

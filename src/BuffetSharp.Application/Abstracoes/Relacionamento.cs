@@ -17,6 +17,9 @@ public sealed class LembretesOptions
     /// <summary>Dias depois do evento realizado para mandar a pesquisa de satisfação.</summary>
     public int DiasPesquisaSatisfacao { get; set; } = 1;
 
+    /// <summary>Avisar dos lotes que vencem nos próximos N dias (e dos vencidos que ainda estão no estoque).</summary>
+    public int DiasValidade { get; set; } = 7;
+
     /// <summary>
     /// Envia sozinho, depois do login, os e-mails de lembrete ao cliente (parcela a vencer, degustação, aniversário) para
     /// quem tem e-mail. Desligado por padrão: com ele desligado, o envio é feito pela tela de lembretes.

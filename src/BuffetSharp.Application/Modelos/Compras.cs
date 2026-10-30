@@ -51,7 +51,8 @@ public sealed class RecebimentoInput
 }
 
 /// <param name="Quantidade">Na unidade de compra do pedido; zero = não veio.</param>
-public sealed record RecebimentoItemInput(int PedidoCompraItemId, decimal Quantidade);
+/// <param name="Validade">Validade do lote recebido: obrigatória nos produtos que controlam validade.</param>
+public sealed record RecebimentoItemInput(int PedidoCompraItemId, decimal Quantidade, string? Lote = null, DateOnly? Validade = null);
 
 /// <summary>Nota fiscal de entrada: fatura recebimentos de um fornecedor e gera as contas a pagar.</summary>
 public sealed class NotaEntradaInput
@@ -86,8 +87,9 @@ public sealed class VencimentoInput
 }
 
 /// <summary>Produto que pode ser comprado, com as unidades de compra (embalagens) que valem para o fornecedor.</summary>
+/// <param name="ControlaValidade">Perecível: a entrada pede o lote e a validade.</param>
 public sealed record ProdutoCompra(int Id, string Nome, string Unidade, decimal CustoMedio, int? FornecedorPadraoId,
-    IReadOnlyList<UnidadeCompra> Unidades);
+    IReadOnlyList<UnidadeCompra> Unidades, bool ControlaValidade = false);
 
 /// <param name="Id">0 = unidade do estoque.</param>
 /// <param name="Fator">Unidades do estoque em uma unidade de compra.</param>

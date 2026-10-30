@@ -203,6 +203,13 @@ internal static class DialogosPedidoCompra
 
     // =========================== Recebimento ===========================
 
+    /// <summary>Validade digitada na grade (dd/mm/aaaa); obrigatória para os perecíveis que chegaram.</summary>
+    internal static DateOnly Validade(string produto, string? texto) =>
+        DateOnly.TryParseExact(texto?.Trim(), ["dd/MM/yyyy", "d/M/yyyy", "dd/MM/yy", "d/M/yy"], Textos.PtBr, System.Globalization.DateTimeStyles.None,
+            out var data)
+            ? data
+            : throw new Domain.Comum.RegraNegocioException($"Informe a validade de '{produto}' no formato dd/mm/aaaa.");
+
     /// <summary>Item do pedido na grade do recebimento: o que falta chegar e o que chegou agora.</summary>
     private sealed class LinhaRecebimento
     {
@@ -214,6 +221,12 @@ internal static class DialogosPedidoCompra
         public decimal Saldo => Pedido - JaRecebido;
         public decimal Custo { get; init; }
         public decimal Chegou { get; set; }
+
+        /// <summary>Perecível: o lote (opcional) e a validade (dd/mm/aaaa) do que chegou.</summary>
+        public bool ControlaValidade { get; init; }
+
+        public string? Lote { get; set; }
+        public string? Validade { get; set; }
 
         /// <summary>Caixa "Chegou": marcar traz o que falta; desmarcar zera (o item continua no saldo do pedido).</summary>
         public bool Marcado
@@ -234,7 +247,7 @@ internal static class DialogosPedidoCompra
         var linhas = new BindingList<LinhaRecebimento>(itens.Where(i => i.Saldo > 0).Select(i => new LinhaRecebimento
         {
             ItemId = i.Id, Produto = i.Produto, Unidade = i.Unidade, Pedido = i.Quantidade, JaRecebido = i.QuantidadeRecebida,
-            Custo = i.CustoUnitario, Chegou = i.Saldo
+            Custo = i.CustoUnitario, Chegou = i.Saldo, ControlaValidade = i.ControlaValidade
         }).ToList());
         var input = new RecebimentoInput { PedidoId = pedido.Id, Data = hoje };
 
@@ -265,6 +278,18 @@ internal static class DialogosPedidoCompra
             Numero("Qtd. que chegou", nameof(LinhaRecebimento.Chegou), 20, somenteLeitura: false));
         grade.Columns[^1].DefaultCellStyle.BackColor = Tema.Fundo;
         grade.Columns[^1].DefaultCellStyle.Font = Tema.FonteNegrito;
+        if (linhas.Any(l => l.ControlaValidade))
+        {
+            // Perecíveis: o lote e a validade de cada item que chegou (os demais ficam em branco).
+            grade.Columns.AddRange(
+                new DataGridViewTextBoxColumn { HeaderText = "Lote", DataPropertyName = nameof(LinhaRecebimento.Lote), FillWeight = 14, MaxInputLength = LoteEstoque.TamanhoNumero },
+                new DataGridViewTextBoxColumn { HeaderText = "Validade", DataPropertyName = nameof(LinhaRecebimento.Validade), FillWeight = 15, MaxInputLength = 10 });
+            grade.CellBeginEdit += (_, ev) =>
+            {
+                if (ev.ColumnIndex >= grade.Columns.Count - 2 && !linhas[ev.RowIndex].ControlaValidade)
+                    ev.Cancel = true;
+            };
+        }
         grade.DataSource = linhas;
         grade.DataError += (_, ev) => ev.ThrowException = false;
         grade.CurrentCellDirtyStateChanged += (_, _) =>
@@ -325,7 +350,8 @@ internal static class DialogosPedidoCompra
         e.AoAplicar(() =>
         {
             grade.EndEdit();
-            input.Itens = linhas.Select(l => new RecebimentoItemInput(l.ItemId, l.Chegou)).ToList();
+            input.Itens = linhas.Select(l => new RecebimentoItemInput(l.ItemId, l.Chegou, l.Lote,
+                l.Chegou > 0 && l.ControlaValidade ? Validade(l.Produto, l.Validade) : null)).ToList();
         });
 
         int? recebido = null;

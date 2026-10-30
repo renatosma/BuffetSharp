@@ -120,6 +120,7 @@ internal sealed class RecebimentoItemConfig : IEntityTypeConfiguration<Recebimen
     public void Configure(EntityTypeBuilder<RecebimentoItem> b)
     {
         b.ToTable("RecebimentoItens");
+        b.Ignore("LotesInformados");
         b.Property(x => x.Quantidade).HasPrecision(18, 3);
         b.Property(x => x.CustoUnitario).HasPrecision(18, 4);
         b.HasOne(x => x.PedidoCompraItem).WithMany().HasForeignKey(x => x.PedidoCompraItemId).OnDelete(DeleteBehavior.Restrict);

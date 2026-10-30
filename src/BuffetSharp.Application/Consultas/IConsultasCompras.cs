@@ -87,6 +87,10 @@ public sealed record PedidoCompraItemResumo
     public decimal QuantidadeRecebida { get; init; }
     public string Unidade { get; init; } = string.Empty;
     public decimal CustoUnitario { get; init; }
+
+    /// <summary>O produto controla validade: o recebimento pede o lote e a validade.</summary>
+    public bool ControlaValidade { get; init; }
+
     public decimal Saldo => Quantidade - QuantidadeRecebida;
     public decimal Total => Math.Round(Quantidade * CustoUnitario, 2);
 }

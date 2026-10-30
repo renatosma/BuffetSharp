@@ -41,6 +41,21 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
     /// <summary>Embalagens de compra com a conversão para a unidade do estoque (por fornecedor).</summary>
     public List<ProdutoEmbalagem> Embalagens { get; set; } = [];
 
+    /// <summary>
+    /// Perecível: cada entrada informa a validade (e o lote), as saídas consomem do que vence primeiro e o vencido não sai para
+    /// eventos.
+    /// </summary>
+    public bool ControlaValidade { get; set; }
+
+    /// <summary>Lotes criados pelas entradas. Saídas, ajustes, descartes e estornos precisam deles carregados.</summary>
+    public List<LoteEstoque> Lotes { get; private set; } = [];
+
+    /// <summary>
+    /// Saldo que não está em lote: o que já havia antes de o produto passar a controlar validade e o que entrou por ajuste de
+    /// inventário. Sai antes dos lotes.
+    /// </summary>
+    public decimal SaldoSemLote => ControlaValidade ? EstoqueAtual - Lotes.Sum(l => l.Saldo) : EstoqueAtual;
+
     public bool AbaixoDoMinimo => EstoqueAtual < EstoqueMinimo;
 
     /// <summary>
@@ -62,17 +77,40 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
 
     IReadOnlyCollection<string> ICamposControlados.CamposControladosPeloSistema => [nameof(EstoqueAtual)];
 
-    public MovimentacaoEstoque RegistrarEntrada(decimal quantidade, decimal custoUnitario, DateTime data, string? observacao)
+    /// <param name="lotes">Lote(s) e validade da entrada; obrigatório nos produtos que controlam validade (ignorado nos demais).</param>
+    public MovimentacaoEstoque RegistrarEntrada(decimal quantidade, decimal custoUnitario, DateTime data, string? observacao,
+        IReadOnlyList<LoteInformado>? lotes = null)
     {
         Validador.Garantir(quantidade > 0, "A quantidade da entrada deve ser maior que zero.");
         Validador.Garantir(custoUnitario >= 0, "O custo unitário não pode ser negativo.");
+        Validador.Garantir(!ControlaValidade || lotes is { Count: > 0 }, $"'{Nome}' controla validade: informe a validade da entrada.");
 
         var saldoValorizado = Math.Max(EstoqueAtual, 0);
         var novoSaldoValorizado = saldoValorizado + quantidade;
         CustoMedio = Math.Round((saldoValorizado * CustoMedio + quantidade * custoUnitario) / novoSaldoValorizado, 4);
         EstoqueAtual += quantidade;
 
-        return new MovimentacaoEstoque(this, TipoMovimentacao.Entrada, quantidade, custoUnitario, data, observacao);
+        var entrada = new MovimentacaoEstoque(this, TipoMovimentacao.Entrada, quantidade, custoUnitario, data, observacao);
+        if (ControlaValidade)
+            CriarLotes(entrada, quantidade, custoUnitario, data, lotes!);
+        return entrada;
+    }
+
+    /// <summary>Um lote por item informado; o último fica com o que sobrar da quantidade da entrada.</summary>
+    private void CriarLotes(MovimentacaoEstoque entrada, decimal quantidade, decimal custoUnitario, DateTime data, IReadOnlyList<LoteInformado> lotes)
+    {
+        var restante = quantidade;
+        for (var i = 0; i < lotes.Count && restante > 0; i++)
+        {
+            var informado = lotes[i];
+            var parte = i == lotes.Count - 1 ? restante : Math.Min(informado.Quantidade ?? restante, restante);
+            if (parte <= 0)
+                continue;
+            var lote = new LoteEstoque(this, informado.Numero, informado.Validade, parte, custoUnitario, data);
+            Lotes.Add(lote);
+            entrada.AdicionarLote(lote, parte);
+            restante -= parte;
+        }
     }
 
     /// <summary>
@@ -81,14 +119,15 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
     /// </summary>
     /// <param name="quantidade">Quantidade na unidade de compra (ou na do estoque, sem embalagem).</param>
     /// <param name="custoUnitario">Custo de uma unidade de compra (ou do estoque, sem embalagem).</param>
+    /// <param name="lotes">Lote(s) e validade, com as quantidades já na unidade do estoque.</param>
     public MovimentacaoEstoque RegistrarCompra(decimal quantidade, decimal custoUnitario, DateTime data, string? observacao,
-        int? fornecedorId, ProdutoEmbalagem? embalagem)
+        int? fornecedorId, ProdutoEmbalagem? embalagem, IReadOnlyList<LoteInformado>? lotes = null)
     {
         Validador.Garantir(quantidade > 0, "A quantidade da entrada deve ser maior que zero.");
         Validador.Garantir(custoUnitario >= 0, "O custo unitário não pode ser negativo.");
         if (embalagem is null)
         {
-            var simples = RegistrarEntrada(quantidade, custoUnitario, data, observacao);
+            var simples = RegistrarEntrada(quantidade, custoUnitario, data, observacao, lotes);
             simples.RegistrarCompra(fornecedorId, null, null, null, null);
             return simples;
         }
@@ -98,7 +137,7 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
             "Esta embalagem é de outro fornecedor. Escolha o fornecedor da compra ou outra embalagem.");
         Validador.Garantir(embalagem.Fator > 0, "A conversão da embalagem é inválida.");
 
-        var movimentacao = RegistrarEntrada(embalagem.ParaEstoque(quantidade), embalagem.CustoNoEstoque(custoUnitario), data, observacao);
+        var movimentacao = RegistrarEntrada(embalagem.ParaEstoque(quantidade), embalagem.CustoNoEstoque(custoUnitario), data, observacao, lotes);
         movimentacao.RegistrarCompra(fornecedorId, embalagem.UnidadeMedida?.Sigla, quantidade, embalagem.Fator, custoUnitario);
         return movimentacao;
     }
@@ -107,11 +146,68 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
         int? eventoId = null, bool permitirSaldoNegativo = false)
     {
         Validador.Garantir(quantidade > 0, "A quantidade da saída deve ser maior que zero.");
-        Validador.Garantir(permitirSaldoNegativo || quantidade <= EstoqueAtual,
-            $"Saldo insuficiente de '{Nome}': disponível {EstoqueAtual:N3}, solicitado {quantidade:N3}.");
+        var hoje = DateOnly.FromDateTime(data);
+        var vencido = ControlaValidade ? Lotes.Where(l => l.Vencido(hoje)).Sum(l => l.Saldo) : 0;
+        Validador.Garantir(permitirSaldoNegativo || quantidade <= EstoqueAtual - vencido,
+            $"Saldo insuficiente de '{Nome}': disponível {EstoqueAtual - vencido:N3}" + (vencido > 0 ? $" (fora {vencido:N3} vencido)" : "") +
+            $", solicitado {quantidade:N3}.");
 
+        var consumo = ConsumirLotes(quantidade, hoje, incluirVencidos: false);
         EstoqueAtual -= quantidade;
-        return new MovimentacaoEstoque(this, TipoMovimentacao.Saida, quantidade, CustoMedio, data, observacao, eventoId);
+        var saida = new MovimentacaoEstoque(this, TipoMovimentacao.Saida, quantidade, CustoMedio, data, observacao, eventoId);
+        foreach (var (lote, parte) in consumo)
+            saida.AdicionarLote(lote, parte);
+        return saida;
+    }
+
+    /// <summary>
+    /// De onde sai a quantidade nos produtos que controlam validade: primeiro o saldo sem lote, depois os lotes do que vence
+    /// primeiro para o que vence depois (os vencidos só quando <paramref name="incluirVencidos"/>, no inventário).
+    /// </summary>
+    private List<(LoteEstoque Lote, decimal Quantidade)> ConsumirLotes(decimal quantidade, DateOnly hoje, bool incluirVencidos)
+    {
+        var consumo = new List<(LoteEstoque, decimal)>();
+        if (!ControlaValidade)
+            return consumo;
+        var restante = quantidade - Math.Max(0, SaldoSemLote);
+        foreach (var lote in Lotes.Where(l => l.Saldo > 0 && (incluirVencidos || !l.Vencido(hoje))).OrderBy(l => l.Validade).ThenBy(l => l.EntradaEm))
+        {
+            if (restante <= 0)
+                break;
+            var parte = Math.Min(lote.Saldo, restante);
+            lote.Saldo -= parte;
+            consumo.Add((lote, parte));
+            restante -= parte;
+        }
+        return consumo;
+    }
+
+    /// <summary>
+    /// Descarte de produto vencido ou estragado: sai do estoque como perda, pelo custo do lote (ou pelo custo médio, sem lote).
+    /// Nos produtos que controlam validade, o lote é informado (sem ele, sai do saldo sem lote).
+    /// </summary>
+    public MovimentacaoEstoque Descartar(LoteEstoque? lote, decimal quantidade, DateTime data, string motivo)
+    {
+        Validador.Garantir(quantidade > 0, "Informe a quantidade descartada.");
+        Validador.Garantir(!string.IsNullOrWhiteSpace(motivo), "Informe o motivo do descarte.");
+        if (lote is not null)
+        {
+            Validador.Garantir(Lotes.Contains(lote), "O lote não é deste produto.");
+            Validador.Garantir(quantidade <= lote.Saldo, $"O {lote.Descricao.ToLowerInvariant()} tem {lote.Saldo:N3} em estoque.");
+        }
+        else
+            Validador.Garantir(quantidade <= Math.Max(0, SaldoSemLote),
+                ControlaValidade ? $"Escolha o lote: o saldo sem lote de '{Nome}' é {Math.Max(0, SaldoSemLote):N3}."
+                    : $"Saldo insuficiente de '{Nome}': disponível {EstoqueAtual:N3}.");
+
+        if (lote is not null)
+            lote.Saldo -= quantidade;
+        EstoqueAtual -= quantidade;
+        var texto = $"Perda: {motivo.Trim()}" + (lote is null ? "" : $" ({lote.Descricao})");
+        var perda = new MovimentacaoEstoque(this, TipoMovimentacao.Perda, quantidade, lote?.CustoUnitario ?? CustoMedio, data, texto[..Math.Min(texto.Length, 300)]);
+        if (lote is not null)
+            perda.AdicionarLote(lote, quantidade);
+        return perda;
     }
 
     /// <summary>
@@ -130,6 +226,11 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
         Validador.Garantir(entrada.Quantidade <= EstoqueAtual,
             $"O saldo de '{Nome}' ({EstoqueAtual:N3}) é menor que a entrada ({entrada.Quantidade:N3}): o produto já foi usado. " +
             "Corrija o saldo pelo inventário em vez de estornar.");
+        foreach (var item in entrada.Lotes)
+            Validador.Garantir(item.Lote!.Saldo >= item.Quantidade,
+                $"O {item.Lote.Descricao.ToLowerInvariant()} de '{Nome}' já foi usado. Corrija o saldo pelo inventário em vez de estornar.");
+        foreach (var item in entrada.Lotes)
+            item.Lote!.Saldo -= item.Quantidade;
 
         // Custo médio sem a entrada: valor em estoque menos o valor dela, dividido pelo saldo que sobra.
         var saldo = EstoqueAtual - entrada.Quantidade;
@@ -155,8 +256,14 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
         Validador.Garantir(saldoContado != EstoqueAtual, "O saldo informado é igual ao saldo atual.");
 
         var diferenca = saldoContado - EstoqueAtual;
+
+        // Faltou produto: sai do saldo sem lote e dos lotes, inclusive os vencidos. Sobrou: fica sem lote.
+        var consumo = diferenca < 0 ? ConsumirLotes(-diferenca, DateOnly.FromDateTime(data), incluirVencidos: true) : [];
         EstoqueAtual = saldoContado;
-        return new MovimentacaoEstoque(this, TipoMovimentacao.Ajuste, diferenca, CustoMedio, data, observacao);
+        var ajuste = new MovimentacaoEstoque(this, TipoMovimentacao.Ajuste, diferenca, CustoMedio, data, observacao);
+        foreach (var (lote, parte) in consumo)
+            ajuste.AdicionarLote(lote, parte);
+        return ajuste;
     }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)

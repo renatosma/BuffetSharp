@@ -38,7 +38,10 @@ public enum TipoLembrete
     Detrator,
 
     /// <summary>Cliente deu nota 9 ou 10: pedir a avaliação no Google.</summary>
-    AvaliacaoGoogle
+    AvaliacaoGoogle,
+
+    /// <summary>Lote de produto perecível vencendo nos próximos dias ou já vencido no estoque.</summary>
+    ValidadeLote
 }
 
 public enum CanalLembrete

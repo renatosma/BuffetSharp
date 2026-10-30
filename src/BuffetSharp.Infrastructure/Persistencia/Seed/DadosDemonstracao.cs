@@ -76,6 +76,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await CriarRegrasPrecoAsync(ct);
         await CriarListaEsperaAsync(ct);
         await CriarPesquisasSatisfacaoAsync(ct);
+        await CriarLotesValidadeAsync(ct);
     }
 
     // =====================================================================
@@ -1296,6 +1297,44 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             }
             db.PesquisasSatisfacao.Add(pesquisa);
         }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Validade e lote: os perecíveis passam a controlar validade só no fim (o histórico fica como estava, no saldo sem lote) e
+    /// recebem compras recentes com lotes - alguns vencendo nos próximos dias, um já vencido no estoque e um descartado como perda.
+    /// </summary>
+    private async Task CriarLotesValidadeAsync(CancellationToken ct)
+    {
+        (string Produto, int Validade, int Entrada, decimal Quantidade)[] lotes =
+        [
+            ("Morango", 3, -2, 6),
+            ("Creme de leite", 5, -12, 10),
+            ("Queijo muçarela", -2, -25, 4),
+            ("Filé mignon", 45, -6, 15),
+            ("Picanha", 60, -6, 12),
+            ("Peito de frango", 20, -4, 20),
+            ("Salmão (filé)", 30, -8, 6),
+            ("Camarão limpo", 90, -15, 5),
+            ("Manteiga", 40, -10, 4)
+        ];
+        foreach (var produto in lotes.Select(l => _produtos[l.Produto]).Distinct())
+            produto.ControlaValidade = true;
+
+        foreach (var (nome, validade, entrada, quantidade) in lotes)
+        {
+            var produto = _produtos[nome];
+            db.MovimentacoesEstoque.Add(produto.RegistrarEntrada(quantidade, Math.Round(produto.CustoMedio * 1.03m, 2), Agora.AddDays(entrada).Date.AddHours(10),
+                "Compra de perecíveis", [new LoteInformado($"L{Hoje.AddDays(entrada):yyMMdd}-{produto.Id:D2}", Hoje.AddDays(validade))]));
+        }
+
+        // Morango que passou da validade e foi descartado: alimenta o relatório de perdas.
+        var morango = _produtos["Morango"];
+        db.MovimentacoesEstoque.Add(morango.RegistrarEntrada(4, morango.CustoMedio, Agora.AddDays(-12).Date.AddHours(10), "Compra de perecíveis",
+            [new LoteInformado("L-MORANGO-ANT", Hoje.AddDays(-7))]));
+        var vencido = morango.Lotes.Single(l => l.Numero == "L-MORANGO-ANT");
+        db.MovimentacoesEstoque.Add(morango.Descartar(vencido, 1.5m, Agora.AddDays(-6).Date.AddHours(8), "Produto vencido"));
+        db.MovimentacoesEstoque.Add(morango.Descartar(vencido, vencido.Saldo, Agora.AddDays(-6).Date.AddHours(8), "Estragado na câmara fria"));
         await db.SaveChangesAsync(ct);
     }
 

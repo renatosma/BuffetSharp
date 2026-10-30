@@ -180,6 +180,11 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   ligada à conta: o kardex mostra a situação do pagamento e a conta mostra de qual entrada veio. Uma entrada lançada por
   engano é **estornada** pelo kardex: o saldo e o custo médio voltam e a conta da compra é cancelada (recusado se a conta
   já foi paga ou se o produto já foi usado; nesse caso, corrija pelo inventário).
+- **Validade e lote**: os produtos marcados como perecíveis no cadastro pedem o lote e a validade em toda entrada (entrada
+  manual, recebimento do pedido e NF-e importada, que já traz os lotes do grupo `rastro` do XML). As saídas usam primeiro
+  o que **vence primeiro** e nunca o lote vencido, que é **descartado como perda** pelo custo do lote. A tela
+  **Validades** mostra os lotes com saldo (ok, vencendo, vencido), os **lembretes** avisam o que vence nos próximos dias
+  (`Lembretes:DiasValidade`, 7 por padrão) e a tela **Perdas do estoque** soma os descartes do período.
 - **Contatos e endereços**: clientes, fornecedores e funcionários têm, além do telefone, e-mail e endereço principais,
   quantos telefones, WhatsApps, e-mails e endereços adicionais forem precisos (com observação: "mãe da noiva",
   "financeiro", "cobrança"...). A pesquisa de clientes e fornecedores encontra também os contatos adicionais.
@@ -413,7 +418,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **419 testes** (xUnit v3): 382 de domínio, integração e bancos, e 37 das telas.
+São **436 testes** (xUnit v3): 398 de domínio, integração e bancos, e 38 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

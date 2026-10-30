@@ -45,6 +45,13 @@ internal static class FormMovimentarEstoque
                 var campoQuantidade = editor.Decimal("Quantidade (na unidade de compra)", () => quantidade, v => quantidade = v, casas: 3);
                 var campoCusto = editor.Decimal("Custo por unidade de compra (R$)", () => custo, v => custo = v, casas: 4);
                 var conversao = editor.Informacao("Entra no estoque", () => Conversao(null, quantidade, custo), span: 2);
+                if (produto.ControlaValidade)
+                {
+                    // Perecível: a entrada vira um lote, consumido pela validade (o que vence primeiro sai primeiro).
+                    compra.Validade = DateOnly.FromDateTime(DateTime.Today).AddDays(30);
+                    editor.Texto("Lote (opcional)", () => compra.Lote, v => compra.Lote = v, maximo: LoteEstoque.TamanhoNumero);
+                    editor.Data("Validade", () => compra.Validade, v => compra.Validade = v);
+                }
                 editor.Texto("Observação", () => observacao, v => observacao = v, maximo: 300, span: 2,
                     dica: "Ex.: reposição para os eventos da semana");
 
@@ -152,5 +159,38 @@ internal static class FormMovimentarEstoque
             var fator = embalagemEscolhida?.Fator ?? 1;
             return $"{quantidadeCompra * fator:N3} {unidade} a {(fator == 0 ? 0 : custoCompra / fator):C4} por {unidade}";
         }
+    }
+
+    /// <summary>
+    /// Descarte de produto vencido ou estragado (perda, pelo custo). Nos perecíveis, escolhe-se o lote; os vencidos vêm primeiro.
+    /// </summary>
+    /// <param name="loteId">Lote já escolhido (na tela de validades).</param>
+    public static async Task DescartarAsync(IWin32Window dono, Navegador navegador, int produtoId, int? loteId, Func<Task> recarregar)
+    {
+        var lotes = (await navegador.Servico<ValidadeService>().ListarLotesAsync()).Where(l => l.ProdutoId == produtoId).ToList();
+        var produto = await navegador.Servico<ICadastroService<Produto>>().ObterAsync(produtoId)
+                      ?? throw new Domain.Comum.RegraNegocioException("Produto não encontrado.");
+        var opcoes = lotes.OrderBy(l => l.Situacao == SituacaoLote.Vencido ? 0 : 1).ThenBy(l => l.Validade).Select(l => new ItemLookup
+        {
+            Id = l.Id,
+            Nome = $"{(l.Numero is null ? "Sem número" : l.Numero)} - validade {l.Validade:dd/MM/yyyy}" +
+                   (l.Situacao == SituacaoLote.Vencido ? " (VENCIDO)" : "") + $" - saldo {l.Saldo:N3} {l.Unidade}"
+        }).ToList();
+        int? escolhido = loteId ?? (produto.ControlaValidade ? opcoes.FirstOrDefault()?.Id : null);
+        var quantidade = lotes.FirstOrDefault(l => l.Id == escolhido)?.Saldo ?? 0m;
+        string? motivo = lotes.FirstOrDefault(l => l.Id == escolhido)?.Situacao == SituacaoLote.Vencido ? "Produto vencido" : null;
+
+        var editor = new EditorCampos();
+        editor.Informacao("Produto", () => produto.Nome, span: 2);
+        if (produto.ControlaValidade)
+            editor.Lista("Lote", opcoes, () => escolhido, v => escolhido = v, permitirVazio: true, span: 2);
+        editor.Decimal("Quantidade descartada", () => quantidade, v => quantidade = v, casas: 3);
+        editor.Texto("Motivo", () => motivo, v => motivo = v, maximo: 200, span: 2, dica: "Vencido, estragado, contaminado, quebra...");
+        using var dialogo = new FormEdicao("Descarte (perda)",
+            "Sai do estoque como perda, pelo custo do lote (ou pelo custo médio), e entra no relatório de perdas.", editor,
+            () => navegador.Servico<EstoqueService>().DescartarAsync(produtoId, escolhido is > 0 ? escolhido : null, quantidade, motivo ?? ""), 600);
+        dialogo.TextoSalvar("Descartar");
+        if (dialogo.ShowDialog(dono) == DialogResult.OK)
+            await recarregar();
     }
 }
