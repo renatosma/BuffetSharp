@@ -34,6 +34,8 @@ public sealed record OrcamentoResumo
     public string? Vendedor { get; init; }
     public DateTime? UltimoEnvio { get; init; }
     public CanalEnvio? CanalUltimoEnvio { get; init; }
+    public SituacaoDesconto SituacaoDesconto { get; init; }
+    public decimal PercentualDescontoAutorizado { get; init; }
     public string Codigo => $"ORC-{Id:D5}";
 }
 

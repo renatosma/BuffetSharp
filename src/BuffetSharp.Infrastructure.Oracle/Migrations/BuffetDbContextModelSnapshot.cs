@@ -2192,6 +2192,24 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("DECIDIDOEM");
 
+                    b.Property<DateTime?>("DescontoConcedidoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("DESCONTOCONCEDIDOEM");
+
+                    b.Property<string>("DescontoConcedidoPor")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("DESCONTOCONCEDIDOPOR");
+
+                    b.Property<DateTime?>("DescontoDecididoEm")
+                        .HasColumnType("TIMESTAMP(7)")
+                        .HasColumnName("DESCONTODECIDIDOEM");
+
+                    b.Property<string>("DescontoDecididoPor")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("DESCONTODECIDIDOPOR");
+
                     b.Property<DateTime?>("EnviadoEm")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("ENVIADOEM");
@@ -2224,6 +2242,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("MINIMOCONVIDADOSDATA");
 
+                    b.Property<string>("MotivoDesconto")
+                        .HasMaxLength(300)
+                        .HasColumnType("NVARCHAR2(300)")
+                        .HasColumnName("MOTIVODESCONTO");
+
                     b.Property<string>("MotivoRecusa")
                         .HasMaxLength(500)
                         .HasColumnType("NVARCHAR2(500)")
@@ -2243,6 +2266,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DECIMAL(5,2)")
                         .HasColumnName("PERCENTUALDESCONTO");
 
+                    b.Property<decimal>("PercentualDescontoAutorizado")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("DECIMAL(6,2)")
+                        .HasColumnName("PERCENTUALDESCONTOAUTORIZADO");
+
                     b.Property<decimal>("PercentualMeia")
                         .HasPrecision(18, 2)
                         .HasColumnType("DECIMAL(18,2)")
@@ -2251,6 +2279,17 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("NUMBER(10)")
                         .HasColumnName("QUANTIDADECONVIDADOS");
+
+                    b.Property<string>("RespostaDesconto")
+                        .HasMaxLength(300)
+                        .HasColumnType("NVARCHAR2(300)")
+                        .HasColumnName("RESPOSTADESCONTO");
+
+                    b.Property<string>("SituacaoDesconto")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)")
+                        .HasColumnName("SITUACAODESCONTO");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -2275,6 +2314,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("DECIMAL(18,2)")
                         .HasColumnName("VALORPORPESSOA");
+
+                    b.Property<decimal>("ValorTabela")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("VALORTABELA");
 
                     b.Property<decimal>("ValorTotal")
                         .HasPrecision(18, 2)
@@ -2310,6 +2354,9 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
 
                     b.HasIndex("PacoteId")
                         .HasDatabaseName("IX_ORCAMENTOS_PACOTEID");
+
+                    b.HasIndex("SituacaoDesconto")
+                        .HasDatabaseName("IX_ORCAMENTOS_SITUACAODESCONTO");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("IX_ORCAMENTOS_STATUS");
@@ -4948,6 +4995,16 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("DATE")
                         .HasColumnName("DATA");
 
+                    b.Property<string>("DescontoAprovadoPor")
+                        .HasMaxLength(60)
+                        .HasColumnType("NVARCHAR2(60)")
+                        .HasColumnName("DESCONTOAPROVADOPOR");
+
+                    b.Property<string>("MotivoDesconto")
+                        .HasMaxLength(300)
+                        .HasColumnType("NVARCHAR2(300)")
+                        .HasColumnName("MOTIVODESCONTO");
+
                     b.Property<string>("Observacao")
                         .HasMaxLength(500)
                         .HasColumnType("NVARCHAR2(500)")
@@ -6264,9 +6321,24 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("BLOQUEADOATE");
 
+                    b.Property<string>("Celular")
+                        .HasMaxLength(20)
+                        .HasColumnType("NVARCHAR2(20)")
+                        .HasColumnName("CELULAR");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("CRIADOEM");
+
+                    b.Property<decimal?>("DescontoMaximo")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("DECIMAL(5,2)")
+                        .HasColumnName("DESCONTOMAXIMO");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("EMAIL");
 
                     b.Property<string>("Login")
                         .IsRequired()

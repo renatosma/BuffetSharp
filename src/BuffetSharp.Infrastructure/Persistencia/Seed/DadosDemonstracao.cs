@@ -46,6 +46,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
     private List<Cliente> _clientesPj = [];
     private List<Funcionario> _funcionarios = [];
     private List<Usuario> _vendedores = [];
+    private bool _pedidoDescontoNaFila;
     private Dictionary<string, Material> _materiais = [];
     private readonly List<(DateOnly Data, int MaterialId, int Proprias, EventoMaterial Reserva)> _reservas = [];
     private readonly List<(Orcamento Orcamento, Destino Destino, DateOnly Criacao)> _negociacoes = [];
@@ -619,8 +620,25 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         orcamento.DefinirEspaco(p.Espaco);
         orcamento.DefinirServicos(SortearServicos(p));
         orcamento.AplicarDesconto(Escolher([0m, 0m, 3m, 5m, 5m, 8m, 10m]));
+        if (p.Destino == Destino.Rascunho && !_pedidoDescontoNaFila)
+        {
+            orcamento.AplicarDesconto(12m); // pelo menos um pedido de aprovação na fila
+            _pedidoDescontoNaFila = true;
+        }
         var vendedor = _rnd.NextDouble() < 0.6 ? _vendedores[0] : _vendedores[1];
         orcamento.DefinirVendedor(vendedor.Id);
+
+        // Alçada: os preços são os de tabela, então o desconto efetivo é o do campo. Acima dos 5% do comercial, o administrador
+        // aprovou; nos rascunhos, o pedido ainda está na fila.
+        var momentoCriacao = criacao.ToDateTime(new TimeOnly(10, 0));
+        orcamento.DefinirValorTabela(orcamento.Resumo.Subtotal);
+        if (orcamento.ConferirAlcada(new AlcadaDescontoOptions().Comercial, vendedor.Login, momentoCriacao) == ConferenciaAlcada.PrecisaAprovacao)
+        {
+            orcamento.SolicitarAprovacaoDesconto(Escolher(["Cliente fechando com a concorrência", "Cliente antigo, já fez outros eventos",
+                "Data de baixa procura", "Indicação de cliente"]), vendedor.Login, momentoCriacao);
+            if (p.Destino != Destino.Rascunho)
+                orcamento.AprovarDesconto("admin", 100, null, momentoCriacao.AddHours(2));
+        }
         db.Orcamentos.Add(orcamento);
         _negociacoes.Add((orcamento, p.Destino, criacao));
 
@@ -924,6 +942,10 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             db.Usuarios.Add(vitor);
         }
         vitor.DefinirComissao(2.5m);
+        // Contatos para os avisos do sistema (pedido e resposta da aprovação de desconto).
+        var admin = await db.Usuarios.FirstAsync(u => u.Login == "admin", ct);
+        admin.DefinirContato("gerencia@buffetsharp.exemplo.com.br", null);
+        carla.DefinirContato("carla@buffetsharp.exemplo.com.br", null);
         await db.SaveChangesAsync(ct);
         _vendedores = [carla, vitor];
     }

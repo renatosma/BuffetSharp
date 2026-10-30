@@ -32,6 +32,7 @@ public sealed class LembreteService(
     EsperaService esperas,
     PesquisaService pesquisas,
     ValidadeService validades,
+    DescontoService descontos,
     ISessaoUsuario sessao,
     TimeProvider relogio,
     ILogger<LembreteService> log)
@@ -50,6 +51,7 @@ public sealed class LembreteService(
         TipoLembrete.OrcamentoVencendo or TipoLembrete.Degustacao or TipoLembrete.Aniversario or TipoLembrete.RetornoLead
             or TipoLembrete.EsperaData or TipoLembrete.PesquisaSatisfacao or TipoLembrete.AvaliacaoGoogle => [PerfilUsuario.Comercial],
         TipoLembrete.Detrator => [PerfilUsuario.Administrador],
+        TipoLembrete.AprovacaoDesconto => [PerfilUsuario.Comercial, PerfilUsuario.Financeiro, PerfilUsuario.Operacional],
         TipoLembrete.ParcelaAVencer or TipoLembrete.ParcelaVencida or TipoLembrete.ContaPagarAVencer => [PerfilUsuario.Financeiro],
         _ => [PerfilUsuario.Operacional]
     };
@@ -71,6 +73,7 @@ public sealed class LembreteService(
         lembretes.AddRange(await esperas.LembretesAsync(ct));
         lembretes.AddRange(await pesquisas.LembretesAsync(ct));
         lembretes.AddRange(await validades.LembretesAsync(ct));
+        lembretes.AddRange(await descontos.LembretesAsync(ct)); // só os que o usuário logado pode aprovar
         if (lembretes.Count == 0)
             return [];
 

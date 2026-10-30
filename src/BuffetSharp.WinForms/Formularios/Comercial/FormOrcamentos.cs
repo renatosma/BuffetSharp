@@ -73,6 +73,8 @@ internal sealed class FormOrcamentos : FormListagem<OrcamentoResumo>
             .Texto("Evento", o => o.EventoId is { } id ? $"EVT-{id:D5}" : "", 21)
             .Texto("Vendedor", o => o.Vendedor?.Split(' ')[0], 17)
             .Texto("Último envio", o => o.UltimoEnvio is { } envio ? $"{Textos.Exibir(o.CanalUltimoEnvio!.Value)} {envio:dd/MM}" : "", 27)
+            .Texto("Desconto", o => o.SituacaoDesconto == SituacaoDesconto.DentroDaAlcada ? ""
+                : $"{o.PercentualDescontoAutorizado:0.##}% {Textos.Exibir(o.SituacaoDesconto).ToLowerInvariant()}", 22, o => Textos.Cor(o.SituacaoDesconto))
             .Busca(o => $"{o.Codigo} {o.Cliente} {o.TipoEvento} {o.Pacote} {o.Espaco} {o.Vendedor}");
     }
 

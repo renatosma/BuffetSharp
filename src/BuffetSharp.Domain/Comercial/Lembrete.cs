@@ -41,7 +41,10 @@ public enum TipoLembrete
     AvaliacaoGoogle,
 
     /// <summary>Lote de produto perecível vencendo nos próximos dias ou já vencido no estoque.</summary>
-    ValidadeLote
+    ValidadeLote,
+
+    /// <summary>Desconto acima da alçada do vendedor aguardando quem pode aprovar.</summary>
+    AprovacaoDesconto
 }
 
 public enum CanalLembrete

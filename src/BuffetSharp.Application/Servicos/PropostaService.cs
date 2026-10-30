@@ -33,6 +33,7 @@ public sealed class PropostaService(
     public async Task<EmailInput> PrepararEmailAsync(int orcamentoId, CancellationToken ct = default)
     {
         var o = await CarregarAsync(orcamentoId, ct);
+        o.GarantirDescontoLiberado();
         return new EmailInput
         {
             Para = o.Cliente!.Email ?? ValidacaoContatos.Primeiro(o.Cliente, TipoContato.Email) ?? string.Empty,
@@ -67,6 +68,7 @@ public sealed class PropostaService(
     public async Task<MensagemWhatsApp> PrepararWhatsAppAsync(int orcamentoId, CancellationToken ct = default)
     {
         var o = await CarregarAsync(orcamentoId, ct);
+        o.GarantirDescontoLiberado();
         var resumo = o.Resumo;
         var texto = new StringBuilder()
             .Append($"Olá, {o.Cliente!.Nome.Split(' ')[0]}! Aqui é do *{opcoes.NomeEmpresa}*.\n\n")

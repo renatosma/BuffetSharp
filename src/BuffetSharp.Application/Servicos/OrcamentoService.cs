@@ -1,5 +1,7 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Modelos;
+using BuffetSharp.Domain.Cadastros;
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +13,7 @@ public sealed class OrcamentoService(
     DisponibilidadeService disponibilidade,
     BuffetOptions opcoes,
     ISessaoUsuario sessao,
+    DescontoService descontos,
     TimeProvider relogio)
 {
     private DateTime Agora => relogio.GetLocalNow().DateTime;
@@ -67,6 +70,13 @@ public sealed class OrcamentoService(
             AjustePessoaPercentual = o.AjustePessoaPercentual,
             AjusteLocacaoPercentual = o.AjusteLocacaoPercentual,
             AjusteDescricao = o.AjusteDescricao,
+            ValorTabela = o.ValorTabela,
+            SituacaoDesconto = o.SituacaoDesconto,
+            PercentualDescontoAutorizado = o.PercentualDescontoAutorizado,
+            MotivoDesconto = o.MotivoDesconto,
+            DescontoConcedidoPor = o.DescontoConcedidoPor,
+            DescontoDecididoPor = o.DescontoDecididoPor,
+            RespostaDesconto = o.RespostaDesconto,
             CondicaoPagamentoId = o.CondicaoPagamentoId,
             FormaPagamentoId = o.FormaPagamentoId,
             Observacoes = o.Observacoes,
@@ -82,6 +92,11 @@ public sealed class OrcamentoService(
         };
     }
 
+    /// <summary>
+    /// Grava o orçamento. Um desconto efetivo acima da alçada de quem salva, sem <see cref="OrcamentoInput.PedidoDesconto"/>,
+    /// para com <see cref="AlcadaDescontoException"/> antes de gravar; com o pedido, é aprovado na hora (senha) ou fica
+    /// aguardando, e quem pode aprovar é avisado.
+    /// </summary>
     public async Task<int> SalvarAsync(OrcamentoInput input, CancellationToken ct = default)
     {
         await using var db = fabrica.Criar();
@@ -121,6 +136,9 @@ public sealed class OrcamentoService(
                 s.Quantidade, s.ValorUnitario)));
 
         orcamento.AplicarDesconto(input.PercentualDesconto);
+        orcamento.DefinirValorTabela(ValorTabela(orcamento, ajuste, pacote, espaco,
+            input.Servicos.Sum(s => Math.Round(s.Quantidade * servicos[s.ServicoAdicionalId].Preco, 2))));
+        var avisar = await descontos.ConferirOrcamentoAsync(db, orcamento, input.PedidoDesconto, ct);
 
         if (input.CondicaoPagamentoId != orcamento.CondicaoPagamentoId)
         {
@@ -150,8 +168,19 @@ public sealed class OrcamentoService(
 
         await db.SaveChangesAsync(ct);
         input.Versao = orcamento.Versao;
+        input.PedidoDesconto = null;
+        input.SituacaoDesconto = orcamento.SituacaoDesconto;
+        input.ValorTabela = orcamento.ValorTabela;
+        input.PercentualDescontoAutorizado = orcamento.PercentualDescontoAutorizado;
+        if (avisar)
+            await descontos.AvisarAprovadoresAsync(orcamento.Id, ct);
         return orcamento.Id;
     }
+
+    /// <summary>Quanto o orçamento custaria pela tabela da data, sem desconto: a base do desconto efetivo.</summary>
+    internal static decimal ValorTabela(Orcamento orcamento, AjustePreco ajuste, Pacote? pacote, Espaco? espaco, decimal servicosTabela) =>
+        CalculadoraValores.Calcular(pacote is null ? 0 : ajuste.Pessoa(pacote.PrecoPorPessoa), orcamento.QuantidadesPorFaixa,
+            espaco is null ? 0 : ajuste.Locacao(espaco.ValorLocacao), servicosTabela, 0, pacote?.RegraFaixas).Total;
 
     public Task EnviarAsync(int id, CancellationToken ct = default) =>
         AlterarAsync(id, o => o.Enviar(Agora), ct);
@@ -188,8 +217,13 @@ public sealed class OrcamentoService(
         var original = await db.Orcamentos.AsNoTracking().Include(o => o.Servicos).FirstOrDefaultAsync(o => o.Id == id, ct)
                        ?? throw new RegraNegocioException("Orçamento não encontrado.");
         var copia = original.Duplicar(Hoje, opcoes.DiasValidadeOrcamento);
+        // A cópia não herda a aprovação: acima da alçada de quem duplica, volta a pedir (com o motivo do original).
+        var avisar = await descontos.ConferirOrcamentoAsync(db, copia,
+            new PedidoDesconto { Motivo = original.MotivoDesconto ?? $"Cópia do {original.Codigo}" }, ct);
         db.Orcamentos.Add(copia);
         await db.SaveChangesAsync(ct);
+        if (avisar)
+            await descontos.AvisarAprovadoresAsync(copia.Id, ct);
         return copia.Id;
     }
 

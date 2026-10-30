@@ -17,6 +17,11 @@ internal sealed class OrcamentoConfig : IEntityTypeConfiguration<Orcamento>
         b.Property(x => x.AjusteDescricao).HasMaxLength(Orcamento.TamanhoDescricaoAjuste);
         b.Property(x => x.Observacoes).HasMaxLength(2000);
         b.Property(x => x.MotivoRecusa).HasMaxLength(500);
+        b.Property(x => x.PercentualDescontoAutorizado).HasPrecision(6, 2);
+        b.Property(x => x.MotivoDesconto).HasMaxLength(Orcamento.TamanhoMotivoDesconto);
+        b.Property(x => x.RespostaDesconto).HasMaxLength(Orcamento.TamanhoMotivoDesconto);
+        b.Property(x => x.DescontoConcedidoPor).HasMaxLength(60);
+        b.Property(x => x.DescontoDecididoPor).HasMaxLength(60);
 
         b.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.TipoEvento).WithMany().HasForeignKey(x => x.TipoEventoId).OnDelete(DeleteBehavior.Restrict);
@@ -29,6 +34,7 @@ internal sealed class OrcamentoConfig : IEntityTypeConfiguration<Orcamento>
 
         b.HasIndex(x => x.Status);
         b.HasIndex(x => x.Inicio);
+        b.HasIndex(x => x.SituacaoDesconto);
     }
 }
 

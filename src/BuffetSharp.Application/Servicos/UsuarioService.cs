@@ -70,6 +70,9 @@ public sealed class UsuarioService(IBuffetDbContextFactory fabrica, IHasherSenha
                 Perfil = u.Perfil,
                 Ativo = u.Ativo,
                 PercentualComissao = u.PercentualComissao,
+                DescontoMaximo = u.DescontoMaximo,
+                Email = u.Email,
+                Celular = u.Celular,
                 UltimoAcessoEm = u.UltimoAcessoEm,
                 BloqueadoAte = u.BloqueadoAte
             }).ToListAsync(ct);
@@ -88,6 +91,8 @@ public sealed class UsuarioService(IBuffetDbContextFactory fabrica, IHasherSenha
             if (!input.Ativo)
                 usuario.Alterar(input.Nome, input.Login, input.Perfil, false);
             usuario.DefinirComissao(input.PercentualComissao);
+            usuario.DefinirDescontoMaximo(input.DescontoMaximo);
+            usuario.DefinirContato(input.Email, input.Celular);
             db.Usuarios.Add(usuario);
         }
         else
@@ -104,6 +109,8 @@ public sealed class UsuarioService(IBuffetDbContextFactory fabrica, IHasherSenha
 
             usuario.Alterar(input.Nome, input.Login, input.Perfil, input.Ativo);
             usuario.DefinirComissao(input.PercentualComissao);
+            usuario.DefinirDescontoMaximo(input.DescontoMaximo);
+            usuario.DefinirContato(input.Email, input.Celular);
             if (!string.IsNullOrEmpty(input.NovaSenha))
             {
                 Usuario.ValidarForcaSenha(input.NovaSenha);

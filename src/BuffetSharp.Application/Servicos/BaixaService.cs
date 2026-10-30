@@ -12,7 +12,7 @@ namespace BuffetSharp.Application.Servicos;
 /// e várias formas no mesmo pagamento (dinheiro no caixa, PIX/transferência/cartão na conta bancária, cartão de
 /// crédito da empresa gerando a fatura). O estorno desfaz tudo o que a baixa gerou.
 /// </summary>
-public sealed class BaixaService(IBuffetDbContextFactory fabrica, TimeProvider relogio, ISessaoUsuario sessao)
+public sealed class BaixaService(IBuffetDbContextFactory fabrica, TimeProvider relogio, ISessaoUsuario sessao, DescontoService descontos)
 {
     private DateOnly Hoje => DateOnly.FromDateTime(relogio.GetLocalNow().DateTime);
 
@@ -50,6 +50,8 @@ public sealed class BaixaService(IBuffetDbContextFactory fabrica, TimeProvider r
         }
 
         baixa.Concluir(descricao);
+        if (!input.Automatica)
+            await descontos.ConferirRecebimentoAsync(db, baixa, input.PedidoDesconto, ct);
         db.Baixas.Add(baixa);
         await db.SaveChangesAsync(ct);
         return baixa.Id;

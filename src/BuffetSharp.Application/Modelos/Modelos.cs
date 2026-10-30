@@ -106,7 +106,20 @@ public sealed class OrcamentoInput
     public decimal AjusteLocacaoPercentual { get; set; }
     public string? AjusteDescricao { get; set; }
 
+    /// <summary>
+    /// Desconto acima da alçada de quem salva: o motivo e, para aprovar na hora, o login e a senha de quem pode. Só vale para
+    /// o próximo salvamento (a tela preenche depois de a alçada ser recusada).
+    /// </summary>
+    public PedidoDesconto? PedidoDesconto { get; set; }
+
     // Somente leitura (preenchidos ao carregar)
+    public decimal ValorTabela { get; set; }
+    public SituacaoDesconto SituacaoDesconto { get; set; }
+    public decimal PercentualDescontoAutorizado { get; set; }
+    public string? MotivoDesconto { get; set; }
+    public string? DescontoConcedidoPor { get; set; }
+    public string? DescontoDecididoPor { get; set; }
+    public string? RespostaDesconto { get; set; }
     public string Codigo { get; set; } = "(novo)";
     public StatusOrcamento Status { get; set; } = StatusOrcamento.Rascunho;
     public string? MotivoRecusa { get; set; }
@@ -242,6 +255,12 @@ public sealed class BaixaInput
     public string? Observacao { get; set; }
     public List<BaixaTituloInput> Titulos { get; set; } = [];
     public List<BaixaFormaInput> Formas { get; set; } = [];
+
+    /// <summary>Desconto acima da alçada de quem registra: o motivo e o login e a senha de quem aprova.</summary>
+    public PedidoDesconto? PedidoDesconto { get; set; }
+
+    /// <summary>Baixa feita pelo sistema (ex.: cobrança paga com valor menor): não passa pela alçada de desconto.</summary>
+    internal bool Automatica { get; init; }
 }
 
 public sealed class BaixaTituloInput
@@ -375,6 +394,12 @@ public sealed class UsuarioInput
     public bool Ativo { get; set; } = true;
     public string? NovaSenha { get; set; }
     public decimal PercentualComissao { get; set; }
+
+    /// <summary>Desconto máximo (%) que pode dar sozinho; nulo usa o padrão do perfil.</summary>
+    public decimal? DescontoMaximo { get; set; }
+
+    public string? Email { get; set; }
+    public string? Celular { get; set; }
     public DateTime? UltimoAcessoEm { get; set; }
 
     /// <summary>Somente leitura: login bloqueado por senhas erradas até este horário.</summary>
@@ -533,3 +558,12 @@ public sealed record ReajusteResumo(int Id, string Descricao, decimal Percentual
 
 /// <summary>Resultado do desfazer: os itens alterados à mão depois do reajuste não voltam ao preço anterior.</summary>
 public sealed record ResultadoDesfazerReajuste(int Restaurados, IReadOnlyList<string> Mantidos);
+
+/// <summary>Motivo do desconto acima da alçada e, opcionalmente, quem o aprova na hora (login e senha).</summary>
+public sealed class PedidoDesconto
+{
+    public string? Motivo { get; set; }
+    public string? Login { get; set; }
+    public string? Senha { get; set; }
+    public bool AprovarNaHora => !string.IsNullOrWhiteSpace(Login);
+}

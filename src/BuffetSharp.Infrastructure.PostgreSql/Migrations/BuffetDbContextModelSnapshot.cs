@@ -2197,6 +2197,24 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("decididoem");
 
+                    b.Property<DateTime?>("DescontoConcedidoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("descontoconcedidoem");
+
+                    b.Property<string>("DescontoConcedidoPor")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("descontoconcedidopor");
+
+                    b.Property<DateTime?>("DescontoDecididoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("descontodecididoem");
+
+                    b.Property<string>("DescontoDecididoPor")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("descontodecididopor");
+
                     b.Property<DateTime?>("EnviadoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("enviadoem");
@@ -2229,6 +2247,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("minimoconvidadosdata");
 
+                    b.Property<string>("MotivoDesconto")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("motivodesconto");
+
                     b.Property<string>("MotivoRecusa")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -2248,6 +2271,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("numeric(5,2)")
                         .HasColumnName("percentualdesconto");
 
+                    b.Property<decimal>("PercentualDescontoAutorizado")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)")
+                        .HasColumnName("percentualdescontoautorizado");
+
                     b.Property<decimal>("PercentualMeia")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -2256,6 +2284,17 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("integer")
                         .HasColumnName("quantidadeconvidados");
+
+                    b.Property<string>("RespostaDesconto")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("respostadesconto");
+
+                    b.Property<string>("SituacaoDesconto")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("situacaodesconto");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -2280,6 +2319,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("valorporpessoa");
+
+                    b.Property<decimal>("ValorTabela")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valortabela");
 
                     b.Property<decimal>("ValorTotal")
                         .HasPrecision(18, 2)
@@ -2315,6 +2359,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("PacoteId")
                         .HasDatabaseName("ix_orcamentos_pacoteid");
+
+                    b.HasIndex("SituacaoDesconto")
+                        .HasDatabaseName("ix_orcamentos_situacaodesconto");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_orcamentos_status");
@@ -4955,6 +5002,16 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("date")
                         .HasColumnName("data");
 
+                    b.Property<string>("DescontoAprovadoPor")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("descontoaprovadopor");
+
+                    b.Property<string>("MotivoDesconto")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("motivodesconto");
+
                     b.Property<string>("Observacao")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -6272,9 +6329,24 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("bloqueadoate");
 
+                    b.Property<string>("Celular")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("celular");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("criadoem");
+
+                    b.Property<decimal?>("DescontoMaximo")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("descontomaximo");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("email");
 
                     b.Property<string>("Login")
                         .IsRequired()

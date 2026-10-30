@@ -31,7 +31,11 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly ICadastroService<CondicaoPagamento> _condicoesPagamento;
     private readonly AberturaOrcamento _abertura;
     private readonly TabelaPrecoService _precos;
+    private readonly DescontoService _descontos;
     private readonly Navegador _navegador;
+
+    /// <summary>Desconto máximo (%) que o usuário logado pode dar sem aprovação.</summary>
+    private decimal _limiteDesconto = 100;
 
     /// <summary>Ajuste das regras de preço para a data, o pacote e o espaço, e os valores que ele sugeriu.</summary>
     private AjustePreco _ajuste = AjustePreco.Nenhum;
@@ -68,6 +72,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly Label _total = new() { AutoSize = true, Font = new Font("Segoe UI Semibold", 20f), ForeColor = Tema.Primaria };
     private readonly Label _porPessoa = new() { AutoSize = true, ForeColor = Tema.TextoSuave };
     private readonly Label _alertas = new() { AutoSize = true, ForeColor = Tema.Alerta, MaximumSize = new Size(260, 0) };
+    private readonly Label _alcada = new() { AutoSize = true, MaximumSize = new Size(260, 0), Margin = new Padding(0, 6, 0, 0) };
     private readonly ListBox _composicao = new() { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, IntegralHeight = false };
 
     private NumericUpDown _convidados = null!, _meia = null!, _isentos = null!, _percentualMeia = null!;
@@ -82,9 +87,10 @@ internal sealed class FormOrcamentoEdicao : FormBase
 
     public FormOrcamentoEdicao(OrcamentoService servico, DisponibilidadeService disponibilidade, IConsultasLookup lookups,
         IConsultasEstoqueCardapio cardapio, BuffetOptions opcoes, ICadastroService<CondicaoPagamento> condicoesPagamento,
-        AberturaOrcamento abertura, TabelaPrecoService precos, Navegador navegador)
+        AberturaOrcamento abertura, TabelaPrecoService precos, DescontoService descontos, Navegador navegador)
     {
         _precos = precos;
+        _descontos = descontos;
         _navegador = navegador;
         _entrarEspera.Click += async (_, _) => await ExecutarAsync(EntrarNaEsperaAsync, _entrarEspera, cursorEspera: false);
         _servico = servico;
@@ -155,6 +161,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
         total.Controls.Add(_total);
         total.Controls.Add(_porPessoa);
         total.Controls.Add(_alertas);
+        total.Controls.Add(_alcada);
 
         var composicao = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0) };
         composicao.Controls.Add(_composicao);
@@ -182,6 +189,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
             _condicoes = await _condicoesPagamento.ListarAsync(q => q.Include(c => c.Parcelas).ThenInclude(p => p.FormaPagamento).OrderBy(c => c.Nome));
             _formas = await _lookups.ListarAsync(TipoLookup.FormasPagamento);
             _formasInativas = await _lookups.ListarAsync(TipoLookup.FormasPagamento, somenteAtivos: false);
+            _limiteDesconto = await _descontos.MeuLimiteAsync();
 
             _input = _abertura.OrcamentoId > 0 ? await _servico.ObterAsync(_abertura.OrcamentoId) : _servico.Novo();
             if (_abertura.OrcamentoId == 0)
@@ -502,11 +510,41 @@ internal sealed class FormOrcamentoEdicao : FormBase
         if (_ajuste.MinimoConvidados is { } minimo && faixas.Pagantes < minimo)
             alertas.Add($"⚠ Nesta data o mínimo é de {minimo} convidados pagantes.");
         _alertas.Text = string.Join(Environment.NewLine, alertas);
+        AtualizarAlcada(resumo.Total, faixasValidas ? faixas : faixas.Total);
 
         var condicao = _condicao.SelectedItem is ItemLookup { Id: > 0 } item ? _condicoes.FirstOrDefault(c => c.Id == item.Id) : null;
         _simulacaoPagamento.Text = condicao is null
             ? "Sem condição de pagamento definida (o plano é combinado depois, no evento)."
             : $"{condicao.Texto}: {TextosPagamento.Simulacao(condicao, resumo.Total, DateOnly.FromDateTime(DateTime.Today), DateOnly.FromDateTime(_data.Value))}";
+    }
+
+    /// <summary>
+    /// Desconto efetivo sobre a tabela da data (pacote e espaço com o ajuste, serviços pelo catálogo, meia do pacote), como o
+    /// serviço calcula ao salvar, e se ele passa da alçada do usuário.
+    /// </summary>
+    private void AtualizarAlcada(decimal total, QuantidadesConvidados faixas)
+    {
+        var pacote = _pacote.SelectedItem is ItemLookup { Id: > 0 } p ? p : null;
+        var espaco = _espaco.SelectedItem is ItemLookup { Id: > 0 } s ? s : null;
+        var regraTabela = pacote is not null && _regrasPacotes.TryGetValue(pacote.Id, out var regras)
+            ? new RegraFaixasEtarias(regras.IdadeMaximaIsento, regras.IdadeMaximaMeia, regras.PercentualMeia)
+            : RegraFaixas();
+        var servicos = _servicos.Sum(item => Math.Round(item.Quantidade *
+            (_catalogoServicos.FirstOrDefault(c => c.Id == item.ServicoAdicionalId)?.Valor ?? item.ValorUnitario), 2));
+        var tabela = CalculadoraValores.Calcular(pacote is null ? 0 : _ajuste.Pessoa(pacote.Valor), faixas,
+            espaco is null ? 0 : _ajuste.Locacao(espaco.Valor), servicos, 0, regraTabela).Total;
+        var efetivo = tabela <= 0 || total >= tabela ? 0 : Math.Round((tabela - total) / tabela * 100, 2);
+        if (efetivo == 0)
+        {
+            _alcada.Text = "";
+            return;
+        }
+
+        var autorizado = _input.SituacaoDesconto is SituacaoDesconto.Aprovado && efetivo <= _input.PercentualDescontoAutorizado;
+        _alcada.Text = $"Desconto efetivo sobre a tabela: {efetivo:0.##}% ({Textos.Moeda(tabela - total)} abaixo de {Textos.Moeda(tabela)})" +
+                       (autorizado ? $"{Environment.NewLine}✔ Aprovado por {_input.DescontoDecididoPor}."
+                           : efetivo > _limiteDesconto ? $"{Environment.NewLine}⚠ Passa da sua alçada ({_limiteDesconto:0.##}%): vai precisar de aprovação." : "");
+        _alcada.ForeColor = !autorizado && efetivo > _limiteDesconto ? Tema.Alerta : Tema.TextoSuave;
     }
 
     private async Task AtualizarComposicaoAsync()
@@ -559,8 +597,16 @@ internal sealed class FormOrcamentoEdicao : FormBase
                        + (_input.MotivoRecusa is { } motivo ? $"  ({motivo})" : "")
                        + (_input.Envios.FirstOrDefault() is { } envio
                            ? $"  •  último envio: {Textos.Exibir(envio.Canal)} em {envio.EnviadoEm:dd/MM/yyyy HH:mm} ({envio.Destinatario})"
-                           : "");
-        _status.ForeColor = Textos.Cor(_input.Status);
+                           : "")
+                       + _input.SituacaoDesconto switch
+                       {
+                           SituacaoDesconto.Aguardando => $"  •  DESCONTO DE {_input.PercentualDescontoAutorizado:0.##}% AGUARDANDO APROVAÇÃO",
+                           SituacaoDesconto.Recusado => $"  •  DESCONTO RECUSADO POR {_input.DescontoDecididoPor?.ToUpperInvariant()} ({_input.RespostaDesconto})",
+                           _ => ""
+                       };
+        _status.ForeColor = _input.SituacaoDesconto is SituacaoDesconto.Aguardando or SituacaoDesconto.Recusado
+            ? Textos.Cor(_input.SituacaoDesconto)
+            : Textos.Cor(_input.Status);
 
         var editavel = _input.PodeEditar;
         _editor.DefinirSomenteLeitura(!editavel);
@@ -584,8 +630,13 @@ internal sealed class FormOrcamentoEdicao : FormBase
                     _input.ValorPorPessoa = null; // usa o preço de tabela do pacote
                 if (_input.PacoteId is null)
                     _input.PercentualMeia = null;
-                _input.Id = await _servico.SalvarAsync(_input);
-                if (enviar)
+                _input.Id = await DialogosAlcada.GravarAsync(this, permitePedido: true, p => _input.PedidoDesconto = p,
+                    () => _servico.SalvarAsync(_input));
+                if (_input.SituacaoDesconto == SituacaoDesconto.Aguardando)
+                    Mensagens.Info(this, $"Orçamento salvo. O desconto de {_input.PercentualDescontoAutorizado:0.##}% está aguardando a aprovação de quem " +
+                                         "tem alçada (nos lembretes e em Comercial › Aprovações de desconto)." +
+                                         (enviar ? " A proposta só pode ser enviada depois da aprovação." : ""), "Desconto aguardando aprovação");
+                else if (enviar)
                     await _servico.EnviarAsync(_input.Id);
             }
             catch (ValidacaoException ex) when (_editor.MostrarErros(ex))

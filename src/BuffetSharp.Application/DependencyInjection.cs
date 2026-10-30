@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddTransient<ValidadeService>();
         services.AddTransient<PrecoCompraService>();
         services.AddTransient<DevolucaoService>();
+        services.AddTransient<DescontoService>();
         services.AddTransient<FinanceiroService>();
         services.AddTransient<BaixaService>();
         services.AddTransient<ContaFinanceiraService>();

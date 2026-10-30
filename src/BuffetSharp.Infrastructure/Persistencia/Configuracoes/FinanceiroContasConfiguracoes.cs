@@ -63,6 +63,8 @@ internal sealed class BaixaConfig : IEntityTypeConfiguration<Baixa>
         b.ToTable("Baixas");
         b.Property(x => x.Observacao).HasMaxLength(500);
         b.Property(x => x.Usuario).HasMaxLength(60);
+        b.Property(x => x.DescontoAprovadoPor).HasMaxLength(60);
+        b.Property(x => x.MotivoDesconto).HasMaxLength(Baixa.TamanhoMotivoDesconto);
         b.HasMany(x => x.Titulos).WithOne().HasForeignKey(x => x.BaixaId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(x => x.Formas).WithOne().HasForeignKey(x => x.BaixaId).OnDelete(DeleteBehavior.Cascade);
         b.Navigation(x => x.Titulos).HasField("_titulos");

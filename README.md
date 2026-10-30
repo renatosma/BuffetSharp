@@ -318,6 +318,19 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   No orçamento, o valor por pessoa e a locação sugeridos já vêm com o ajuste da data, que é refeito quando a data, o
   pacote ou o espaço mudam (o valor negociado à mão não é tocado). A proposta impressa mostra as regras da data e o preço
   de tabela. O Calendário de preços (Comercial) mostra o ajuste de cada dia do mês, para um pacote e espaço.
+- **Alçada de desconto**: cada usuário pode dar sozinho um desconto até o seu limite, informado no cadastro de usuários
+  ou, em branco, o do perfil (`Buffet:AlcadaDesconto`: administrador 100%, comercial e financeiro 5%, operacional 0%).
+  O desconto do orçamento é o efetivo sobre a tabela da data: o campo de desconto somado ao preço negociado abaixo da
+  tabela (pacote, locação, meia e serviços), e a tela mostra esse desconto enquanto se edita. Acima do limite, salvar pede
+  o motivo e, se quem tem alçada estiver por perto, o login e a senha dele para aprovar na hora; sem a senha, o orçamento
+  fica aguardando aprovação e não pode ser enviado ao cliente nem aprovado. Quem pode aprovar recebe o pedido por e-mail
+  e WhatsApp (se tiver contato no cadastro), vê nos lembretes e decide em Comercial › Aprovações de desconto; quem pediu é
+  avisado da resposta. O aprovado vale até o percentual aprovado, e subir o desconto pede de novo. Recusado, é preciso
+  baixar o desconto. A cópia de um orçamento não herda a aprovação. No recebimento de parcelas, um desconto acima do
+  limite só passa com a senha de quem pode (e o motivo); as baixas automáticas da cobrança não passam pela alçada.
+  O Relatório de descontos (Comercial) mostra, por vendedor, o desconto médio e o maior, o valor abaixo da tabela, quantos
+  passaram da alçada, aprovados, recusados e aguardando, e quem aprovou, com a lista dos orçamentos e dos recebimentos com
+  desconto.
 - **Conflito de escala da equipe**: o funcionário trabalha da primeira à última etapa do cronograma (montagem e
   desmontagem), ou do início ao fim da festa sem cronograma. Não pode ser escalado em dois eventos cujos períodos se
   sobrepõem contando o deslocamento (o intervalo mínimo entre eventos) nem sem o descanso mínimo entre um trabalho e
@@ -389,7 +402,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 ## Principais regras de negócio
 
 - O orçamento respeita o **mínimo de convidados do pacote** e a **capacidade do espaço**. O desconto
-  é limitado a 30%.
+  é limitado a 30%, e o desconto efetivo acima da alçada de quem vende precisa de aprovação.
 - O mínimo do pacote conta só os **pagantes** (inteira + meia). A capacidade do espaço, os insumos e os materiais
   consideram todas as pessoas, inclusive os isentos. Os serviços cobrados por pessoa acompanham os pagantes. O valor da
   meia é arredondado por criança.
@@ -433,7 +446,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **452 testes** (xUnit v3): 411 de domínio, integração e bancos, e 41 das telas.
+São **465 testes** (xUnit v3): 422 de domínio, integração e bancos, e 43 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

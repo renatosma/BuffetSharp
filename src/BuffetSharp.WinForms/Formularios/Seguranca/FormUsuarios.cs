@@ -1,3 +1,4 @@
+using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.WinForms.Infra;
@@ -7,11 +8,13 @@ namespace BuffetSharp.WinForms.Formularios.Seguranca;
 internal sealed class FormUsuarios : FormListagem<UsuarioInput>
 {
     private readonly UsuarioService _servico;
+    private readonly BuffetOptions _opcoes;
 
-    public FormUsuarios(UsuarioService servico)
+    public FormUsuarios(UsuarioService servico, BuffetOptions opcoes)
         : base("Usuários", "Acesso ao sistema. O perfil define os menus disponíveis (Administrador vê tudo).")
     {
         _servico = servico;
+        _opcoes = opcoes;
         Botao("Novo", Icones.Adicionar, () => EditarAsync(new UsuarioInput()), destaque: true);
         Botao("Editar", Icones.Editar, () => Selecionado() is { } u ? EditarAsync(u) : Task.CompletedTask);
         Botao("Desbloquear", Icones.Cadeado, DesbloquearAsync, "Libera o login bloqueado por senhas erradas");
@@ -20,6 +23,8 @@ internal sealed class FormUsuarios : FormListagem<UsuarioInput>
             .Texto("Login", u => u.Login, 30)
             .Texto("Perfil", u => Textos.Exibir(u.Perfil), 25)
             .Numero("Comissão %", u => u.PercentualComissao, "N2", 15)
+            .Texto("Desconto máx.", u => $"{u.DescontoMaximo ?? opcoes.AlcadaDesconto.Limite(u.Perfil):0.##}%" + (u.DescontoMaximo is null ? " (perfil)" : ""), 18,
+                u => u.DescontoMaximo is null ? Tema.TextoSuave : null)
             .SimNao("Ativo", u => u.Ativo, 15)
             .Data("Último acesso", u => u.UltimoAcessoEm, "dd/MM/yyyy HH:mm", 25)
             .Texto("Bloqueio", u => Bloqueado(u) ? $"até {u.BloqueadoAte:HH:mm}" : "", 18, u => Bloqueado(u) ? Tema.Perigo : null)
@@ -57,7 +62,10 @@ internal sealed class FormUsuarios : FormListagem<UsuarioInput>
             Login = usuario.Login,
             Perfil = usuario.Perfil,
             Ativo = usuario.Ativo,
-            PercentualComissao = usuario.PercentualComissao
+            PercentualComissao = usuario.PercentualComissao,
+            DescontoMaximo = usuario.DescontoMaximo,
+            Email = usuario.Email,
+            Celular = usuario.Celular
         };
 
         var e = new EditorCampos();
@@ -67,6 +75,14 @@ internal sealed class FormUsuarios : FormListagem<UsuarioInput>
         e.Marcador("Ativo", () => input.Ativo, v => input.Ativo = v);
         e.Decimal("Comissão sobre vendas (%)", () => input.PercentualComissao, v => input.PercentualComissao = v, casas: 2,
             maximo: Domain.Seguranca.Usuario.ComissaoMaximaPercentual, span: 2);
+        var padroes = string.Join(", ", Enum.GetValues<Domain.Seguranca.PerfilUsuario>()
+            .Select(perfil => $"{Textos.Exibir(perfil)} {_opcoes.AlcadaDesconto.Limite(perfil):0.##}%"));
+        e.Texto("Desconto máximo sem aprovação (%)", () => input.DescontoMaximo?.ToString("0.##", Textos.PtBr), v => input.DescontoMaximo = v is null ? null
+                : decimal.TryParse(v.Replace("%", "").Trim(), System.Globalization.NumberStyles.Number, Textos.PtBr, out var limite) ? limite
+                : throw new Domain.Comum.RegraNegocioException("Informe o desconto máximo em %, ou deixe em branco para usar o do perfil."),
+            maximo: 6, span: 2, dica: $"Em branco usa o do perfil ({padroes})");
+        e.Texto("E-mail (avisos do sistema)", () => input.Email, v => input.Email = v, maximo: Domain.Seguranca.Usuario.TamanhoEmail);
+        e.Texto("Celular (WhatsApp)", () => input.Celular, v => input.Celular = v, maximo: Domain.Seguranca.Usuario.TamanhoCelular);
         e.Senha(input.Id == 0 ? "Senha" : "Nova senha (deixe em branco para manter)", v => input.NovaSenha = v, span: 2,
             dica: "Mínimo 6 caracteres, com letras e números");
 

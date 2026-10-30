@@ -1,3 +1,5 @@
+using BuffetSharp.Domain.Seguranca;
+
 namespace BuffetSharp.Application.Abstracoes;
 
 /// <summary>
@@ -44,4 +46,27 @@ public sealed class BuffetOptions
     /// (0 desliga o aviso).
     /// </summary>
     public decimal LimiteAltaPrecoCompra { get; set; } = 10;
+
+    /// <summary>
+    /// Desconto máximo (%) que cada perfil pode dar sozinho, no orçamento (desconto efetivo sobre a tabela) e no recebimento;
+    /// o limite do cadastro do usuário, quando informado, vale no lugar deste.
+    /// </summary>
+    public AlcadaDescontoOptions AlcadaDesconto { get; set; } = new();
+}
+
+/// <summary>Desconto máximo (%) de cada perfil, para quem não tem um limite próprio no cadastro de usuários.</summary>
+public sealed class AlcadaDescontoOptions
+{
+    public decimal Administrador { get; set; } = 100;
+    public decimal Comercial { get; set; } = 5;
+    public decimal Financeiro { get; set; } = 5;
+    public decimal Operacional { get; set; }
+
+    public decimal Limite(PerfilUsuario perfil) => perfil switch
+    {
+        PerfilUsuario.Administrador => Administrador,
+        PerfilUsuario.Comercial => Comercial,
+        PerfilUsuario.Financeiro => Financeiro,
+        _ => Operacional
+    };
 }

@@ -312,6 +312,7 @@ public sealed class CobrancaService(IBuffetDbContextFactory fabrica, IProvedorCo
             {
                 await baixas.RegistrarAsync(new BaixaInput
                 {
+                    Automatica = true,
                     Tipo = TipoBaixa.Recebimento,
                     Data = data,
                     Observacao = $"Cobrança {cobranca.IdExterno} paga ({(cobranca.Ambiente == AmbienteCobranca.Simulado ? "simulado" : "Asaas")})",

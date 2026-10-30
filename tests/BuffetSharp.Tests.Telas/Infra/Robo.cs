@@ -28,6 +28,9 @@ internal sealed class Robo : IDisposable
     private readonly Dictionary<Form, DateTime> _dialogosSemTratamento = [];
     private readonly System.Windows.Forms.Timer _vigia = new() { Interval = 25 };
 
+    /// <summary>Interações com diálogos em andamento (mais de uma quando um diálogo abre outro).</summary>
+    private int _interagindo;
+
     private Robo(ServiceProvider servicos)
     {
         Servicos = servicos;
@@ -364,6 +367,9 @@ internal sealed class Robo : IDisposable
 
     private void TratarDialogos()
     {
+        // Durante a interação com um diálogo, só trata o que ela mesma registrou (um diálogo aberto de dentro dele).
+        if (_interagindo > 0 && _dialogosPendentes.Count == 0)
+            return;
         FecharDialogosEsquecidos();
         if (_dialogosPendentes.Count == 0)
             return;
@@ -375,14 +381,14 @@ internal sealed class Robo : IDisposable
 
         _dialogosPendentes.RemoveAt(0);
         _dialogosTratados.Add(dialogo);
-        _vigia.Stop();
+        _interagindo++;
         try
         {
             interagir(dialogo);
         }
         finally
         {
-            _vigia.Start();
+            _interagindo--;
         }
     }
 

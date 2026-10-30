@@ -42,8 +42,28 @@ public class Baixa : Entidade
     /// <summary>Login de quem registrou.</summary>
     public string? Usuario { get; private set; }
 
+    public const int TamanhoMotivoDesconto = 300;
+
+    /// <summary>Login de quem autorizou, com a senha, um desconto no recebimento acima da alçada de quem registrou.</summary>
+    public string? DescontoAprovadoPor { get; private set; }
+
+    public string? MotivoDesconto { get; private set; }
+
     public IReadOnlyCollection<BaixaTitulo> Titulos => _titulos;
     public IReadOnlyCollection<BaixaForma> Formas => _formas;
+
+    /// <summary>Maior desconto (%) dado num título, sobre o valor abatido dele.</summary>
+    public decimal MaiorDescontoPercentual =>
+        _titulos.Where(t => t.Desconto > 0).Select(t => Math.Round(t.Desconto / t.Valor * 100, 2)).DefaultIfEmpty(0).Max();
+
+    /// <summary>Desconto acima da alçada de quem registrou, autorizado por quem tem alçada (com o motivo).</summary>
+    public void AprovarDesconto(string aprovador, string? motivo)
+    {
+        Validador.Garantir(!string.IsNullOrWhiteSpace(motivo), "Informe o motivo do desconto acima da sua alçada.");
+        var texto = motivo!.Trim();
+        DescontoAprovadoPor = aprovador;
+        MotivoDesconto = texto.Length > TamanhoMotivoDesconto ? texto[..TamanhoMotivoDesconto] : texto;
+    }
 
     /// <summary>Valor efetivamente pago: soma dos valores abatidos + juros − descontos.</summary>
     public decimal Total => _titulos.Sum(t => t.ValorEfetivo);

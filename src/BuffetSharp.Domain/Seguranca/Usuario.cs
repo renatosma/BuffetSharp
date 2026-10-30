@@ -56,6 +56,20 @@ public class Usuario : Entidade, ICamposControlados
 
     public const decimal ComissaoMaximaPercentual = 20m;
 
+    /// <summary>
+    /// Desconto máximo (%) que o usuário pode dar sozinho no orçamento e no recebimento; nulo usa o padrão do perfil
+    /// (configuração "Buffet:AlcadaDesconto").
+    /// </summary>
+    public decimal? DescontoMaximo { get; private set; }
+
+    public const int TamanhoEmail = 150;
+    public const int TamanhoCelular = 20;
+
+    /// <summary>Para receber avisos do sistema, como o pedido de aprovação de um desconto.</summary>
+    public string? Email { get; private set; }
+
+    public string? Celular { get; private set; }
+
     public void Alterar(string nome, string login, PerfilUsuario perfil, bool ativo)
     {
         Validador.Garantir(!string.IsNullOrWhiteSpace(nome), "Informe o nome do usuário.");
@@ -108,6 +122,23 @@ public class Usuario : Entidade, ICamposControlados
         Validador.Garantir(percentual is >= 0 and <= ComissaoMaximaPercentual,
             $"A comissão deve estar entre 0% e {ComissaoMaximaPercentual}%.");
         PercentualComissao = percentual;
+    }
+
+    public void DefinirDescontoMaximo(decimal? percentual)
+    {
+        Validador.Garantir(percentual is null or (>= 0 and <= 100), "O desconto máximo deve estar entre 0% e 100%.");
+        DescontoMaximo = percentual;
+    }
+
+    public void DefinirContato(string? email, string? celular)
+    {
+        email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        celular = string.IsNullOrWhiteSpace(celular) ? null : celular.Trim();
+        Validador.Garantir(email is null || (email.Length <= TamanhoEmail && email.Contains('@') && !email.Contains(' ')), "E-mail inválido.");
+        Validador.Garantir(celular is null || (celular.Length <= TamanhoCelular && celular.Count(char.IsDigit) >= 10),
+            "Informe o celular com DDD.");
+        Email = email;
+        Celular = celular;
     }
 
     /// <summary>Somente usuários comerciais (e administradores) podem ser vendedores de orçamentos.</summary>

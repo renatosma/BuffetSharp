@@ -1688,6 +1688,20 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<DateTime?>("DecididoEm")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("DescontoConcedidoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DescontoConcedidoPor")
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)");
+
+                    b.Property<DateTime?>("DescontoDecididoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DescontoDecididoPor")
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)");
+
                     b.Property<DateTime?>("EnviadoEm")
                         .HasColumnType("datetime(6)");
 
@@ -1712,6 +1726,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<int?>("MinimoConvidadosData")
                         .HasColumnType("int");
 
+                    b.Property<string>("MotivoDesconto")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
                     b.Property<string>("MotivoRecusa")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
@@ -1727,12 +1745,25 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<decimal>("PercentualDescontoAutorizado")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
+
                     b.Property<decimal>("PercentualMeia")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("QuantidadeConvidados")
                         .HasColumnType("int");
+
+                    b.Property<string>("RespostaDesconto")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("SituacaoDesconto")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1750,6 +1781,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("ValorPorPessoa")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ValorTabela")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
@@ -1777,6 +1812,8 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.HasIndex("Inicio");
 
                     b.HasIndex("PacoteId");
+
+                    b.HasIndex("SituacaoDesconto");
 
                     b.HasIndex("Status");
 
@@ -3774,6 +3811,14 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<DateTime>("Data")
                         .HasColumnType("date");
 
+                    b.Property<string>("DescontoAprovadoPor")
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)");
+
+                    b.Property<string>("MotivoDesconto")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
                     b.Property<string>("Observacao")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
@@ -4782,8 +4827,20 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<DateTime?>("BloqueadoAte")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("Celular")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<decimal?>("DescontoMaximo")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
 
                     b.Property<string>("Login")
                         .IsRequired()

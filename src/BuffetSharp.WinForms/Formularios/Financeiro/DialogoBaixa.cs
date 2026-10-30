@@ -4,6 +4,7 @@ using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Cadastros;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Financeiro;
+using BuffetSharp.WinForms.Formularios.Comercial;
 using BuffetSharp.WinForms.Infra;
 
 namespace BuffetSharp.WinForms.Formularios.Financeiro;
@@ -204,7 +205,7 @@ internal static class DialogoBaixa
                 var marcadas = gradeTitulos.Itens.Where(t => t.Incluir).ToList();
                 Validador.Garantir(marcadas.Count > 0, recebimento ? "Marque ao menos uma parcela." : "Marque ao menos uma conta.");
                 Validador.Garantir(gradeFormas.Itens.All(f => f.FormaId != 0), "Escolha a forma de pagamento de cada linha.");
-                await baixas.RegistrarAsync(new BaixaInput
+                var input = new BaixaInput
                 {
                     Tipo = tipo,
                     Data = data,
@@ -218,7 +219,9 @@ internal static class DialogoBaixa
                         CartaoCreditoId = UsaCartao(f.FormaId) && f.CartaoId != 0 ? f.CartaoId : null,
                         Parcelas = UsaCartao(f.FormaId) ? Math.Max(1, f.Parcelas) : 1
                     }).ToList()
-                });
+                };
+                // Desconto acima da alçada de quem recebe: só com a senha de quem pode aprovar.
+                await DialogosAlcada.GravarAsync(dono, permitePedido: false, p => input.PedidoDesconto = p, () => baixas.RegistrarAsync(input));
             }, 1080);
         dialogo.AdicionarAcao(Tema.BotaoSecundario("Marcar todas", Icones.Confirmar)).Click += (_, _) =>
         {

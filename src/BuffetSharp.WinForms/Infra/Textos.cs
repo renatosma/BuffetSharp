@@ -142,6 +142,11 @@ internal static class Textos
         TipoLembrete.Detrator => "Cliente insatisfeito",
         TipoLembrete.AvaliacaoGoogle => "Avaliação no Google",
         TipoLembrete.ValidadeLote => "Validade de lote",
+        TipoLembrete.AprovacaoDesconto => "Aprovação de desconto",
+        SituacaoDesconto.DentroDaAlcada => "Dentro da alçada",
+        SituacaoDesconto.Aguardando => "Aguardando",
+        SituacaoDesconto.Aprovado => "Aprovado",
+        SituacaoDesconto.Recusado => "Recusado",
         TipoMovimentacao.Perda => "Perda (descarte)",
         TipoMovimentacao.Devolucao => "Devolução ao fornecedor",
         MotivoDevolucao.Avariado => "Avariado",
@@ -164,6 +169,9 @@ internal static class Textos
 
     public static Color Cor(Enum valor) => valor switch
     {
+        SituacaoDesconto.Aguardando => Tema.Alerta,
+        SituacaoDesconto.Aprovado => Tema.Sucesso,
+        SituacaoDesconto.Recusado => Tema.Perigo,
         StatusOrcamento.Rascunho => Tema.Neutro,
         StatusOrcamento.Enviado => Tema.Info,
         StatusOrcamento.Aprovado => Tema.Sucesso,

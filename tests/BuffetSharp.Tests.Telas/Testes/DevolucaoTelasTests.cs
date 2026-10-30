@@ -27,9 +27,9 @@ public class DevolucaoTelasTests(AmbienteTelas ambiente)
             robo.Dialogo<FormEdicao>(() => robo.Clicar(tela, "Devolver itens"), dialogo =>
             {
                 var itens = Robo.Descendentes(dialogo).OfType<DataGridView>().Single();
-                var batata = itens.Rows.Cast<DataGridViewRow>().Single(r => (string)r.Cells[0].Value == "Batata");
+                var batata = itens.Rows.Cast<DataGridViewRow>().Single(r => (string?)r.Cells[0].Value == "Batata");
                 batata.Cells[5].Value = 3m;
-                valor = Math.Round(3 * (decimal)batata.Cells[4].Value, 2);
+                valor = Math.Round(3 * (decimal)batata.Cells[4].Value!, 2);
                 var destino = Robo.Descendentes(dialogo).OfType<Label>().Single(l => l.Text.StartsWith("Devolução de"));
                 Assert.Contains("ainda não tem nota", destino.Text);
                 robo.Escolher(dialogo, "Motivo", "Qualidade");
