@@ -21,6 +21,7 @@ public class NotaFiscalEntrada : Entidade
     public const int TamanhoChave = 44;
 
     private readonly List<RecebimentoCompra> _recebimentos = [];
+    private readonly List<CreditoUsadoNota> _creditosUsados = [];
 
     private NotaFiscalEntrada()
     {
@@ -73,6 +74,17 @@ public class NotaFiscalEntrada : Entidade
     /// <summary>Chave de acesso da NF-e (44 dígitos), quando a nota foi importada do XML.</summary>
     public string? ChaveAcesso { get; private set; }
 
+    /// <summary>Devoluções ao fornecedor depois de lançada a nota (abatidas das contas ou viradas em crédito).</summary>
+    public decimal ValorDevolvido { get; private set; }
+
+    /// <summary>Crédito de devoluções anteriores do fornecedor usado para pagar parte desta nota.</summary>
+    public decimal CreditoUsado { get; private set; }
+
+    public IReadOnlyCollection<CreditoUsadoNota> CreditosUsados => _creditosUsados;
+
+    /// <summary>O que vai para contas a pagar: o total menos o crédito usado.</summary>
+    public decimal ValorAPagar => ValorTotal - CreditoUsado;
+
     public StatusNotaEntrada Status { get; private set; } = StatusNotaEntrada.Lancada;
     public DateTime? CanceladaEm { get; private set; }
     public string? MotivoCancelamento { get; private set; }
@@ -99,8 +111,55 @@ public class NotaFiscalEntrada : Entidade
     }
 
     /// <summary>
+    /// Usa o crédito de devoluções anteriores do fornecedor (das mais antigas para as mais novas) para pagar parte da nota.
+    /// Chamado antes de lançar as contas, que ficam com o total menos o crédito.
+    /// </summary>
+    public void UsarCredito(IEnumerable<DevolucaoCompra> devolucoes, decimal valor)
+    {
+        Validador.Garantir(ContaPagar is null && ParcelamentoPagar is null && CreditoUsado == 0, "O crédito desta nota já foi definido.");
+        if (valor <= 0)
+            return;
+        var disponiveis = devolucoes.Where(d => d.FornecedorId == FornecedorId && d.CreditoDisponivel > 0).OrderBy(d => d.Data).ThenBy(d => d.Id).ToList();
+        Validador.Garantir(valor <= disponiveis.Sum(d => d.CreditoDisponivel),
+            $"O crédito disponível com o fornecedor é {disponiveis.Sum(d => d.CreditoDisponivel):C}.");
+        Validador.Garantir(valor < ValorTotal, "O crédito usado precisa ser menor que o total da nota.");
+        var restante = valor;
+        foreach (var devolucao in disponiveis)
+        {
+            if (restante <= 0)
+                break;
+            var parte = devolucao.UsarCredito(restante);
+            _creditosUsados.Add(new CreditoUsadoNota(devolucao, parte));
+            restante -= parte;
+        }
+        CreditoUsado = valor;
+    }
+
+    /// <summary>
+    /// Devolução de mercadoria desta nota: abate das contas em aberto, da última para a primeira. Devolve quanto foi abatido
+    /// (o restante, se a nota já foi paga, vira crédito com o fornecedor).
+    /// </summary>
+    /// <param name="recebimento">Código do recebimento devolvido (vai na observação das contas abatidas).</param>
+    internal decimal AbaterDevolucao(decimal valor, string recebimento)
+    {
+        Validador.Garantir(Status == StatusNotaEntrada.Lancada, "A nota do recebimento está cancelada.");
+        var restante = valor;
+        foreach (var conta in Contas().Where(c => c.Status == StatusTitulo.Aberto).OrderByDescending(c => c.Vencimento).ThenByDescending(c => c.Id))
+        {
+            if (restante <= 0)
+                break;
+            var parte = Math.Min(conta.Valor, restante);
+            conta.Abater(parte, $"devolução de itens do {recebimento}");
+            restante -= parte;
+        }
+        ParcelamentoPagar?.AbaterTotal(valor - restante);
+        ValorDevolvido += valor;
+        return valor - restante;
+    }
+
+    /// <summary>
     /// Lança a nota em contas a pagar: um vencimento vira uma conta, vários viram uma compra parcelada. A soma precisa bater
-    /// com o total da nota.
+    /// com o total da nota (menos o crédito usado).
     /// </summary>
     public (ContaPagar? Conta, ParcelamentoPagar? Parcelamento) LancarContas(IReadOnlyList<(DateOnly Vencimento, decimal Valor)> vencimentos,
         string? fornecedor, string? observacao = null, int? formaPagamentoId = null) =>
@@ -117,8 +176,10 @@ public class NotaFiscalEntrada : Entidade
             $"Informe de 1 a {PlanoParcelas.MaximoParcelas} vencimentos.");
         Validador.Garantir(vencimentos.All(v => v.Valor > 0), "Cada vencimento precisa de um valor maior que zero.");
         Validador.Garantir(vencimentos.All(v => v.Vencimento >= DataEmissao), "Nenhum vencimento pode ser antes da emissão da nota.");
-        Validador.Garantir(vencimentos.Sum(v => v.Valor) == ValorTotal,
-            $"A soma dos vencimentos ({vencimentos.Sum(v => v.Valor):C}) deve ser igual ao total da nota ({ValorTotal:C}).");
+        Validador.Garantir(vencimentos.Sum(v => v.Valor) == ValorAPagar,
+            CreditoUsado > 0
+                ? $"A soma dos vencimentos ({vencimentos.Sum(v => v.Valor):C}) deve ser igual ao total da nota menos o crédito usado ({ValorAPagar:C})."
+                : $"A soma dos vencimentos ({vencimentos.Sum(v => v.Valor):C}) deve ser igual ao total da nota ({ValorTotal:C}).");
 
         var descricao = $"Compra {Descricao}" + (string.IsNullOrWhiteSpace(fornecedor) ? "" : $" - {fornecedor}");
         descricao = descricao[..Math.Min(descricao.Length, 120)];
@@ -127,13 +188,13 @@ public class NotaFiscalEntrada : Entidade
         observacao = observacao[..Math.Min(observacao.Length, ParcelamentoPagar.TamanhoObservacao)];
         if (vencimentos.Count == 1)
         {
-            ContaPagar = new ContaPagar(descricao, Categoria, ValorTotal, vencimentos[0].Vencimento, FornecedorId) { Observacao = observacao };
+            ContaPagar = new ContaPagar(descricao, Categoria, ValorAPagar, vencimentos[0].Vencimento, FornecedorId) { Observacao = observacao };
             ContaPagar.DefinirDocumento(Numero);
             ContaPagar.DefinirFormaPagamento(vencimentos[0].FormaPagamentoId ?? formaPagamentoId);
         }
         else
         {
-            ParcelamentoPagar = new ParcelamentoPagar(descricao, Categoria, ValorTotal, FornecedorId, null, Numero, observacao);
+            ParcelamentoPagar = new ParcelamentoPagar(descricao, Categoria, ValorAPagar, FornecedorId, null, Numero, observacao);
             ParcelamentoPagar.GerarParcelas(vencimentos, formaPagamentoId);
         }
         return (ContaPagar, ParcelamentoPagar);
@@ -158,6 +219,9 @@ public class NotaFiscalEntrada : Entidade
         foreach (var recebimento in _recebimentos)
             recebimento.VoltarAFaturar();
         _recebimentos.Clear();
+        // O crédito de devoluções usado nesta nota volta a ficar disponível.
+        foreach (var uso in _creditosUsados)
+            uso.Devolucao!.DevolverCredito(uso.Valor);
         Status = StatusNotaEntrada.Cancelada;
         CanceladaEm = agora;
         MotivoCancelamento = motivo.Trim()[..Math.Min(motivo.Trim().Length, 500)];

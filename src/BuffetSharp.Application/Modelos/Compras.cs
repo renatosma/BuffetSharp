@@ -74,6 +74,9 @@ public sealed class NotaEntradaInput
 
     public List<int> Recebimentos { get; set; } = [];
     public List<VencimentoInput> Vencimentos { get; set; } = [];
+
+    /// <summary>Crédito de devoluções do fornecedor usado para pagar parte da nota (os vencimentos somam o total menos ele).</summary>
+    public decimal CreditoUsado { get; set; }
 }
 
 public sealed class VencimentoInput

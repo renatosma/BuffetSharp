@@ -39,6 +39,7 @@ public sealed class BuffetDbContext(DbContextOptions<BuffetDbContext> options, I
     public DbSet<PedidoCompra> PedidosCompra => Set<PedidoCompra>();
     public DbSet<RecebimentoCompra> RecebimentosCompra => Set<RecebimentoCompra>();
     public DbSet<NotaFiscalEntrada> NotasFiscaisEntrada => Set<NotaFiscalEntrada>();
+    public DbSet<DevolucaoCompra> DevolucoesCompra => Set<DevolucaoCompra>();
     public DbSet<CodigoProdutoFornecedor> CodigosProdutoFornecedor => Set<CodigoProdutoFornecedor>();
     public DbSet<ProdutoEmbalagem> ProdutoEmbalagens => Set<ProdutoEmbalagem>();
     public DbSet<ItemCardapio> ItensCardapio => Set<ItemCardapio>();

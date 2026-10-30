@@ -78,6 +78,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await CriarListaEsperaAsync(ct);
         await CriarPesquisasSatisfacaoAsync(ct);
         await CriarHistoricoPrecosAsync(ct);
+        await CriarDevolucoesAsync(ct);
         await CriarLotesValidadeAsync(ct);
     }
 
@@ -1337,6 +1338,49 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                     "Compra do mês", _fornecedores[doOutro ? outro! : fornecedor].Id, null));
             }
         }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Devoluções ao fornecedor: tomate avariado devolvido antes da nota (o fornecedor vai repor, o pedido volta a esperar a
+    /// entrega) e guardanapo devolvido depois de a nota ter sido paga (vira crédito com o fornecedor para a próxima nota).
+    /// </summary>
+    private async Task CriarDevolucoesAsync(CancellationToken ct)
+    {
+        async Task<RecebimentoCompra> ReceberAsync(string fornecedor, int diasAtras, params (string Produto, decimal Quantidade)[] itens)
+        {
+            var pedido = new PedidoCompra(_fornecedores[fornecedor].Id, Hoje.AddDays(-diasAtras - 2));
+            pedido.DefinirItens(itens.Select(i => (_produtos[i.Produto], (ProdutoEmbalagem?)null, i.Quantidade, Math.Round(_produtos[i.Produto].CustoMedio, 2))));
+            db.PedidosCompra.Add(pedido);
+            await db.SaveChangesAsync(ct);
+            var recebimento = pedido.Receber(Hoje.AddDays(-diasAtras), pedido.Itens.ToDictionary(i => i, i => i.Quantidade), null, "admin", Agora);
+            db.RecebimentosCompra.Add(recebimento);
+            db.MovimentacoesEstoque.AddRange(recebimento.DarEntrada(Agora.AddDays(-diasAtras).Date.AddHours(9)));
+            await db.SaveChangesAsync(ct);
+            return recebimento;
+        }
+        void Devolver(RecebimentoCompra recebimento, string produto, decimal quantidade, int diasAtras, MotivoDevolucao motivo, bool repoe,
+            string? notaDevolucao, string observacao)
+        {
+            var item = recebimento.Itens.Single(i => i.PedidoCompraItem!.ProdutoId == _produtos[produto].Id);
+            var devolucao = recebimento.Devolver(new Dictionary<RecebimentoItem, decimal> { [item] = quantidade }, Hoje.AddDays(-diasAtras), motivo,
+                repoe, notaDevolucao, observacao, "admin", Agora);
+            db.DevolucoesCompra.Add(devolucao);
+            db.MovimentacoesEstoque.AddRange(devolucao.Itens.Select(i => i.Saida!));
+        }
+
+        var hortifruti = await ReceberAsync("Vale Verde", 6, ("Tomate", 20), ("Batata", 30));
+        Devolver(hortifruti, "Tomate", 5, 6, MotivoDevolucao.Avariado, true, null, "Caixa de tomate amassada na entrega.");
+
+        var descartaveis = await ReceberAsync("Festa & Cia", 43, ("Guardanapo de papel", 40));
+        var nota = new NotaFiscalEntrada(descartaveis.FornecedorId, "7781", "1", Hoje.AddDays(-43), CategoriaDespesa.Insumos, [descartaveis],
+            descartaveis.Total, null, Hoje);
+        var (conta, _) = nota.LancarContas([(Hoje.AddDays(-30), descartaveis.Total)], "Festa & Cia");
+        db.ContasPagar.Add(conta!);
+        db.NotasFiscaisEntrada.Add(nota);
+        Pagar(conta!, Hoje.AddDays(-30), _formas["Boleto Bancário"]);
+        await db.SaveChangesAsync(ct);
+        Devolver(descartaveis, "Guardanapo de papel", 8, 20, MotivoDevolucao.Qualidade, false, "312", "Pacotes com guardanapo rasgado.");
         await db.SaveChangesAsync(ct);
     }
 

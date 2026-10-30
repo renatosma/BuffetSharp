@@ -122,9 +122,49 @@ internal sealed class RecebimentoItemConfig : IEntityTypeConfiguration<Recebimen
         b.ToTable("RecebimentoItens");
         b.Ignore("LotesInformados");
         b.Property(x => x.Quantidade).HasPrecision(18, 3);
+        b.Property(x => x.QuantidadeDevolvida).HasPrecision(18, 3);
         b.Property(x => x.CustoUnitario).HasPrecision(18, 4);
         b.HasOne(x => x.PedidoCompraItem).WithMany().HasForeignKey(x => x.PedidoCompraItemId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Entrada).WithMany().HasForeignKey(x => x.MovimentacaoEstoqueId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class DevolucaoCompraConfig : IEntityTypeConfiguration<DevolucaoCompra>
+{
+    public void Configure(EntityTypeBuilder<DevolucaoCompra> b)
+    {
+        b.ToTable("DevolucoesCompra");
+        b.Ignore(x => x.CreditoDisponivel);
+        b.Property(x => x.NotaDevolucao).HasMaxLength(DevolucaoCompra.TamanhoNotaDevolucao);
+        b.Property(x => x.Observacoes).HasMaxLength(DevolucaoCompra.TamanhoObservacoes);
+        b.Property(x => x.Usuario).HasMaxLength(50);
+        b.HasOne(x => x.RecebimentoCompra).WithMany().HasForeignKey(x => x.RecebimentoCompraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<PedidoCompra>().WithMany().HasForeignKey(x => x.PedidoCompraId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<Fornecedor>().WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.NotaFiscalEntrada).WithMany().HasForeignKey(x => x.NotaFiscalEntradaId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Itens).WithOne().HasForeignKey(x => x.DevolucaoCompraId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => new { x.FornecedorId, x.Data });
+    }
+}
+
+internal sealed class DevolucaoItemConfig : IEntityTypeConfiguration<DevolucaoItem>
+{
+    public void Configure(EntityTypeBuilder<DevolucaoItem> b)
+    {
+        b.ToTable("DevolucaoItens");
+        b.Property(x => x.Quantidade).HasPrecision(18, 3);
+        b.Property(x => x.CustoUnitario).HasPrecision(18, 4);
+        b.HasOne(x => x.RecebimentoItem).WithMany().HasForeignKey(x => x.RecebimentoItemId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Saida).WithMany().HasForeignKey(x => x.MovimentacaoEstoqueId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class CreditoUsadoNotaConfig : IEntityTypeConfiguration<CreditoUsadoNota>
+{
+    public void Configure(EntityTypeBuilder<CreditoUsadoNota> b)
+    {
+        b.ToTable("CreditosUsadosNota");
+        b.HasOne(x => x.Devolucao).WithMany().HasForeignKey(x => x.DevolucaoCompraId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -133,6 +173,8 @@ internal sealed class NotaFiscalEntradaConfig : IEntityTypeConfiguration<NotaFis
     public void Configure(EntityTypeBuilder<NotaFiscalEntrada> b)
     {
         b.ToTable("NotasFiscaisEntrada");
+        b.Ignore(x => x.ValorAPagar);
+        b.HasMany(x => x.CreditosUsados).WithOne().HasForeignKey(x => x.NotaFiscalEntradaId).OnDelete(DeleteBehavior.Cascade);
         b.Property(x => x.Numero).HasMaxLength(NotaFiscalEntrada.TamanhoNumero).IsRequired();
         b.Property(x => x.Serie).HasMaxLength(NotaFiscalEntrada.TamanhoSerie);
         b.Property(x => x.ChaveAcesso).HasMaxLength(NotaFiscalEntrada.TamanhoChave);

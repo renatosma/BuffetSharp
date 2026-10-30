@@ -140,6 +140,7 @@ public sealed class ImportacaoNfeService(IBuffetDbContextFactory fabrica, ISessa
         var notaEntrada = new NotaFiscalEntrada(fornecedor.Id, nota.Numero, nota.Serie, nota.DataEmissao, input.Categoria, [recebimento],
             nota.ValorTotal, input.Observacoes, Hoje);
         notaEntrada.DefinirChaveAcesso(nota.ChaveAcesso);
+        await DevolucaoService.UsarCreditoAsync(db, notaEntrada, input.CreditoUsado, ct);
         var foraDoEstoque = nota.Itens.Count - itens.Count;
         var (conta, parcelamento) = notaEntrada.LancarContas(input.Vencimentos.Select(v => v.ParaPlanejado()).ToList(),
             fornecedor.NomeExibicao,

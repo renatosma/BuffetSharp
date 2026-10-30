@@ -249,6 +249,53 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
         return estorno;
     }
 
+    /// <summary>
+    /// Devolução ao fornecedor de parte de uma entrada (recebimento do pedido): sai pelo custo dela e o custo médio é
+    /// recalculado sem ela, como no estorno. Nos perecíveis, sai do lote que veio na entrada (recusado se ele já foi usado).
+    /// </summary>
+    /// <param name="quantidade">Na unidade do estoque.</param>
+    public MovimentacaoEstoque DevolverAoFornecedor(MovimentacaoEstoque entrada, decimal quantidade, DateTime data, string texto)
+    {
+        Validador.Garantir(entrada.ProdutoId == Id, "A entrada não é deste produto.");
+        Validador.Garantir(entrada.Tipo == TipoMovimentacao.Entrada && !entrada.Estornada, "Só se devolve o que entrou (e não foi estornado).");
+        Validador.Garantir(quantidade > 0, "Informe a quantidade devolvida.");
+        Validador.Garantir(quantidade <= EstoqueAtual,
+            $"O saldo de '{Nome}' ({EstoqueAtual:N3}) é menor que a devolução ({quantidade:N3}): o produto já foi usado.");
+
+        var consumo = new List<(LoteEstoque Lote, decimal Quantidade)>();
+        var lotes = entrada.Lotes.Select(l => l.Lote!).Distinct().OrderBy(l => l.Validade).ToList();
+        if (ControlaValidade && lotes.Count > 0)
+        {
+            var disponivel = lotes.Sum(l => l.Saldo);
+            Validador.Garantir(quantidade <= disponivel,
+                $"Do lote recebido de '{Nome}' restam {disponivel:N3} no estoque (o resto já foi usado ou descartado).");
+            var restante = quantidade;
+            foreach (var lote in lotes.Where(l => l.Saldo > 0))
+            {
+                var parte = Math.Min(lote.Saldo, restante);
+                lote.Saldo -= parte;
+                consumo.Add((lote, parte));
+                restante -= parte;
+                if (restante <= 0)
+                    break;
+            }
+        }
+
+        var saldo = EstoqueAtual - quantidade;
+        if (saldo > 0)
+        {
+            var custo = Math.Round((EstoqueAtual * CustoMedio - quantidade * entrada.CustoUnitario) / saldo, 4);
+            if (custo > 0)
+                CustoMedio = custo;
+        }
+        EstoqueAtual = saldo;
+        var devolucao = new MovimentacaoEstoque(this, TipoMovimentacao.Devolucao, quantidade, entrada.CustoUnitario, data,
+            texto[..Math.Min(texto.Length, 300)]);
+        foreach (var (lote, parte) in consumo)
+            devolucao.AdicionarLote(lote, parte);
+        return devolucao;
+    }
+
     /// <summary>Inventário: ajusta o saldo para o valor contado fisicamente.</summary>
     public MovimentacaoEstoque AjustarSaldo(decimal saldoContado, DateTime data, string? observacao)
     {

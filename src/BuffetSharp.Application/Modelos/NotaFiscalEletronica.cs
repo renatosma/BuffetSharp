@@ -172,6 +172,9 @@ public sealed class NotaSemPedidoInput
     public string? Observacoes { get; set; }
     public List<ItemSemPedidoInput> Itens { get; set; } = [];
     public List<VencimentoInput> Vencimentos { get; set; } = [];
+
+    /// <summary>Crédito de devoluções do fornecedor usado para pagar parte da nota (os vencimentos somam o total menos ele).</summary>
+    public decimal CreditoUsado { get; set; }
 }
 
 /// <param name="ProdutoId">Produto do sistema; nulo = o item não entra no estoque (só no valor da nota).</param>

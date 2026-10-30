@@ -13,7 +13,10 @@ public enum TipoMovimentacao
     Estorno,
 
     /// <summary>Descarte de produto vencido ou estragado: sai do estoque como perda, pelo custo.</summary>
-    Perda
+    Perda,
+
+    /// <summary>Devolução ao fornecedor de parte de um recebimento: sai pelo custo da entrada.</summary>
+    Devolucao
 }
 
 /// <summary>

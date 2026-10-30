@@ -128,7 +128,8 @@ public sealed record RecebimentoResumo
 }
 
 /// <summary>Item recebido, na unidade de compra do pedido.</summary>
-public sealed record RecebimentoItemResumo(string Produto, decimal Quantidade, string Unidade, decimal CustoUnitario)
+/// <param name="QuantidadeDevolvida">Quanto já voltou ao fornecedor (devoluções), na unidade de compra.</param>
+public sealed record RecebimentoItemResumo(string Produto, decimal Quantidade, string Unidade, decimal CustoUnitario, decimal QuantidadeDevolvida = 0)
 {
     public decimal Total => Math.Round(Quantidade * CustoUnitario, 2);
 }

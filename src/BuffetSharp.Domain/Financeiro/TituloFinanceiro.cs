@@ -264,6 +264,20 @@ public class ContaPagar : TituloFinanceiro
         base.Cancelar();
     }
 
+    /// <summary>
+    /// Abatimento (ex.: devolução ao fornecedor): o valor da conta em aberto diminui; abatida por inteiro, ela é cancelada.
+    /// </summary>
+    internal void Abater(decimal valor, string texto)
+    {
+        Validador.Garantir(Status == StatusTitulo.Aberto && valor > 0 && valor <= Valor, "Abatimento inválido.");
+        var nota = $"Abatido {valor:C2} ({texto}).";
+        Observacao = string.IsNullOrWhiteSpace(Observacao) ? nota : $"{Observacao} {nota}";
+        if (valor == Valor)
+            Status = StatusTitulo.Cancelado;
+        else
+            Valor -= valor;
+    }
+
     /// <summary>A conta passa a fazer parte de um parcelamento novo (fica cancelada, ligada a ele).</summary>
     internal void AgruparEm(ParcelamentoPagar parcelamento)
     {

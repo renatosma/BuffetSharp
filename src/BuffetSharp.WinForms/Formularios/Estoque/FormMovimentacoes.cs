@@ -40,7 +40,8 @@ internal sealed class FormMovimentacoes : FormListagem<MovimentacaoResumo>
             .Texto("Tipo", m => Textos.Exibir(m.Tipo) + (m.EstornadaEm is not null ? " (estornada)" : ""), 22,
                 m => m.EstornadaEm is not null ? Tema.Neutro : Textos.Cor(m.Tipo))
             .Numero("Quantidade", m => m.Quantidade, "N3", 22,
-                m => m.Quantidade < 0 || m.Tipo is TipoMovimentacao.Saida or TipoMovimentacao.Estorno ? Tema.Perigo : Tema.Sucesso)
+                m => m.Quantidade < 0 || m.Tipo is TipoMovimentacao.Saida or TipoMovimentacao.Estorno or TipoMovimentacao.Perda or TipoMovimentacao.Devolucao
+                    ? Tema.Perigo : Tema.Sucesso)
             .Texto("Un.", m => m.Unidade, 10)
             .Texto("Compra", m => m.Compra, 16)
             .Texto("Fornecedor", m => m.Fornecedor, 30)

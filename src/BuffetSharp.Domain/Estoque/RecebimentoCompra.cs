@@ -96,6 +96,8 @@ public class RecebimentoCompra : Entidade
     public IReadOnlyList<MovimentacaoEstoque> Estornar(string motivo, DateTime agora)
     {
         Validador.Garantir(Status != StatusRecebimento.Estornado, "Este recebimento já foi estornado.");
+        Validador.Garantir(_itens.All(i => i.QuantidadeDevolvida == 0),
+            "Este recebimento já teve devolução ao fornecedor. Para tirar o restante, faça outra devolução.");
         Validador.Garantir(Status == StatusRecebimento.AFaturar,
             $"O recebimento já está na nota fiscal {NotaFiscalEntrada?.Descricao ?? "de entrada"}. Cancele a nota antes de estornar.");
         Validador.Garantir(!string.IsNullOrWhiteSpace(motivo), "Informe o motivo do estorno.");
@@ -111,6 +113,59 @@ public class RecebimentoCompra : Entidade
         MotivoEstorno = motivo.Trim()[..Math.Min(motivo.Trim().Length, TamanhoObservacoes)];
         return estornos;
     }
+
+    /// <summary>
+    /// Devolve ao fornecedor parte do que chegou (quantidades na unidade de compra, por item): sai do estoque pelo custo da
+    /// entrada. Se o fornecedor vai repor, a quantidade volta ao saldo do pedido. Recebimento já faturado tem o valor abatido
+    /// das contas em aberto da nota e o restante vira crédito com o fornecedor. Exige as entradas (com o produto e os lotes)
+    /// e, se faturado, a nota com as contas carregadas.
+    /// </summary>
+    public DevolucaoCompra Devolver(IReadOnlyDictionary<RecebimentoItem, decimal> quantidades, DateOnly data, MotivoDevolucao motivo,
+        bool fornecedorRepoe, string? notaDevolucao, string? observacoes, string? usuario, DateTime agora)
+    {
+        Validador.Garantir(Status != StatusRecebimento.Estornado, "Recebimento estornado não tem o que devolver.");
+        Validador.Garantir(data >= Data, "A devolução não pode ser antes do recebimento.");
+        Validador.Garantir(data <= DateOnly.FromDateTime(agora), "A data da devolução não pode ser futura.");
+        var devolvidos = quantidades.Where(q => q.Value != 0).ToList();
+        Validador.Garantir(devolvidos.Count > 0, "Informe a quantidade devolvida de ao menos um produto.");
+        foreach (var (item, quantidade) in devolvidos)
+        {
+            Validador.Garantir(_itens.Contains(item), "Um dos itens não é deste recebimento.");
+            var produto = item.PedidoCompraItem?.Produto?.Nome ?? item.Entrada?.Produto?.Nome;
+            Validador.Garantir(quantidade > 0, $"A quantidade devolvida de '{produto}' não pode ser negativa.");
+            Validador.Garantir(quantidade <= item.Disponivel,
+                $"'{produto}': a devolução ({quantidade:0.###}) passa do que ainda pode ser devolvido ({item.Disponivel:0.###}).");
+        }
+        var faturado = Status == StatusRecebimento.Faturado ? NotaFiscalEntrada : null;
+        Validador.Garantir(Status == StatusRecebimento.AFaturar || faturado is not null, "A nota fiscal do recebimento não foi carregada.");
+
+        var devolucao = new DevolucaoCompra(this, data, motivo, fornecedorRepoe, notaDevolucao, observacoes, usuario, agora);
+        var quando = data == DateOnly.FromDateTime(agora) ? agora : data.ToDateTime(new TimeOnly(12, 0));
+        var texto = $"Devolução ao fornecedor ({Codigo}): {Textos(motivo)}" + (string.IsNullOrWhiteSpace(observacoes) ? "" : $" - {observacoes.Trim()}");
+        foreach (var (item, quantidade) in devolvidos)
+        {
+            var entrada = item.Entrada ?? throw new RegraNegocioException("A entrada no estoque do recebimento não foi carregada.");
+            var fator = item.Quantidade == 0 ? 1 : entrada.Quantidade / item.Quantidade;
+            var saida = entrada.Produto!.DevolverAoFornecedor(entrada, Math.Round(quantidade * fator, 3), quando, texto);
+            item.QuantidadeDevolvida += quantidade;
+            devolucao.AdicionarItem(item, quantidade, saida);
+        }
+        if (fornecedorRepoe)
+            PedidoCompra!.VoltarAoSaldo(devolvidos.Select(d => (d.Key.PedidoCompraItem!, d.Value)));
+        if (faturado is not null)
+            devolucao.DefinirAbatimento(faturado, faturado.AbaterDevolucao(devolucao.Valor, Codigo));
+        return devolucao;
+    }
+
+    private static string Textos(MotivoDevolucao motivo) => motivo switch
+    {
+        MotivoDevolucao.Avariado => "avariado",
+        MotivoDevolucao.Vencido => "vencido",
+        MotivoDevolucao.ProdutoErrado => "produto errado",
+        MotivoDevolucao.ForaDoPedido => "fora do pedido",
+        MotivoDevolucao.Qualidade => "qualidade",
+        _ => "outro motivo"
+    };
 
     internal void Faturar(NotaFiscalEntrada nota)
     {
@@ -162,7 +217,14 @@ public class RecebimentoItem
     public int? MovimentacaoEstoqueId { get; private set; }
     public MovimentacaoEstoque? Entrada { get; private set; }
 
-    public decimal Total => Math.Round(Quantidade * CustoUnitario, 2);
+    /// <summary>Quanto já foi devolvido ao fornecedor, na unidade de compra.</summary>
+    public decimal QuantidadeDevolvida { get; internal set; }
+
+    /// <summary>O que ainda pode ser devolvido.</summary>
+    public decimal Disponivel => Quantidade - QuantidadeDevolvida;
+
+    /// <summary>Valor do que ficou (recebido menos devolvido).</summary>
+    public decimal Total => Math.Round(Disponivel * CustoUnitario, 2);
 
     internal void DefinirEntrada(MovimentacaoEstoque entrada) => Entrada = entrada;
 }

@@ -82,7 +82,7 @@ internal sealed class ConsultasCompras(FabricaConexao conexoes) : IConsultasComp
                    pc.CondicaoPagamentoId, pc.FormaPagamentoId,
                    r.NotaFiscalEntradaId, n.Numero AS NotaFiscal, r.Usuario, r.Observacoes, r.MotivoEstorno,
                    (SELECT COUNT(*) FROM RecebimentoItens i WHERE i.RecebimentoCompraId = r.Id) AS Itens,
-                   COALESCE((SELECT SUM(ROUND(i.Quantidade * i.CustoUnitario, 2)) FROM RecebimentoItens i
+                   COALESCE((SELECT SUM(ROUND((i.Quantidade - i.QuantidadeDevolvida) * i.CustoUnitario, 2)) FROM RecebimentoItens i
                               WHERE i.RecebimentoCompraId = r.Id), 0) AS Total
               FROM RecebimentosCompra r
               JOIN PedidosCompra pc ON pc.Id = r.PedidoCompraId
@@ -105,7 +105,7 @@ internal sealed class ConsultasCompras(FabricaConexao conexoes) : IConsultasComp
 
     public async Task<IReadOnlyList<RecebimentoItemResumo>> ItensRecebimentoAsync(int recebimentoId, CancellationToken ct = default) =>
         await conexoes.ListarAsync<RecebimentoItemResumo>("""
-            SELECT pr.Nome AS Produto, i.Quantidade, COALESCE(ue.Sigla, u.Sigla) AS Unidade, i.CustoUnitario
+            SELECT pr.Nome AS Produto, i.Quantidade, COALESCE(ue.Sigla, u.Sigla) AS Unidade, i.CustoUnitario, i.QuantidadeDevolvida
               FROM RecebimentoItens i
               JOIN PedidoCompraItens pi ON pi.Id = i.PedidoCompraItemId
               JOIN Produtos pr ON pr.Id = pi.ProdutoId

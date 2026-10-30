@@ -271,6 +271,7 @@ internal sealed class FormPrincipal : FormBase
             new("COMPRAS", "Pedidos de compra", Icones.Documento, [Adm, Ope, Fin], () => n.Abrir<FormPedidosCompra>()),
             new("COMPRAS", "Recebimentos", Icones.Pacote, [Adm, Ope, Fin], () => n.Abrir<FormRecebimentos>()),
             new("COMPRAS", "Notas fiscais de entrada", Icones.Pagina, [Adm, Fin], () => n.Abrir<FormNotasEntrada>()),
+            new("COMPRAS", "Devoluções ao fornecedor", Icones.Desfazer, [Adm, Ope, Fin], () => n.Abrir<FormDevolucoesCompra>()),
             new("COMPRAS", "Preços de compra", Icones.Dinheiro, [Adm, Ope, Fin], () => n.Abrir<FormPrecosCompra>()),
             new("COMPRAS", "Maiores altas de preço", Icones.Aviso, [Adm, Ope, Fin], () => n.Abrir<FormMaioresAltas>()),
 

@@ -162,6 +162,16 @@ public class PedidoCompra : Entidade
         AtualizarStatus();
     }
 
+    /// <summary>Devolução que o fornecedor vai repor: as quantidades voltam ao saldo do pedido (que fica esperando a entrega).</summary>
+    internal void VoltarAoSaldo(IEnumerable<(PedidoCompraItem Item, decimal Quantidade)> devolvidos)
+    {
+        foreach (var (item, quantidade) in devolvidos)
+            item.QuantidadeRecebida -= quantidade;
+        if (Status == StatusPedidoCompra.Encerrado)
+            Status = StatusPedidoCompra.ParcialmenteRecebido;
+        AtualizarStatus();
+    }
+
     /// <summary>Dispensa o saldo que não veio: o pedido fica encerrado com o que foi recebido.</summary>
     public void EncerrarSaldo(string motivo)
     {

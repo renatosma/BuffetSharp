@@ -16,17 +16,20 @@ internal sealed class FormRecebimentos : FormListagem<RecebimentoResumo>
     private readonly IConsultasCompras _consultas;
     private readonly CompraService _servico;
     private readonly ImportacaoNfeService _importacao;
+    private readonly DevolucaoService _devolucoes;
     private readonly BuffetOptions _opcoes;
     private readonly DateTimePicker _de;
     private readonly DateTimePicker _ate;
     private readonly ComboBox _status = new() { Width = 170, DropDownStyle = ComboBoxStyle.DropDownList };
 
-    public FormRecebimentos(IConsultasCompras consultas, CompraService servico, ImportacaoNfeService importacao, BuffetOptions opcoes)
+    public FormRecebimentos(IConsultasCompras consultas, CompraService servico, ImportacaoNfeService importacao, DevolucaoService devolucoes,
+        BuffetOptions opcoes)
         : base("Recebimentos", "Mercadoria que chegou dos pedidos de compra (já no estoque). Lance a nota fiscal de entrada para gerar as contas a pagar: uma nota pode juntar vários recebimentos do mesmo fornecedor.")
     {
         _consultas = consultas;
         _servico = servico;
         _importacao = importacao;
+        _devolucoes = devolucoes;
         _opcoes = opcoes;
 
         _de = FiltroData("De", DateTime.Today.AddMonths(-2));
@@ -38,7 +41,9 @@ internal sealed class FormRecebimentos : FormListagem<RecebimentoResumo>
         _status.SelectionChangeCommitted += async (_, _) => await RecarregarAsync();
 
         Botao("Lançar nota fiscal", Icones.Pagina, LancarNotaAsync, "Fatura os recebimentos do fornecedor e gera as contas a pagar", destaque: true);
-        Botao("Estornar recebimento", Icones.Desfazer, EstornarAsync, "Lançado errado ou devolvido: tira do estoque e volta ao saldo do pedido");
+        Botao("Devolver itens", Icones.Enviar, DevolverAsync,
+            "Devolve ao fornecedor só o que veio com problema: sai do estoque e o valor é abatido da nota (ou vira crédito)");
+        Botao("Estornar recebimento", Icones.Desfazer, EstornarAsync, "Lançado errado: tira tudo do estoque e volta ao saldo do pedido");
         Separador();
         Botao("Imprimir", Icones.Imprimir, ImprimirAsync, "Comprovante do recebimento");
 
@@ -99,6 +104,19 @@ internal sealed class FormRecebimentos : FormListagem<RecebimentoResumo>
         await CarregarAsync();
     }
 
+    private async Task DevolverAsync()
+    {
+        if (Selecionado() is not { } recebimento)
+            return;
+        if (recebimento.Status == StatusRecebimento.Estornado)
+        {
+            Mensagens.Aviso(this, "Este recebimento foi estornado: não há o que devolver.");
+            return;
+        }
+        if (await DialogosDevolucao.DevolverAsync(this, _devolucoes, recebimento.Id, _opcoes.NomeEmpresa) is not null)
+            await CarregarAsync();
+    }
+
     private Task ImprimirAsync() => Selecionado() is { } recebimento ? ImprimirAsync(recebimento) : Task.CompletedTask;
 
     private async Task ImprimirAsync(RecebimentoResumo recebimento)
@@ -116,6 +134,10 @@ internal sealed class FormRecebimentos : FormListagem<RecebimentoResumo>
             itens.Select(i => new[] { i.Produto, i.Quantidade.ToString("N3"), i.Unidade, i.CustoUnitario.ToString("C4"), Textos.Moeda(i.Total) }).ToList(),
             [4, 1.3f, 0.8f, 1.5f, 1.5f], [false, true, false, true, true]);
         doc.Total("Total recebido", Textos.Moeda(itens.Sum(i => i.Total)));
+        if (itens.Any(i => i.QuantidadeDevolvida > 0))
+            doc.Paragrafo("Devolvido ao fornecedor: " + string.Join("; ", itens.Where(i => i.QuantidadeDevolvida > 0)
+                .Select(i => $"{i.Produto} {i.QuantidadeDevolvida:0.###} {i.Unidade}")) +
+                $" ({Textos.Moeda(itens.Sum(i => Math.Round(i.QuantidadeDevolvida * i.CustoUnitario, 2)))}).");
         if (!string.IsNullOrWhiteSpace(recebimento.Observacoes))
             doc.Paragrafo(recebimento.Observacoes);
         doc.Assinaturas("Conferido por");

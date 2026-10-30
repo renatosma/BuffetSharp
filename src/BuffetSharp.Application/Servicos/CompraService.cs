@@ -50,6 +50,15 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
     /// Produtos ativos com as unidades de compra que valem para o fornecedor (a do estoque e as embalagens dele ou de qualquer
     /// fornecedor), para a tela do pedido.
     /// </summary>
+    /// <summary>Crédito de devoluções que cada fornecedor ainda deve (descontado na próxima nota dele).</summary>
+    public async Task<IReadOnlyDictionary<int, decimal>> CreditosFornecedoresAsync(CancellationToken ct = default)
+    {
+        await using var db = fabrica.Criar();
+        return (await db.DevolucoesCompra.AsNoTracking().Where(d => d.ValorCredito > d.CreditoUtilizado)
+                .Select(d => new { d.FornecedorId, Disponivel = d.ValorCredito - d.CreditoUtilizado }).ToListAsync(ct))
+            .GroupBy(d => d.FornecedorId).ToDictionary(g => g.Key, g => g.Sum(d => d.Disponivel));
+    }
+
     /// <summary>Alta (em %) sobre o último preço pago que pede confirmação (0 = sem aviso).</summary>
     public decimal LimiteAltaPreco => precos.LimiteAlta;
 
@@ -196,6 +205,7 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
         var nota = new NotaFiscalEntrada(input.FornecedorId, numero, serie, input.DataEmissao, input.Categoria, recebimentos,
             input.ValorTotal, input.Observacoes, Hoje);
         nota.DefinirChaveAcesso(chave);
+        await DevolucaoService.UsarCreditoAsync(db, nota, input.CreditoUsado, ct);
         var (conta, parcelamento) = nota.LancarContas(input.Vencimentos.Select(v => v.ParaPlanejado()).ToList(), fornecedor?.NomeExibicao,
             formaPagamentoId: input.FormaPagamentoId);
         if (conta is not null)
@@ -218,6 +228,7 @@ public sealed class CompraService(IBuffetDbContextFactory fabrica, ISessaoUsuari
                        .Include(n => n.ContaPagar)
                        .Include(n => n.ParcelamentoPagar!).ThenInclude(p => p.Parcelas)
                        .Include(n => n.Recebimentos)
+                       .Include(n => n.CreditosUsados).ThenInclude(c => c.Devolucao)
                        .FirstOrDefaultAsync(n => n.Id == notaId, ct)
                    ?? throw new RegraNegocioException("Nota fiscal de entrada não encontrada.");
         nota.Cancelar(motivo, Agora);

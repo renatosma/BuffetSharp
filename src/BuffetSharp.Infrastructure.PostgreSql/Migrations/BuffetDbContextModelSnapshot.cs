@@ -2905,6 +2905,195 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("cotacaoprecos", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CreditoUsadoNota", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DevolucaoCompraId")
+                        .HasColumnType("integer")
+                        .HasColumnName("devolucaocompraid");
+
+                    b.Property<int>("NotaFiscalEntradaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("notafiscalentradaid");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valor");
+
+                    b.HasKey("Id")
+                        .HasName("pk_creditosusadosnota");
+
+                    b.HasIndex("DevolucaoCompraId")
+                        .HasDatabaseName("ix_creditosusadosnota_devolucaocompraid");
+
+                    b.HasIndex("NotaFiscalEntradaId")
+                        .HasDatabaseName("ix_creditosusadosnota_notafiscalentradaid");
+
+                    b.ToTable("creditosusadosnota", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.DevolucaoCompra", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<decimal>("CreditoUtilizado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("creditoutilizado");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<DateOnly>("Data")
+                        .HasColumnType("date")
+                        .HasColumnName("data");
+
+                    b.Property<int>("FornecedorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("fornecedorid");
+
+                    b.Property<bool>("FornecedorRepoe")
+                        .HasColumnType("boolean")
+                        .HasColumnName("fornecedorrepoe");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("NotaDevolucao")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("notadevolucao");
+
+                    b.Property<int?>("NotaFiscalEntradaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("notafiscalentradaid");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("observacoes");
+
+                    b.Property<int>("PedidoCompraId")
+                        .HasColumnType("integer")
+                        .HasColumnName("pedidocompraid");
+
+                    b.Property<int>("RecebimentoCompraId")
+                        .HasColumnType("integer")
+                        .HasColumnName("recebimentocompraid");
+
+                    b.Property<DateTime>("RegistradoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("registradoem");
+
+                    b.Property<string>("Usuario")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("usuario");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valor");
+
+                    b.Property<decimal>("ValorAbatido")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valorabatido");
+
+                    b.Property<decimal>("ValorCredito")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valorcredito");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("Id")
+                        .HasName("pk_devolucoescompra");
+
+                    b.HasIndex("NotaFiscalEntradaId")
+                        .HasDatabaseName("ix_devolucoescompra_notafiscalentradaid");
+
+                    b.HasIndex("PedidoCompraId")
+                        .HasDatabaseName("ix_devolucoescompra_pedidocompraid");
+
+                    b.HasIndex("RecebimentoCompraId")
+                        .HasDatabaseName("ix_devolucoescompra_recebimentocompraid");
+
+                    b.HasIndex("FornecedorId", "Data")
+                        .HasDatabaseName("ix_devolucoescompra_fornecedorid_data");
+
+                    b.ToTable("devolucoescompra", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.DevolucaoItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("CustoUnitario")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("custounitario");
+
+                    b.Property<int>("DevolucaoCompraId")
+                        .HasColumnType("integer")
+                        .HasColumnName("devolucaocompraid");
+
+                    b.Property<int?>("MovimentacaoEstoqueId")
+                        .HasColumnType("integer")
+                        .HasColumnName("movimentacaoestoqueid");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("quantidade");
+
+                    b.Property<int>("RecebimentoItemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("recebimentoitemid");
+
+                    b.HasKey("Id")
+                        .HasName("pk_devolucaoitens");
+
+                    b.HasIndex("DevolucaoCompraId")
+                        .HasDatabaseName("ix_devolucaoitens_devolucaocompraid");
+
+                    b.HasIndex("MovimentacaoEstoqueId")
+                        .HasDatabaseName("ix_devolucaoitens_movimentacaoestoqueid");
+
+                    b.HasIndex("RecebimentoItemId")
+                        .HasDatabaseName("ix_devolucaoitens_recebimentoitemid");
+
+                    b.ToTable("devolucaoitens", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.LoteEstoque", b =>
                 {
                     b.Property<int>("Id")
@@ -3242,6 +3431,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("contapagarid");
 
+                    b.Property<decimal>("CreditoUsado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("creditousado");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("criadoem");
@@ -3284,6 +3478,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
+
+                    b.Property<decimal>("ValorDevolvido")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valordevolvido");
 
                     b.Property<decimal>("ValorProdutos")
                         .HasPrecision(18, 2)
@@ -3727,6 +3926,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasPrecision(18, 3)
                         .HasColumnType("numeric(18,3)")
                         .HasColumnName("quantidade");
+
+                    b.Property<decimal>("QuantidadeDevolvida")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("quantidadedevolvida");
 
                     b.Property<int>("RecebimentoCompraId")
                         .HasColumnType("integer")
@@ -6656,6 +6860,86 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Participante");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.CreditoUsadoNota", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Estoque.DevolucaoCompra", "Devolucao")
+                        .WithMany()
+                        .HasForeignKey("DevolucaoCompraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_creditosusadosnota_devolucoescompra_devolucaocompraid");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", null)
+                        .WithMany("CreditosUsados")
+                        .HasForeignKey("NotaFiscalEntradaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_creditosusadosnota_notasfiscaisentrada_notafiscalentradaid");
+
+                    b.Navigation("Devolucao");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.DevolucaoCompra", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Fornecedor", null)
+                        .WithMany()
+                        .HasForeignKey("FornecedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_devolucoescompra_fornecedores_fornecedorid");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", "NotaFiscalEntrada")
+                        .WithMany()
+                        .HasForeignKey("NotaFiscalEntradaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_devolucoescompra_notasfiscaisentrada_notafiscalentradaid");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.PedidoCompra", null)
+                        .WithMany()
+                        .HasForeignKey("PedidoCompraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_devolucoescompra_pedidoscompra_pedidocompraid");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.RecebimentoCompra", "RecebimentoCompra")
+                        .WithMany()
+                        .HasForeignKey("RecebimentoCompraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_devolucoescompra_recebimentoscompra_recebimentocompraid");
+
+                    b.Navigation("NotaFiscalEntrada");
+
+                    b.Navigation("RecebimentoCompra");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.DevolucaoItem", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Estoque.DevolucaoCompra", null)
+                        .WithMany("Itens")
+                        .HasForeignKey("DevolucaoCompraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_devolucaoitens_devolucoescompra_devolucaocompraid");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", "Saida")
+                        .WithMany()
+                        .HasForeignKey("MovimentacaoEstoqueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_devolucaoitens_movimentacoesestoque_movimentacaoestoqueid");
+
+                    b.HasOne("BuffetSharp.Domain.Estoque.RecebimentoItem", "RecebimentoItem")
+                        .WithMany()
+                        .HasForeignKey("RecebimentoItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_devolucaoitens_recebimentoitens_recebimentoitemid");
+
+                    b.Navigation("RecebimentoItem");
+
+                    b.Navigation("Saida");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.LoteEstoque", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Estoque.Produto", "Produto")
@@ -7591,6 +7875,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Precos");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Estoque.DevolucaoCompra", b =>
+                {
+                    b.Navigation("Itens");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.MovimentacaoEstoque", b =>
                 {
                     b.Navigation("Lotes");
@@ -7598,6 +7887,8 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
 
             modelBuilder.Entity("BuffetSharp.Domain.Estoque.NotaFiscalEntrada", b =>
                 {
+                    b.Navigation("CreditosUsados");
+
                     b.Navigation("Recebimentos");
                 });
 

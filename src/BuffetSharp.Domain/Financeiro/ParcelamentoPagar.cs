@@ -98,6 +98,9 @@ public class ParcelamentoPagar : Entidade
 
     public bool PodeDesfazer => _parcelas.All(p => p.Status != StatusTitulo.Pago && !p.FoiAgrupada);
 
+    /// <summary>Parcelas abatidas (ex.: devolução ao fornecedor): o total acompanha.</summary>
+    internal void AbaterTotal(decimal valor) => ValorTotal -= valor;
+
     /// <param name="quantidade">Parcelas após a entrada.</param>
     /// <param name="intervaloDias">Dias entre as parcelas; nulo = mensais (mesmo dia de cada mês).</param>
     public IReadOnlyList<ContaPagar> GerarParcelas(int quantidade, DateOnly primeiroVencimento, decimal valorEntrada = 0,

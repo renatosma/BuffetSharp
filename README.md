@@ -231,6 +231,12 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
     sem digitar prazos; a grade só ajusta datas e valores aos boletos) e a forma vai para as contas a pagar.
   - **Recebimento**: o que chegou do pedido, inteiro ou em partes. Entra no estoque na hora; o saldo continua no pedido
     (que fica "recebido em parte") até chegar ou ser encerrado. Pode ser estornado enquanto não tiver nota.
+  - **Devolução ao fornecedor**: só o que veio com problema (avariado, vencido, errado, fora do pedido, qualidade), com
+    a quantidade de cada item. Sai do estoque pelo custo da entrada (nos perecíveis, do lote daquele recebimento) e, se o
+    fornecedor vai repor, volta ao saldo do pedido. O valor sai da nota: antes dela, a nota já vem sem o devolvido;
+    depois, é abatido das contas em aberto (da última para a primeira) e o que passar (nota já paga) vira **crédito com
+    o fornecedor**, descontado na próxima nota dele. Tem o número da NF de devolução, o comprovante impresso ou enviado
+    pelo WhatsApp/e-mail e a tela **Devoluções por fornecedor** (quanto do recebido voltou e o motivo mais comum).
   - **Nota fiscal de entrada**: junta um ou mais recebimentos do mesmo fornecedor, com o valor da nota (frete, desconto)
     e os vencimentos dos boletos, e vira uma conta a pagar ou parcelas. Cancelar a nota cancela as contas (se nada foi
     pago) e devolve os recebimentos para "a faturar".
@@ -427,7 +433,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **441 testes** (xUnit v3): 401 de domínio, integração e bancos, e 40 das telas.
+São **452 testes** (xUnit v3): 411 de domínio, integração e bancos, e 41 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

@@ -84,6 +84,8 @@ internal static class DialogosNotaEntrada
         var totalEditado = false;
         var doXml = false;
         var (condicoes, formas) = await servico.OpcoesPagamentoAsync();
+        var creditos = await servico.CreditosFornecedoresAsync();
+        var creditoEditado = false;
         var itensCondicao = condicoes.Select(c => new ItemLookup { Id = c.Id, Nome = c.Nome }).ToList();
         var itensForma = formas.Select(f => new ItemLookup { Id = f.Id, Nome = f.Nome }).ToList();
         int? condicaoId = null;
@@ -137,7 +139,11 @@ internal static class DialogosNotaEntrada
         e.Secao("Valor e vencimentos");
         var valorTotal = e.Decimal("Valor total da nota", () => input.ValorTotal, v => input.ValorTotal = v, nameof(input.ValorTotal));
         var mercadoria = e.Informacao("Mercadoria recebida", () => "");
-        var (painelVencimentos, gradeVencimentos, conferir) = PainelVencimentos(vencimentos, () => valorTotal.Value, itensForma);
+        // Crédito de devoluções do fornecedor (nota anterior já paga): desconta desta nota; os vencimentos somam o total menos ele.
+        var creditoInfo = e.Informacao("Crédito com o fornecedor (devoluções)", () => "");
+        var credito = e.Decimal("Usar do crédito (R$)", () => input.CreditoUsado, v => input.CreditoUsado = v, nameof(input.CreditoUsado));
+        decimal APagar() => Math.Max(0, valorTotal.Value - credito.Value);
+        var (painelVencimentos, gradeVencimentos, conferir) = PainelVencimentos(vencimentos, APagar, itensForma);
         e.Livre(painelVencimentos);
 
         CondicaoPagamento? CondicaoEscolhida() =>
@@ -147,19 +153,19 @@ internal static class DialogosNotaEntrada
             if (doXml)
                 return; // os vencimentos são os boletos da NF-e
             vencimentos.Clear();
-            if (valorTotal.Value > 0 && CondicaoEscolhida() is { } escolhida)
+            if (APagar() > 0 && CondicaoEscolhida() is { } escolhida)
             {
                 // Prazos da condição contados a partir da emissão da nota.
-                foreach (var v in CompraService.Vencimentos(escolhida, valorTotal.Value, DateOnly.FromDateTime(emissao.Value)))
+                foreach (var v in CompraService.Vencimentos(escolhida, APagar(), DateOnly.FromDateTime(emissao.Value)))
                     vencimentos.Add(new LinhaVencimento
                     {
                         Vencimento = v.Vencimento.ToDateTime(TimeOnly.MinValue), Valor = v.Valor, FormaPagamentoId = v.FormaPagamentoId ?? 0
                     });
             }
-            else if (valorTotal.Value > 0)
+            else if (APagar() > 0)
             {
                 // Sem condição: um vencimento em 28 dias (ajuste na grade ou escolha a condição).
-                vencimentos.Add(new LinhaVencimento { Vencimento = emissao.Value.Date.AddDays(28), Valor = valorTotal.Value });
+                vencimentos.Add(new LinhaVencimento { Vencimento = emissao.Value.Date.AddDays(28), Valor = APagar() });
             }
             conferir();
         }
@@ -192,8 +198,18 @@ internal static class DialogosNotaEntrada
                 return;
             atualizando = true;
             valorTotal.Value = Math.Min(soma, valorTotal.Maximum);
+            SugerirCredito();
             atualizando = false;
             Gerar();
+        }
+        // Todo o crédito disponível (menos que o total da nota); com o XML, os boletos já vêm da nota e o crédito fica a critério.
+        void SugerirCredito()
+        {
+            var disponivel = creditos.GetValueOrDefault(input.FornecedorId);
+            creditoInfo.Text = disponivel > 0 ? $"{Textos.Moeda(disponivel)} disponível, descontado desta nota" : "Nenhum";
+            credito.Enabled = disponivel > 0;
+            if (!creditoEditado)
+                credito.Value = doXml || disponivel <= 0 ? 0 : Math.Clamp(Math.Min(disponivel, valorTotal.Value - 0.01m), 0, credito.Maximum);
         }
         void CarregarRecebimentos(int fornecedorEscolhido, IReadOnlyCollection<int>? marcar)
         {
@@ -213,7 +229,14 @@ internal static class DialogosNotaEntrada
                 Selecionar(forma, itensForma, origem.FormaPagamentoId);
             }
             totalEditado = doXml;
+            creditoEditado = false;
             Somar();
+            if (totalEditado)
+            {
+                atualizando = true;
+                SugerirCredito();
+                atualizando = false;
+            }
         }
 
         // Dados da NF-e: fornecedor, número, emissão, valor e boletos; os recebimentos do fornecedor vêm marcados.
@@ -267,6 +290,16 @@ internal static class DialogosNotaEntrada
             pagamentoEscolhido = true;
             doXml = false;
             Gerar();
+        };
+        credito.ValueChanged += (_, _) =>
+        {
+            if (atualizando)
+                return;
+            creditoEditado = true;
+            if (doXml)
+                conferir();
+            else
+                Gerar();
         };
         forma.SelectionChangeCommitted += (_, _) => pagamentoEscolhido = true;
         emissao.ValueChanged += (_, _) =>
@@ -395,6 +428,7 @@ internal static class DialogosNotaEntrada
             Nota = nota, FornecedorId = analise.FornecedorId, DataRecebimento = hoje, FormaPagamentoId = analise.FormaPagamentoId
         };
         var (condicoes, formasPagamento) = await compras.OpcoesPagamentoAsync();
+        var creditoDisponivel = analise.FornecedorId is { } fornecedorDaNota ? (await compras.CreditosFornecedoresAsync()).GetValueOrDefault(fornecedorDaNota) : 0;
         var formas = formasPagamento.Select(f => new ItemLookup { Id = f.Id, Nome = f.Nome }).ToList();
         var itensCondicao = condicoes.Select(c => new ItemLookup { Id = c.Id, Nome = c.Nome }).ToList();
         int? condicaoId = null;
@@ -547,7 +581,17 @@ internal static class DialogosNotaEntrada
         e.Secao("Vencimentos (boletos da nota)");
         var condicao = e.Lista("Condição de pagamento (troca os vencimentos)", itensCondicao, () => condicaoId, v => condicaoId = v,
             permitirVazio: true, span: 2);
-        var (painelVencimentos, gradeVencimentos, conferir) = PainelVencimentos(vencimentos, () => nota.ValorTotal, formas);
+        NumericUpDown? credito = null;
+        if (creditoDisponivel > 0)
+        {
+            // Crédito de devoluções deste fornecedor: desconta desta nota (os boletos da nota ficam com o total menos ele).
+            e.Informacao("Crédito com o fornecedor (devoluções)", () => $"{Textos.Moeda(creditoDisponivel)} disponível", span: 2);
+            credito = e.Decimal("Usar do crédito (R$)", () => input.CreditoUsado, v => input.CreditoUsado = v, nameof(input.CreditoUsado));
+        }
+        decimal APagar() => nota.ValorTotal - (credito?.Value ?? 0);
+        var (painelVencimentos, gradeVencimentos, conferir) = PainelVencimentos(vencimentos, APagar, formas);
+        if (credito is not null)
+            credito.ValueChanged += (_, _) => conferir();
         e.Livre(painelVencimentos);
         condicao.SelectionChangeCommitted += (_, _) =>
         {
@@ -555,7 +599,7 @@ internal static class DialogosNotaEntrada
             var escolhida = condicao.SelectedItem is ItemLookup { Id: > 0 } item ? condicoes.FirstOrDefault(c => c.Id == item.Id) : null;
             var novos = escolhida is null
                 ? (nota.Duplicatas.Count > 0 ? nota.Duplicatas.Select(d => (d.Vencimento, d.Valor, (int?)null)).ToList() : [(nota.DataEmissao, nota.ValorTotal, null)])
-                : CompraService.Vencimentos(escolhida, nota.ValorTotal, nota.DataEmissao).Select(v => (v.Vencimento, v.Valor, v.FormaPagamentoId)).ToList();
+                : CompraService.Vencimentos(escolhida, APagar(), nota.DataEmissao).Select(v => (v.Vencimento, v.Valor, v.FormaPagamentoId)).ToList();
             foreach (var (vencimento, valor, formaId) in novos)
                 vencimentos.Add(new LinhaVencimento { Vencimento = vencimento.ToDateTime(TimeOnly.MinValue), Valor = valor, FormaPagamentoId = formaId ?? 0 });
             conferir();
