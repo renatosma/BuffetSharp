@@ -31,6 +31,7 @@ public class Evento : Entidade
     private readonly List<EventoEtapa> _etapas = [];
     private readonly List<EventoMesa> _mesas = [];
     private readonly List<EventoFornecedor> _fornecedores = [];
+    private readonly List<EventoRestricao> _restricoesAvulsas = [];
 
     private Evento()
     {
@@ -118,6 +119,9 @@ public class Evento : Entidade
     public IReadOnlyCollection<EventoServico> Servicos => _servicos;
     public IReadOnlyCollection<EventoFuncionario> Equipe => _equipe;
     public IReadOnlyCollection<Convidado> Convidados => _convidados;
+
+    /// <summary>Restrições alimentares sem nome (quantidades informadas pelo cliente), além das dos convidados da lista.</summary>
+    public IReadOnlyCollection<EventoRestricao> RestricoesAvulsas => _restricoesAvulsas;
     public IReadOnlyCollection<Parcela> Parcelas => _parcelas;
     public IReadOnlyCollection<EventoMaterial> Materiais => _materiais;
     public IReadOnlyCollection<EventoTarefa> Tarefas => _tarefas;
@@ -307,6 +311,56 @@ public class Evento : Entidade
         _convidados.Add(convidado);
         return convidado;
     }
+
+    /// <summary>Restrições alimentares de um convidado (o que não couber nas marcadas vai na observação).</summary>
+    public void DefinirRestricoesConvidado(int convidadoId, RestricaoAlimentar restricoes, string? observacao) =>
+        DefinirRestricoesConvidado(ObterConvidado(convidadoId), restricoes, observacao);
+
+    public void DefinirRestricoesConvidado(Convidado convidado, RestricaoAlimentar restricoes, string? observacao)
+    {
+        GarantirConfirmado();
+        Validador.Garantir(_convidados.Contains(convidado), "Convidado não encontrado.");
+        observacao = string.IsNullOrWhiteSpace(observacao) ? null : observacao.Trim();
+        Validador.Garantir(observacao is null || observacao.Length <= RestricoesAlimentares.TamanhoObservacao,
+            $"A observação da restrição tem no máximo {RestricoesAlimentares.TamanhoObservacao} caracteres.");
+        convidado.Restricoes = restricoes;
+        convidado.ObservacaoRestricao = observacao;
+    }
+
+    /// <summary>Substitui as restrições avulsas (quantidades sem nome) do evento.</summary>
+    public void DefinirRestricoesAvulsas(IEnumerable<(RestricaoAlimentar Restricoes, int Pessoas, string? Descricao)> restricoes)
+    {
+        GarantirConfirmado();
+        var lista = restricoes.ToList();
+        Validador.Garantir(lista.All(r => r.Restricoes != RestricaoAlimentar.Nenhuma), "Escolha a restrição de cada linha.");
+        Validador.Garantir(lista.All(r => r.Pessoas > 0), "Informe quantas pessoas têm cada restrição.");
+        Validador.Garantir(lista.All(r => r.Descricao is null || r.Descricao.Trim().Length <= EventoRestricao.TamanhoDescricao),
+            $"A descrição tem no máximo {EventoRestricao.TamanhoDescricao} caracteres.");
+        Validador.Garantir(lista.Sum(r => r.Pessoas) <= QuantidadeConvidados,
+            $"As restrições avulsas somam mais pessoas que os {QuantidadeConvidados} convidados do evento.");
+        _restricoesAvulsas.Clear();
+        _restricoesAvulsas.AddRange(lista.Select(r => new EventoRestricao(r.Restricoes, r.Pessoas, string.IsNullOrWhiteSpace(r.Descricao) ? null : r.Descricao.Trim())));
+    }
+
+    /// <summary>
+    /// Pessoas com restrição alimentar, por combinação de restrições: os convidados da lista (menos quem não vai) e as
+    /// avulsas.
+    /// </summary>
+    public IReadOnlyList<GrupoRestricao> GruposRestricao() =>
+        _convidados.Where(c => c.Restricoes != RestricaoAlimentar.Nenhuma && c.Rsvp != StatusRsvp.Recusado)
+            .Select(c => new GrupoRestricao(c.Restricoes, 1))
+            .Concat(_restricoesAvulsas.Select(r => new GrupoRestricao(r.Restricoes, r.Pessoas)))
+            .GroupBy(g => g.Restricoes)
+            .Select(g => new GrupoRestricao(g.Key, g.Sum(x => x.Pessoas)))
+            .OrderBy(g => g.Restricoes)
+            .ToList();
+
+    /// <summary>
+    /// Porções de cada prato do pacote para as pessoas informadas, com os substitutos de quem tem restrição. Requer o pacote
+    /// com os pratos, os insumos (e os produtos), os substitutos, os convidados e as restrições avulsas carregados.
+    /// </summary>
+    public PlanoCardapio PlanejarCardapio(int pessoas) =>
+        PlanoCardapio.Calcular(Pacote?.Itens.Select(i => i.ItemCardapio).OfType<ItemCardapio>() ?? [], pessoas, GruposRestricao());
 
     public void RemoverConvidado(int convidadoId)
     {

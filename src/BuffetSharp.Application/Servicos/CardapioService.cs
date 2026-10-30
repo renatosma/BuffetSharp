@@ -26,6 +26,8 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
             Descricao = item.Descricao,
             CategoriaCardapioId = item.CategoriaCardapioId,
             Ativo = item.Ativo,
+            ContemInformado = item.ContemInformado,
+            SubstitutoId = item.SubstitutoId,
             Ingredientes = item.Ingredientes
                 .OrderBy(f => f.Produto!.Nome)
                 .Select(f => new IngredienteInput
@@ -34,7 +36,8 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
                     Produto = f.Produto!.Nome,
                     Unidade = f.Produto.UnidadeMedida?.Sigla ?? string.Empty,
                     CustoUnitario = f.Produto.CustoMedio,
-                    QuantidadePorPessoa = f.QuantidadePorPessoa
+                    QuantidadePorPessoa = f.QuantidadePorPessoa,
+                    Contem = f.Produto.Contem
                 }).ToList()
         };
     }
@@ -52,8 +55,13 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
         item.Descricao = input.Descricao;
         item.CategoriaCardapioId = input.CategoriaCardapioId;
         item.Ativo = input.Ativo;
+        item.ContemInformado = input.ContemInformado;
         Validador.Validar(item);
         item.DefinirFichaTecnica(input.Ingredientes.Select(i => (i.ProdutoId, i.QuantidadePorPessoa)));
+        if (input.SubstitutoId != item.SubstitutoId)
+            item.DefinirSubstituto(input.SubstitutoId is { } substitutoId
+                ? await db.ItensCardapio.FirstOrDefaultAsync(i => i.Id == substitutoId, ct) ?? throw new RegraNegocioException("Substituto não encontrado.")
+                : null);
 
         await db.SaveChangesAsync(ct);
         input.Versao = item.Versao;
@@ -65,6 +73,9 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
         await using var db = fabrica.Criar();
         var item = await db.ItensCardapio.FirstOrDefaultAsync(i => i.Id == id, ct)
                    ?? throw new RegraNegocioException("Item do cardápio não encontrado.");
+        // Quem tinha este prato como substituto fica sem substituto.
+        foreach (var substituido in await db.ItensCardapio.Where(i => i.SubstitutoId == id).ToListAsync(ct))
+            substituido.DefinirSubstituto(null);
         db.ItensCardapio.Remove(item);
         await db.SaveChangesAsync(ct);
     }

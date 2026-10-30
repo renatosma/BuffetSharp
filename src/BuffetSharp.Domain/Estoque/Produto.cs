@@ -47,6 +47,9 @@ public class Produto : Entidade, IAtivavel, ICamposControlados, IValidatableObje
     /// </summary>
     public bool ControlaValidade { get; set; }
 
+    /// <summary>O que o insumo contém (glúten, lactose, carne...): os pratos herdam pela ficha técnica, para as restrições alimentares.</summary>
+    public Cardapio.ConteudoAlimentar Contem { get; set; }
+
     /// <summary>Lotes criados pelas entradas. Saídas, ajustes, descartes e estornos precisam deles carregados.</summary>
     public List<LoteEstoque> Lotes { get; private set; } = [];
 

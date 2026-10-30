@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cardapio;
 using System.ComponentModel;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
@@ -36,9 +37,12 @@ internal sealed class FormItensCardapio : FormListagem<ItemCardapioResumo>
             .Texto("Item", i => i.Nome, 60)
             .Numero("Ingredientes", i => i.QuantidadeIngredientes, peso: 18)
             .Numero("Custo / pessoa", i => i.CustoPorPessoa, "C2", 22)
+            .Texto("Para quem serve / alérgenos", i => i.TemComposicao ? RestricoesAlimentares.Selos(i.Contem) : "(sem ficha técnica)", 60,
+                i => i.TemComposicao ? null : Tema.TextoSuave)
+            .Texto("Substituto", i => i.Substituto, 30)
             .SimNao("Ativo", i => i.Ativo, 12)
             .CorDaLinha(i => i.Ativo ? null : Tema.Neutro)
-            .Busca(i => $"{i.Categoria} {i.Nome}");
+            .Busca(i => $"{i.Categoria} {i.Nome} {i.Substituto} {RestricoesAlimentares.Selos(i.Contem)}");
     }
 
     protected override async Task CarregarAsync() => Exibir(await _consultas.ListarItensCardapioAsync());
@@ -50,10 +54,18 @@ internal sealed class FormItensCardapio : FormListagem<ItemCardapioResumo>
         var input = id == 0 ? new ItemCardapioInput() : await _servico.ObterItemAsync(id);
         var secoes = await _lookups.ListarAsync(TipoLookup.CategoriasCardapio, somenteAtivos: false);
         var produtos = await _lookups.ListarAsync(TipoLookup.Produtos);
+        var pratos = (await _lookups.ListarAsync(TipoLookup.ItensCardapio)).Where(i => i.Id != id).ToList();
 
         var ingredientes = new BindingList<IngredienteInput>(input.Ingredientes);
         var custo = new Label { AutoSize = true, Font = Tema.FonteSubtitulo, ForeColor = Tema.Primaria };
-        void AtualizarCusto() => custo.Text = $"Custo por pessoa: {ingredientes.Sum(i => i.CustoPorPessoa):C2}";
+        var selos = new Label { AutoSize = true, ForeColor = Tema.TextoSuave, MaximumSize = new Size(700, 0) };
+        void AtualizarCusto()
+        {
+            custo.Text = $"Custo por pessoa: {ingredientes.Sum(i => i.CustoPorPessoa):C2}";
+            var contem = ingredientes.Aggregate(ConteudoAlimentar.Nenhum, (soma, i) => soma | i.Contem);
+            selos.Text = ingredientes.Count == 0 ? "Sem insumos na ficha: marque abaixo o que o prato contém."
+                : $"Pelos insumos: {RestricoesAlimentares.Selos(contem)} (mais o marcado abaixo).";
+        }
         ingredientes.ListChanged += (_, _) => AtualizarCusto();
         AtualizarCusto();
 
@@ -64,6 +76,12 @@ internal sealed class FormItensCardapio : FormListagem<ItemCardapioResumo>
         e.Marcador("Ativo", () => input.Ativo, v => input.Ativo = v);
         e.Secao("Ficha técnica - quantidade por convidado");
         e.Livre(CriarFichaTecnica(ingredientes, produtos, custo));
+        e.Secao("Restrições alimentares");
+        e.Livre(selos);
+        e.Marcadores("Contém também (além dos insumos)", RestricoesAlimentares.Conteudos, c => Textos.Exibir(c), () => input.ContemInformado,
+            v => input.ContemInformado = v, nameof(input.ContemInformado), span: 2);
+        e.Lista("Substituto para quem não pode comer este prato", pratos, () => input.SubstitutoId, v => input.SubstitutoId = v,
+            nameof(input.SubstitutoId), permitirVazio: true, span: 2);
 
         using var dialogo = new FormEdicao(id == 0 ? "Novo item do cardápio" : "Editar item do cardápio", input.Nome.Length > 0 ? input.Nome : null,
             e, async () =>
@@ -126,7 +144,8 @@ internal sealed class FormItensCardapio : FormListagem<ItemCardapioResumo>
                 Produto = p.Nome,
                 Unidade = p.Info ?? "",
                 CustoUnitario = p.Valor,
-                QuantidadePorPessoa = quantidade.Value
+                QuantidadePorPessoa = quantidade.Value,
+                Contem = (ConteudoAlimentar)p.Numero
             });
         };
         remover.Click += (_, _) =>

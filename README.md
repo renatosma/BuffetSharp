@@ -285,6 +285,19 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   que não vai libera o lugar. Na importação da lista, a coluna Mesa ("5", "Mesa 5" ou um nome, como "Noivos") cria a
   mesa no mapa se ela não existir. Saem impressos a lista da recepção (em ordem alfabética, com a mesa), a planta com
   quem senta em cada mesa e os cartões de mesa (uma página por mesa).
+- **Restrições alimentares**: no cadastro de produtos marca-se o que cada insumo contém (glúten, lactose, ovo,
+  amendoim/castanhas, peixe/frutos do mar, soja, carne, outra origem animal), e o prato herda pela ficha técnica, com a
+  opção de marcar o que ele leva além dos insumos. Cada prato pode ter um substituto (ex.: risoto de cogumelos no lugar do
+  filé). No evento, cada convidado pode ter restrições (vegetariano, vegano, sem glúten, sem lactose, sem ovo, sem
+  amendoim/castanhas, sem peixe/frutos do mar, sem soja, combináveis) e uma observação livre ("alergia a kiwi"); quando o
+  cliente só informa quantidades, elas entram como restrições sem nome (ex.: 6 vegetarianos). Quem não pode comer um
+  prato recebe o substituto, ou o substituto do substituto se o primeiro também não servir; sem nenhum que sirva, a
+  ordem de produção avisa a cozinha. As porções e os insumos dos substitutos entram na ordem de produção, na lista de
+  compras e na baixa do estoque ao encerrar o evento. A ordem de produção traz as restrições, quem são (com a mesa) e o
+  que trocar. A lista da recepção tem a coluna da restrição, a planta mostra as siglas com a legenda e o cartão de mesa
+  traz a restrição por extenso ao lado do nome. A proposta (impressa e por e-mail) mostra os selos de cada prato
+  (vegano, vegetariano, sem glúten, sem lactose) e os alérgenos. A importação da lista aceita a coluna de restrições
+  ("vegano, sem lactose", "celíaco"), e o que não for reconhecido vira observação.
 - **Convites de agenda (.ics)**: o arquivo que o Google Agenda, o Outlook e o celular salvam com um clique (horário de
   Brasília, lembrete na véspera). Na central do evento, "Convites de agenda" lista o cliente, cada funcionário escalado
   (da montagem à desmontagem) e cada fornecedor (da chegada ao fim), com quem já recebeu e quem falta. "Enviar pendentes"
@@ -446,7 +459,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **465 testes** (xUnit v3): 422 de domínio, integração e bancos, e 43 das telas.
+São **481 testes** (xUnit v3): 437 de domínio, integração e bancos, e 44 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

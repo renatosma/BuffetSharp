@@ -161,7 +161,11 @@ public sealed class PropostaService(
             {
                 html.Append("<h3 style=\"color:#8b1e3f\">Cardápio</h3>");
                 foreach (var grupo in composicao.GroupBy(c => c.Categoria))
-                    html.Append($"<p><b>{H(grupo.Key)}</b><br>{H(string.Join(" • ", grupo.Select(i => i.Item)))}</p>");
+                    html.Append($"<p><b>{H(grupo.Key)}</b><br>{string.Join(" • ", grupo.Select(i => i.Selos.Length == 0 ? H(i.Item)
+                        : $"{H(i.Item)} <span style=\"color:#6e6a66;font-size:12px\">({H(i.Selos)})</span>"))}</p>");
+                if (composicao.Any(i => i.TemComposicao))
+                    html.Append("<p style=\"color:#6e6a66;font-size:12px\">Alérgenos conforme as fichas técnicas dos pratos. Informe as restrições " +
+                                "alimentares dos convidados: quem não puder comer um prato recebe um substituto.</p>");
             }
         }
 

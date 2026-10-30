@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
@@ -33,8 +34,7 @@ public sealed class EventoService(
                          .Include(e => e.Orcamento)
                          .Include(e => e.Vendedor)
                          .Include(e => e.Materiais).ThenInclude(m => m.Material)
-                         .Include(e => e.Pacote!).ThenInclude(p => p.Itens).ThenInclude(i => i.ItemCardapio!)
-                         .ThenInclude(i => i.Ingredientes).ThenInclude(f => f.Produto!).ThenInclude(p => p.UnidadeMedida)
+                         .ComCardapioCompleto()
                          .Include(e => e.Servicos)
                          .Include(e => e.Equipe).ThenInclude(f => f.Funcionario!).ThenInclude(f => f.Cargo)
                          .Include(e => e.Convidados).ThenInclude(c => c.Mesa)
@@ -204,8 +204,9 @@ public sealed class EventoService(
 
     /// <summary>
     /// Importa convidados colados de uma planilha/texto: uma pessoa por linha no formato
-    /// "Nome;Telefone;Acompanhantes;Mesa" (somente o nome é obrigatório). A mesa ("5", "Mesa 5" ou um nome, como "Noivos")
-    /// entra no mapa se ainda não existir; quem não couber nela fica sem mesa. Retorna a quantidade importada.
+    /// "Nome;Telefone;Acompanhantes;Mesa;Restrições" (somente o nome é obrigatório). A mesa ("5", "Mesa 5" ou um nome, como
+    /// "Noivos") entra no mapa se ainda não existir; quem não couber nela fica sem mesa. As restrições ("vegano, sem lactose",
+    /// "celíaco") são reconhecidas e o que não for vira observação ("alergia a kiwi"). Retorna a quantidade importada.
     /// </summary>
     public async Task<int> ImportarConvidadosAsync(int eventoId, string texto, CancellationToken ct = default)
     {
@@ -226,11 +227,23 @@ public sealed class EventoService(
                 if (partes.Length > 3 && partes[3].Length > 0 && evento.ObterOuCriarMesa(partes[3]) is var mesa &&
                     evento.LugaresLivres(mesa) >= convidado.Pessoas)
                     evento.SentarConvidado(convidado, mesa);
+                if (partes.Length > 4 && RestricoesAlimentares.Ler(partes[4]) is var (restricoes, observacao) &&
+                    (restricoes != RestricaoAlimentar.Nenhuma || observacao is not null))
+                    evento.DefinirRestricoesConvidado(convidado, restricoes, observacao);
                 importados++;
             }
         }, ct);
         return importados;
     }
+
+    public Task DefinirRestricoesConvidadoAsync(int eventoId, int convidadoId, RestricaoAlimentar restricoes, string? observacao,
+        CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.Convidados), (_, e) => e.DefinirRestricoesConvidado(convidadoId, restricoes, observacao), ct);
+
+    /// <summary>Restrições sem nome na lista (ex.: 6 vegetarianos), informadas pelo cliente.</summary>
+    public Task DefinirRestricoesAvulsasAsync(int eventoId, IEnumerable<(RestricaoAlimentar Restricoes, int Pessoas, string? Descricao)> restricoes,
+        CancellationToken ct = default) =>
+        AlterarAsync(eventoId, q => q.Include(e => e.RestricoesAvulsas), (_, e) => e.DefinirRestricoesAvulsas(restricoes), ct);
 
     public Task RemoverConvidadoAsync(int eventoId, int convidadoId, CancellationToken ct = default) =>
         AlterarAsync(eventoId, q => q.Include(e => e.Convidados), (_, e) => e.RemoverConvidado(convidadoId), ct);
@@ -587,8 +600,7 @@ public sealed class EventoService(
     {
         var avisos = new List<string>();
         await AlterarAsync(eventoId,
-            q => q.Include(e => e.Pacote!).ThenInclude(p => p.Itens).ThenInclude(i => i.ItemCardapio!)
-                .ThenInclude(i => i.Ingredientes),
+            q => q.ComCardapioCompleto(),
             async (db, evento) =>
             {
                 var agora = Agora;
@@ -599,7 +611,8 @@ public sealed class EventoService(
                     return;
                 }
 
-                var consumo = evento.Pacote.CalcularConsumo(evento.PessoasAtendidas);
+                // Quem tem restrição comeu o substituto: os insumos dele saem no lugar dos do prato.
+                var consumo = evento.PlanejarCardapio(evento.PessoasAtendidas).Consumo();
                 var produtos = await EstoqueService.ComLotes(db.Produtos).Where(p => consumo.Keys.Contains(p.Id)).ToListAsync(ct);
                 foreach (var produto in produtos)
                 {

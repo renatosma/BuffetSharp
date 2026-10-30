@@ -19,6 +19,9 @@ public sealed class IngredienteInput
     public decimal CustoUnitario { get; set; }
     public decimal QuantidadePorPessoa { get; set; }
     public decimal CustoPorPessoa => Math.Round(QuantidadePorPessoa * CustoUnitario, 4);
+
+    /// <summary>O que o insumo contém (do cadastro do produto).</summary>
+    public Domain.Cardapio.ConteudoAlimentar Contem { get; set; }
 }
 
 public sealed class ItemCardapioInput
@@ -31,6 +34,12 @@ public sealed class ItemCardapioInput
     public int CategoriaCardapioId { get; set; }
     public bool Ativo { get; set; } = true;
     public List<IngredienteInput> Ingredientes { get; set; } = [];
+
+    /// <summary>O que o prato contém além dos insumos da ficha.</summary>
+    public Domain.Cardapio.ConteudoAlimentar ContemInformado { get; set; }
+
+    /// <summary>Prato servido no lugar deste a quem tem uma restrição que ele não atende.</summary>
+    public int? SubstitutoId { get; set; }
 }
 
 public sealed class PacoteInput

@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Domain.Comum;
 
@@ -150,6 +151,25 @@ internal sealed class EditorCampos
         _carregar.Add(() => marcador.Checked = obter());
         _aplicar.Add(() => definir(marcador.Checked));
         return marcador;
+    }
+
+    /// <summary>Várias opções de um enum de marcações combináveis (ex.: o que o insumo contém, as restrições do convidado).</summary>
+    public FlowLayoutPanel Marcadores<TEnum>(string rotulo, IEnumerable<TEnum> opcoes, Func<TEnum, string> nome, Func<TEnum> obter,
+        Action<TEnum> definir, string? propriedade = null, int span = 1) where TEnum : struct, Enum
+    {
+        var painel = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Dock = DockStyle.Fill, Margin = new Padding(0) };
+        var marcadores = opcoes.Select(o => (Valor: o, Caixa: new CheckBox { Text = nome(o), AutoSize = true, Margin = new Padding(0, 2, 14, 2) })).ToList();
+        painel.Controls.AddRange(marcadores.Select(m => (Control)m.Caixa).ToArray());
+        Adicionar(rotulo, painel, propriedade, span);
+        _carregar.Add(() =>
+        {
+            var atual = obter();
+            foreach (var (valor, caixa) in marcadores)
+                caixa.Checked = atual.HasFlag(valor);
+        });
+        _aplicar.Add(() => definir((TEnum)Enum.ToObject(typeof(TEnum),
+            marcadores.Where(m => m.Caixa.Checked).Aggregate(0L, (soma, m) => soma | Convert.ToInt64(m.Valor)))));
+        return painel;
     }
 
     /// <summary>Combo de cadastro relacionado (Id). Permite digitar para localizar.</summary>

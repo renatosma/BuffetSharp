@@ -274,6 +274,12 @@ public sealed record ItemCardapioResumo
     public int QuantidadeIngredientes { get; init; }
     public decimal CustoPorPessoa { get; init; }
     public bool Ativo { get; init; }
+    public string? Substituto { get; init; }
+
+    /// <summary>O que o prato contém: o informado no prato mais o que vem dos insumos.</summary>
+    public Domain.Cardapio.ConteudoAlimentar Contem { get; init; }
+
+    public bool TemComposicao => QuantidadeIngredientes > 0 || Contem != Domain.Cardapio.ConteudoAlimentar.Nenhum;
 }
 
 public sealed record PacoteResumo
@@ -297,6 +303,15 @@ public sealed record ItemComposicao
     public string Categoria { get; init; } = string.Empty;
     public string Item { get; init; } = string.Empty;
     public string? Descricao { get; init; }
+
+    /// <summary>O que o prato contém (informado mais insumos), para os selos e alérgenos da proposta.</summary>
+    public Domain.Cardapio.ConteudoAlimentar Contem { get; init; }
+
+    /// <summary>Tem ficha técnica ou algo informado: sem isso, não dá para dizer para quem serve.</summary>
+    public bool TemComposicao { get; init; }
+
+    /// <summary>Ex.: "vegetariano • sem glúten • contém: lactose" (vazio sem composição).</summary>
+    public string Selos => TemComposicao ? Domain.Cardapio.RestricoesAlimentares.Selos(Contem) : "";
 }
 
 /// <summary>Patrimônio de um material e quanto dele já está comprometido com eventos próximos à data.</summary>

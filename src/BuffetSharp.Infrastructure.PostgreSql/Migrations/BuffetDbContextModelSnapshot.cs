@@ -1326,6 +1326,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("categoriacardapioid");
 
+                    b.Property<int>("ContemInformado")
+                        .HasMaxLength(30)
+                        .HasColumnType("integer")
+                        .HasColumnName("conteminformado");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("criadoem");
@@ -1341,6 +1346,10 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("nome");
 
+                    b.Property<int?>("SubstitutoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("substitutoid");
+
                     b.Property<int>("Versao")
                         .IsConcurrencyToken()
                         .HasColumnType("integer")
@@ -1355,6 +1364,9 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.HasIndex("Nome")
                         .IsUnique()
                         .HasDatabaseName("ix_itenscardapio_nome");
+
+                    b.HasIndex("SubstitutoId")
+                        .HasDatabaseName("ix_itenscardapio_substitutoid");
 
                     b.ToTable("itenscardapio", (string)null);
                 });
@@ -3733,6 +3745,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("codigo");
 
+                    b.Property<int>("Contem")
+                        .HasMaxLength(30)
+                        .HasColumnType("integer")
+                        .HasColumnName("contem");
+
                     b.Property<bool>("ControlaValidade")
                         .HasColumnType("boolean")
                         .HasColumnName("controlavalidade");
@@ -4033,6 +4050,16 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)")
                         .HasColumnName("nome");
+
+                    b.Property<string>("ObservacaoRestricao")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("observacaorestricao");
+
+                    b.Property<int>("Restricoes")
+                        .HasMaxLength(30)
+                        .HasColumnType("integer")
+                        .HasColumnName("restricoes");
 
                     b.Property<string>("Rsvp")
                         .IsRequired()
@@ -4582,6 +4609,42 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasDatabaseName("ix_eventomesas_eventoid_numero");
 
                     b.ToTable("eventomesas", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoRestricao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("descricao");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("eventoid");
+
+                    b.Property<int>("Pessoas")
+                        .HasColumnType("integer")
+                        .HasColumnName("pessoas");
+
+                    b.Property<int>("Restricoes")
+                        .HasMaxLength(30)
+                        .HasColumnType("integer")
+                        .HasColumnName("restricoes");
+
+                    b.HasKey("Id")
+                        .HasName("pk_eventorestricoes");
+
+                    b.HasIndex("EventoId")
+                        .HasDatabaseName("ix_eventorestricoes_eventoid");
+
+                    b.ToTable("eventorestricoes", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoServico", b =>
@@ -6533,7 +6596,15 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_itenscardapio_categoriascardapio_categoriacardapioid");
 
+                    b.HasOne("BuffetSharp.Domain.Cardapio.ItemCardapio", "Substituto")
+                        .WithMany()
+                        .HasForeignKey("SubstitutoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_itenscardapio_itenscardapio_substitutoid");
+
                     b.Navigation("CategoriaCardapio");
+
+                    b.Navigation("Substituto");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Cardapio.PacoteItem", b =>
@@ -7498,6 +7569,16 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_eventomesas_eventos_eventoid");
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoRestricao", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany("RestricoesAvulsas")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_eventorestricoes_eventos_eventoid");
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoServico", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
@@ -7996,6 +8077,8 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Mesas");
 
                     b.Navigation("Parcelas");
+
+                    b.Navigation("RestricoesAvulsas");
 
                     b.Navigation("Servicos");
 

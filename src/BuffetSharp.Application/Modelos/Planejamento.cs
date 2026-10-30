@@ -74,10 +74,24 @@ public sealed record OrdemProducao
     public string? Pacote { get; init; }
     public string? Observacoes { get; init; }
     public IReadOnlyList<PratoProducao> Pratos { get; init; } = [];
+
+    /// <summary>Pessoas com restrição alimentar, por combinação, com quem são e o que trocar.</summary>
+    public IReadOnlyList<RestricaoProducao> Restricoes { get; init; } = [];
+
+    /// <summary>O que não cabe nas restrições marcadas (ex.: "Ana Souza (Mesa 5): alergia a kiwi").</summary>
+    public IReadOnlyList<string> ObservacoesRestricao { get; init; } = [];
+
+    public int PessoasComRestricao => Restricoes.Sum(r => r.Pessoas);
     public string Codigo => $"EVT-{EventoId:D5}";
 }
 
-public sealed record PratoProducao(string Secao, int OrdemSecao, string Prato, int Porcoes, IReadOnlyList<IngredienteProducao> Ingredientes);
+/// <param name="Substituto">Prato que não é do pacote: só para quem tem restrição.</param>
+public sealed record PratoProducao(string Secao, int OrdemSecao, string Prato, int Porcoes, IReadOnlyList<IngredienteProducao> Ingredientes,
+    bool Substituto = false);
+
+/// <param name="Quem">Convidados (com a mesa) e as quantidades sem nome.</param>
+/// <param name="Trocas">Ex.: "Filé ao molho madeira → Risoto de cogumelos" ou "... → sem substituto: preparar alternativa".</param>
+public sealed record RestricaoProducao(string Restricao, string Sigla, int Pessoas, IReadOnlyList<string> Quem, IReadOnlyList<string> Trocas);
 
 public sealed record IngredienteProducao(string Produto, decimal Quantidade, string Unidade);
 

@@ -1,5 +1,6 @@
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Modelos;
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
 using BuffetSharp.Domain.Eventos;
@@ -32,7 +33,8 @@ public sealed class PlanejamentoService(IBuffetDbContextFactory fabrica)
         var porProduto = new Dictionary<int, List<string>>();
         foreach (var evento in eventos.Where(e => e.Pacote is not null))
         {
-            foreach (var (produtoId, quantidade) in evento.Pacote!.CalcularConsumo(evento.QuantidadeConvidados))
+            // As porções de quem tem restrição saem do prato e vão para o substituto (e os insumos dele).
+            foreach (var (produtoId, quantidade) in evento.PlanejarCardapio(evento.QuantidadeConvidados).Consumo())
             {
                 consumo[produtoId] = consumo.GetValueOrDefault(produtoId) + quantidade;
                 if (!porProduto.TryGetValue(produtoId, out var eventosDoProduto))
@@ -110,7 +112,15 @@ public sealed class PlanejamentoService(IBuffetDbContextFactory fabrica)
         return Ordem(evento);
     }
 
-    private static OrdemProducao Ordem(Evento e) => new()
+    private static OrdemProducao Ordem(Evento e)
+    {
+        var plano = e.PlanejarCardapio(e.QuantidadeConvidados);
+        var doPacote = new HashSet<ItemCardapio>(e.Pacote?.Itens.Select(i => i.ItemCardapio).OfType<ItemCardapio>() ?? [],
+            ReferenceEqualityComparer.Instance);
+        return Ordem(e, plano, doPacote);
+    }
+
+    private static OrdemProducao Ordem(Evento e, PlanoCardapio plano, HashSet<ItemCardapio> doPacote) => new()
     {
         EventoId = e.Id,
         Titulo = e.Titulo,
@@ -122,27 +132,38 @@ public sealed class PlanejamentoService(IBuffetDbContextFactory fabrica)
         Convidados = TextosFaixas.Resumo(e.QuantidadesPorFaixa),
         Pacote = e.Pacote?.Nome,
         Observacoes = e.Observacoes,
-        Pratos = e.Pacote is null
-            ? []
-            : e.Pacote.Itens.Select(i => i.ItemCardapio!)
-                .OrderBy(i => i.CategoriaCardapio?.Ordem ?? 99).ThenBy(i => i.Nome)
-                .Select(i => new PratoProducao(i.CategoriaCardapio?.Nome ?? "Outros", i.CategoriaCardapio?.Ordem ?? 99, i.Nome,
-                    e.QuantidadeConvidados,
-                    i.Ingredientes.OrderBy(f => f.Produto?.Nome)
-                        .Select(f => new IngredienteProducao(f.Produto?.Nome ?? "?", Math.Round(f.QuantidadePorPessoa * e.QuantidadeConvidados, 3),
-                            f.Produto?.UnidadeMedida?.Sigla ?? ""))
-                        .ToList()))
-                .ToList()
+        Pratos = plano.Porcoes.Where(p => p.Value > 0)
+            .OrderBy(p => doPacote.Contains(p.Key) ? 0 : 1).ThenBy(p => p.Key.CategoriaCardapio?.Ordem ?? 99).ThenBy(p => p.Key.Nome)
+            .Select(p => new PratoProducao(p.Key.CategoriaCardapio?.Nome ?? "Outros", p.Key.CategoriaCardapio?.Ordem ?? 99, p.Key.Nome, p.Value,
+                p.Key.Ingredientes.OrderBy(f => f.Produto?.Nome)
+                    .Select(f => new IngredienteProducao(f.Produto?.Nome ?? "?", Math.Round(f.QuantidadePorPessoa * p.Value, 3),
+                        f.Produto?.UnidadeMedida?.Sigla ?? ""))
+                    .ToList(),
+                !doPacote.Contains(p.Key)))
+            .ToList(),
+        Restricoes = e.GruposRestricao().Select(g => new RestricaoProducao(RestricoesAlimentares.Nome(g.Restricoes),
+                RestricoesAlimentares.Sigla(g.Restricoes), g.Pessoas,
+                e.Convidados.Where(c => c.Restricoes == g.Restricoes && c.Rsvp != StatusRsvp.Recusado).OrderBy(c => c.Nome)
+                    .Select(c => c.Mesa is { } mesa ? $"{c.Nome} ({mesa.Descricao})" : c.Nome)
+                    .Concat(e.RestricoesAvulsas.Where(r => r.Restricoes == g.Restricoes)
+                        .Select(r => $"{r.Pessoas} sem nome na lista" + (r.Descricao is { } d ? $" ({d})" : "")))
+                    .ToList(),
+                plano.Trocas.Where(t => t.Grupo.Restricoes == g.Restricoes)
+                    .Select(t => $"{t.Prato.Nome} → {t.Substituto?.Nome ?? "sem substituto: preparar uma alternativa"}")
+                    .ToList()))
+            .ToList(),
+        ObservacoesRestricao = e.Convidados.Where(c => c.ObservacaoRestricao is not null && c.Rsvp != StatusRsvp.Recusado).OrderBy(c => c.Nome)
+            .Select(c => $"{c.Nome}{(c.Mesa is { } mesa ? $" ({mesa.Descricao})" : "")}: {c.ObservacaoRestricao}")
+            .ToList()
     };
 
     // ------------------------- Infra -------------------------
 
-    private static IQueryable<Evento> ComCardapio(IQueryable<Evento> eventos) => eventos.AsNoTracking()
+    // Com resolução de identidade, o substituto que também é do pacote é a mesma instância (as porções somam no mesmo prato).
+    private static IQueryable<Evento> ComCardapio(IQueryable<Evento> eventos) => eventos.AsNoTrackingWithIdentityResolution()
         .Include(e => e.Cliente)
         .Include(e => e.Espaco)
-        .Include(e => e.Pacote!).ThenInclude(p => p.Itens).ThenInclude(i => i.ItemCardapio!).ThenInclude(i => i.CategoriaCardapio)
-        .Include(e => e.Pacote!).ThenInclude(p => p.Itens).ThenInclude(i => i.ItemCardapio!).ThenInclude(i => i.Ingredientes)
-        .ThenInclude(f => f.Produto!).ThenInclude(p => p.UnidadeMedida);
+        .ComCardapioCompleto();
 
     private static async Task<List<Evento>> EventosAsync(IBuffetDbContext db, DateOnly de, DateOnly ate, CancellationToken ct)
     {

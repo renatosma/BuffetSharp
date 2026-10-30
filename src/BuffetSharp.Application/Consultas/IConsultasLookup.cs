@@ -29,7 +29,7 @@ public enum TipoLookup
 /// Item genérico para combos e listas de seleção. Os campos auxiliares variam por tipo:
 /// Espaços (Valor = locação, Numero = capacidade), Pacotes (Valor = preço/pessoa, Numero = mínimo),
 /// Serviços (Valor = preço, Marcador = cobrado por pessoa), Funcionários (Valor = diária, Info = cargo),
-/// Produtos (Valor = custo médio, Info = unidade), Formas de pagamento (Numero = máx. parcelas),
+/// Produtos (Valor = custo médio, Info = unidade, Numero = o que contém, para as restrições alimentares), Formas de pagamento (Numero = máx. parcelas),
 /// Formas de pagamento (Info = tipo), Contas financeiras (Info = tipo, Marcador = é caixa), Vendedores (Valor = comissão %), Materiais (Valor = custo de locação, Numero = patrimônio, Info = categoria),
 /// Condições de pagamento (Valor = % de entrada, Numero = parcelas), Modelos de contrato (Numero = tipo de evento ou 0,
 /// Marcador = padrão).

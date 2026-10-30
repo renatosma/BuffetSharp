@@ -25,7 +25,33 @@ public class ItemCardapio : Entidade, IAtivavel
 
     public bool Ativo { get; set; } = true;
 
+    /// <summary>O que o prato contém além do que vem dos insumos da ficha técnica (ex.: o molho leva trigo e não está na ficha).</summary>
+    public ConteudoAlimentar ContemInformado { get; set; }
+
+    /// <summary>Prato servido no lugar deste a quem tem uma restrição que ele não atende (ex.: risoto de cogumelos no lugar do filé).</summary>
+    public int? SubstitutoId { get; set; }
+    public ItemCardapio? Substituto { get; set; }
+
     public IReadOnlyCollection<FichaTecnicaItem> Ingredientes => _ingredientes;
+
+    /// <summary>O que o prato contém: o informado mais o que vem dos insumos (requer os produtos da ficha carregados).</summary>
+    public ConteudoAlimentar Contem =>
+        _ingredientes.Aggregate(ContemInformado, (soma, f) => soma | (f.Produto?.Contem ?? ConteudoAlimentar.Nenhum));
+
+    /// <summary>Sem ficha técnica nem nada informado, não dá para dizer para quem o prato serve.</summary>
+    public bool TemComposicao => _ingredientes.Count > 0 || ContemInformado != ConteudoAlimentar.Nenhum;
+
+    public bool Serve(RestricaoAlimentar restricoes) => RestricoesAlimentares.Serve(Contem, restricoes);
+
+    /// <summary>Confere o substituto escolhido: outro prato, ativo.</summary>
+    public void DefinirSubstituto(ItemCardapio? substituto)
+    {
+        Validador.Garantir(substituto is null || !ReferenceEquals(substituto, this) && (Id == 0 || substituto.Id != Id),
+            "O prato não pode ser o substituto dele mesmo.");
+        Validador.Garantir(substituto is null || substituto.Ativo, $"O substituto '{substituto?.Nome}' está inativo.");
+        Substituto = substituto;
+        SubstitutoId = substituto?.Id;
+    }
 
     /// <summary>Custo de insumos por pessoa (requer os produtos carregados).</summary>
     public decimal CustoPorPessoa => _ingredientes.Sum(i => i.CustoPorPessoa);

@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Estoque;
@@ -315,18 +316,45 @@ internal sealed class ConsultasEstoqueCardapio(FabricaConexao conexoes) : IConsu
     public async Task<IReadOnlyList<ItemCardapioResumo>> ListarItensCardapioAsync(CancellationToken ct = default)
     {
         const string sql = """
-            SELECT i.Id, i.Nome, c.Nome AS Categoria, c.Ordem AS OrdemCategoria, i.Ativo,
+            SELECT i.Id, i.Nome, c.Nome AS Categoria, c.Ordem AS OrdemCategoria, i.Ativo, s.Nome AS Substituto,
                    COUNT(f.ProdutoId) AS QuantidadeIngredientes,
                    CAST(COALESCE(SUM(f.QuantidadePorPessoa * p.CustoMedio), 0) AS DECIMAL(18, 4)) AS CustoPorPessoa
               FROM ItensCardapio i
               JOIN CategoriasCardapio c ON c.Id = i.CategoriaCardapioId
+              LEFT JOIN ItensCardapio s ON s.Id = i.SubstitutoId
               LEFT JOIN FichasTecnicas f ON f.ItemCardapioId = i.Id
               LEFT JOIN Produtos p ON p.Id = f.ProdutoId
-             GROUP BY i.Id, i.Nome, c.Nome, c.Ordem, i.Ativo
+             GROUP BY i.Id, i.Nome, c.Nome, c.Ordem, i.Ativo, s.Nome
              ORDER BY c.Ordem, i.Nome
             """;
 
-        return await conexoes.ListarAsync<ItemCardapioResumo>(sql, ct: ct);
+        var itens = await conexoes.ListarAsync<ItemCardapioResumo>(sql, ct: ct);
+        var contem = await ContemAsync(null, ct);
+        return itens.Select(i => i with { Contem = contem.GetValueOrDefault(i.Id) }).ToList();
+    }
+
+    private sealed class ConteudoLinha
+    {
+        public int ItemCardapioId { get; init; }
+        public int Contem { get; init; }
+    }
+
+    /// <summary>
+    /// O que cada prato contém: o informado nele mais o dos insumos da ficha (somado aqui: o "ou" de bits não é igual em
+    /// todos os bancos).
+    /// </summary>
+    private async Task<Dictionary<int, ConteudoAlimentar>> ContemAsync(int? pacoteId, CancellationToken ct)
+    {
+        const string sql = """
+            SELECT i.Id AS ItemCardapioId, i.ContemInformado AS Contem FROM ItensCardapio i
+             WHERE @PacoteId IS NULL OR i.Id IN (SELECT pi.ItemCardapioId FROM PacoteItens pi WHERE pi.PacoteId = @PacoteId)
+            UNION ALL
+            SELECT f.ItemCardapioId, p.Contem FROM FichasTecnicas f JOIN Produtos p ON p.Id = f.ProdutoId
+             WHERE @PacoteId IS NULL OR f.ItemCardapioId IN (SELECT pi.ItemCardapioId FROM PacoteItens pi WHERE pi.PacoteId = @PacoteId)
+            """;
+        var linhas = await conexoes.ListarAsync<ConteudoLinha>(sql, new { PacoteId = pacoteId }, ct);
+        return linhas.GroupBy(l => l.ItemCardapioId)
+            .ToDictionary(g => g.Key, g => g.Aggregate(ConteudoAlimentar.Nenhum, (soma, l) => soma | (ConteudoAlimentar)l.Contem));
     }
 
     public async Task<IReadOnlyList<PacoteResumo>> ListarPacotesAsync(CancellationToken ct = default)
@@ -352,10 +380,21 @@ internal sealed class ConsultasEstoqueCardapio(FabricaConexao conexoes) : IConsu
         return await conexoes.ListarAsync<PacoteResumo>(sql, ct: ct);
     }
 
+    private sealed class ComposicaoLinha
+    {
+        public int Id { get; init; }
+        public string Categoria { get; init; } = string.Empty;
+        public string Item { get; init; } = string.Empty;
+        public string? Descricao { get; init; }
+        public int ContemInformado { get; init; }
+        public int Ingredientes { get; init; }
+    }
+
     public async Task<IReadOnlyList<ItemComposicao>> ComposicaoPacoteAsync(int pacoteId, CancellationToken ct = default)
     {
         const string sql = """
-            SELECT c.Nome AS Categoria, i.Nome AS Item, i.Descricao
+            SELECT i.Id, c.Nome AS Categoria, i.Nome AS Item, i.Descricao, i.ContemInformado,
+                   (SELECT COUNT(*) FROM FichasTecnicas f WHERE f.ItemCardapioId = i.Id) AS Ingredientes
               FROM PacoteItens pi
               JOIN ItensCardapio i ON i.Id = pi.ItemCardapioId
               JOIN CategoriasCardapio c ON c.Id = i.CategoriaCardapioId
@@ -363,6 +402,15 @@ internal sealed class ConsultasEstoqueCardapio(FabricaConexao conexoes) : IConsu
              ORDER BY c.Ordem, i.Nome
             """;
 
-        return await conexoes.ListarAsync<ItemComposicao>(sql, new { PacoteId = pacoteId }, ct);
+        var itens = await conexoes.ListarAsync<ComposicaoLinha>(sql, new { PacoteId = pacoteId }, ct);
+        var contem = await ContemAsync(pacoteId, ct);
+        return itens.Select(i => new ItemComposicao
+        {
+            Categoria = i.Categoria,
+            Item = i.Item,
+            Descricao = i.Descricao,
+            Contem = contem.GetValueOrDefault(i.Id),
+            TemComposicao = i.Ingredientes > 0 || i.ContemInformado != 0
+        }).ToList();
     }
 }

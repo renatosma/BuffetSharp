@@ -50,7 +50,7 @@ internal sealed class ConsultasLookup(FabricaConexao conexoes) : IConsultasLooku
             WHERE @Todos = 1 OR Ativo = {verdadeiro} ORDER BY Sigla
             """,
         [TipoLookup.Produtos] = """
-            SELECT p.Id, p.Nome, p.CustoMedio AS Valor, u.Sigla AS Info
+            SELECT p.Id, p.Nome, p.CustoMedio AS Valor, u.Sigla AS Info, p.Contem AS Numero
             FROM Produtos p JOIN UnidadesMedida u ON u.Id = p.UnidadeMedidaId
             WHERE @Todos = 1 OR p.Ativo = {verdadeiro} ORDER BY p.Nome
             """,

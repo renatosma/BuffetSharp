@@ -1,4 +1,5 @@
 using BuffetSharp.Domain.Cadastros;
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Eventos;
 using Microsoft.EntityFrameworkCore;
@@ -102,6 +103,17 @@ internal sealed class EventoFuncionarioConfig : IEntityTypeConfiguration<EventoF
     }
 }
 
+internal sealed class EventoRestricaoConfig : IEntityTypeConfiguration<EventoRestricao>
+{
+    public void Configure(EntityTypeBuilder<EventoRestricao> b)
+    {
+        b.ToTable("EventoRestricoes");
+        b.Property(x => x.Restricoes).HasConversion<int>();
+        b.Property(x => x.Descricao).HasMaxLength(EventoRestricao.TamanhoDescricao);
+        b.HasOne<Evento>().WithMany(e => e.RestricoesAvulsas).HasForeignKey(x => x.EventoId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 internal sealed class ConvidadoConfig : IEntityTypeConfiguration<Convidado>
 {
     public void Configure(EntityTypeBuilder<Convidado> b)
@@ -110,6 +122,8 @@ internal sealed class ConvidadoConfig : IEntityTypeConfiguration<Convidado>
         b.Property(x => x.Nome).HasMaxLength(150).IsRequired();
         b.Property(x => x.Telefone).HasMaxLength(20);
         b.Property(x => x.Email).HasMaxLength(150);
+        b.Property(x => x.Restricoes).HasConversion<int>();
+        b.Property(x => x.ObservacaoRestricao).HasMaxLength(RestricoesAlimentares.TamanhoObservacao);
         b.HasIndex(x => new { x.EventoId, x.Nome });
 
         // Sem cascata: o evento tira os convidados da mesa antes de removê-la.

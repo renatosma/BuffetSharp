@@ -52,8 +52,11 @@ internal static class ImpressaoProposta
             foreach (var grupo in composicao.GroupBy(c => c.Categoria))
             {
                 doc.Paragrafo(grupo.Key, negrito: true);
-                doc.Paragrafo(string.Join("  •  ", grupo.Select(i => i.Item)));
+                doc.Paragrafo(string.Join("  •  ", grupo.Select(i => i.Selos.Length == 0 ? i.Item : $"{i.Item} ({i.Selos})")));
             }
+            if (composicao.Any(i => i.TemComposicao))
+                doc.Paragrafo("Alérgenos conforme as fichas técnicas dos pratos. Informe as restrições alimentares dos convidados: " +
+                              "quem não puder comer um prato recebe um substituto.");
         }
 
         if (o.Servicos.Count > 0)

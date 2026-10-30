@@ -44,6 +44,8 @@ internal sealed class FormProducao : FormListagem<OrdemProducao>
             .Texto("Pessoas", o => o.Convidados, 40)
             .Texto("Pacote", o => o.Pacote ?? "(sem pacote)", 22, o => o.Pacote is null ? Tema.Alerta : null)
             .Numero("Pratos", o => o.Pratos.Count, peso: 12)
+            .Texto("Restrições", o => o.Restricoes.Count == 0 ? "" : string.Join(", ", o.Restricoes.Select(r => $"{r.Pessoas} {r.Sigla}")), 26,
+                o => o.Restricoes.Any(r => r.Trocas.Any(t => t.Contains("sem substituto"))) ? Tema.Alerta : null)
             .Busca(o => $"{o.Codigo} {o.Titulo} {o.Espaco} {o.Pacote}");
     }
 

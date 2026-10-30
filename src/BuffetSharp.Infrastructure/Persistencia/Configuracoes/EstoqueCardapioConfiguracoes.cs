@@ -15,6 +15,7 @@ internal sealed class ProdutoConfig : IEntityTypeConfiguration<Produto>
         b.Property(x => x.CustoMedio).HasPrecision(18, 4);
         b.Property(x => x.EstoqueAtual).HasPrecision(18, 3);
         b.Property(x => x.EstoqueMinimo).HasPrecision(18, 3);
+        b.Property(x => x.Contem).HasConversion<int>(); // combinação de marcações: guardada como número
         b.HasOne(x => x.CategoriaProduto).WithMany().HasForeignKey(x => x.CategoriaProdutoId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.UnidadeMedida).WithMany().HasForeignKey(x => x.UnidadeMedidaId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Fornecedor).WithMany().HasForeignKey(x => x.FornecedorId).OnDelete(DeleteBehavior.Restrict);
@@ -98,6 +99,9 @@ internal sealed class ItemCardapioConfig : IEntityTypeConfiguration<ItemCardapio
         b.ToTable("ItensCardapio");
         b.HasOne(x => x.CategoriaCardapio).WithMany().HasForeignKey(x => x.CategoriaCardapioId).OnDelete(DeleteBehavior.Restrict);
         b.HasMany(x => x.Ingredientes).WithOne().HasForeignKey(x => x.ItemCardapioId).OnDelete(DeleteBehavior.Cascade);
+        b.Property(x => x.ContemInformado).HasConversion<int>();
+        // Sem cascata: ao excluir um prato, o serviço tira-o antes de substituto dos outros.
+        b.HasOne(x => x.Substituto).WithMany().HasForeignKey(x => x.SubstitutoId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => x.Nome).IsUnique();
     }
 }

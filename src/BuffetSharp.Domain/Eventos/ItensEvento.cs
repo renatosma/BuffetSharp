@@ -102,6 +102,42 @@ public class Convidado
 
     public StatusRsvp Rsvp { get; internal set; } = StatusRsvp.Pendente;
     public DateTime? CheckInEm { get; internal set; }
+
+    /// <summary>Restrições alimentares do convidado (não dos acompanhantes: quem também tiver, entra como convidado ou nas avulsas).</summary>
+    public Cardapio.RestricaoAlimentar Restricoes { get; internal set; }
+
+    /// <summary>O que não cabe nas restrições marcadas (ex.: "alergia a kiwi").</summary>
+    public string? ObservacaoRestricao { get; internal set; }
+
+    public string? DescricaoRestricao => Cardapio.RestricoesAlimentares.Descrever(Restricoes, ObservacaoRestricao);
+}
+
+/// <summary>
+/// Restrição alimentar sem nome na lista de convidados (ex.: "6 vegetarianos", "2 sem glúten"), informada pelo cliente.
+/// Soma com as restrições dos convidados da lista.
+/// </summary>
+public class EventoRestricao
+{
+    private EventoRestricao()
+    {
+    }
+
+    internal EventoRestricao(Cardapio.RestricaoAlimentar restricoes, int pessoas, string? descricao)
+    {
+        Restricoes = restricoes;
+        Pessoas = pessoas;
+        Descricao = descricao;
+    }
+
+    public const int TamanhoDescricao = 200;
+
+    public int Id { get; private set; }
+    public int EventoId { get; private set; }
+    public Cardapio.RestricaoAlimentar Restricoes { get; private set; }
+    public int Pessoas { get; private set; }
+
+    /// <summary>Quem são ou detalhe (ex.: "mesa dos padrinhos", "alergia grave").</summary>
+    public string? Descricao { get; private set; }
 }
 
 /// <summary>

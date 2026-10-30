@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Cadastros;
@@ -698,6 +699,7 @@ internal static class DefinicoesCadastros
             .Numero("Mínimo", x => x.EstoqueMinimo, "N3", 20)
             .Moeda("Valor em estoque", x => x.ValorEmEstoque, 28)
             .SimNao("Validade", x => x.ControlaValidade, 14)
+            .Texto("Contém", x => x.Contem == ConteudoAlimentar.Nenhum ? "" : RestricoesAlimentares.Nome(x.Contem), 26)
             .Texto("Situação", x => x.AbaixoDoMinimo ? "Repor" : "OK", 15, x => x.AbaixoDoMinimo ? Tema.Perigo : Tema.Sucesso),
         TextoBusca = x => $"{x.Codigo} {x.Nome} {x.CategoriaProduto?.Nome} {x.Fornecedor?.RazaoSocial} {(x.AbaixoDoMinimo ? "repor" : "")}",
         Nome = x => x.Nome,
@@ -735,6 +737,10 @@ internal static class DefinicoesCadastros
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
             e.Marcador("Controla lote e validade (perecível)", () => x.ControlaValidade, v => x.ControlaValidade = v, nameof(x.ControlaValidade),
                 span: 2);
+
+            // Os pratos herdam pela ficha técnica: é o que diz para quem eles servem (vegetariano, sem glúten...).
+            e.Secao("Restrições alimentares - o que o insumo contém");
+            e.Marcadores("Contém", RestricoesAlimentares.Conteudos, c => Textos.Exibir(c), () => x.Contem, v => x.Contem = v, nameof(x.Contem), span: 3);
 
             // Conversão de unidade: cada fornecedor pode vender em uma embalagem diferente (caixa com 12, fardo com 6...).
             e.Secao("Embalagens de compra - conversão para a unidade do estoque");

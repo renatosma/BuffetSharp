@@ -80,6 +80,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         await CriarPesquisasSatisfacaoAsync(ct);
         await CriarHistoricoPrecosAsync(ct);
         await CriarDevolucoesAsync(ct);
+        await CriarRestricoesAlimentaresAsync(ct);
         await CriarLotesValidadeAsync(ct);
     }
 
@@ -313,6 +314,18 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         Embalagem("Leite condensado", "Atacadão Central", "CX", 27, "Caixa com 27 latas");
         Embalagem("Arroz agulhinha", "Atacadão Central", "PCT", 5, "Fardo de 5 kg");
         Embalagem("Guardanapo de papel", "Festa & Cia", "CX", 20, "Caixa com 20 pacotes");
+
+        // O que cada insumo contém: os pratos herdam pela ficha técnica (vegetariano, sem glúten, alérgenos).
+        void Contem(ConteudoAlimentar conteudo, params string[] nomes)
+        {
+            foreach (var nome in nomes)
+                _produtos[nome].Contem |= conteudo;
+        }
+        Contem(ConteudoAlimentar.Carne, "Filé mignon", "Picanha", "Peito de frango");
+        Contem(ConteudoAlimentar.FrutosDoMar, "Salmão (filé)", "Camarão limpo");
+        Contem(ConteudoAlimentar.Gluten, "Farinha de trigo", "Massa penne", "Massa folhada", "Cerveja long neck");
+        Contem(ConteudoAlimentar.Lactose, "Queijo muçarela", "Creme de leite", "Manteiga", "Leite condensado", "Chocolate meio amargo");
+        Contem(ConteudoAlimentar.Soja, "Óleo de soja", "Chocolate meio amargo");
         db.Produtos.AddRange(_produtos.Values);
         await db.SaveChangesAsync(ct);
 
@@ -354,7 +367,13 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             ("Sucos naturais", "Bebidas", "Laranja, uva e abacaxi com hortelã.", [("Suco natural", 0.3m)]),
             ("Água mineral", "Bebidas", "Com e sem gás.", [("Água mineral 500ml", 1m)]),
             ("Cerveja", "Bebidas", "Cerveja long neck gelada.", [("Cerveja long neck", 3m)]),
-            ("Espumante para brinde", "Bebidas", "Taça de espumante para o brinde.", [("Espumante", 0.15m)])
+            ("Espumante para brinde", "Bebidas", "Taça de espumante para o brinde.", [("Espumante", 0.15m)]),
+            // Fora dos pacotes: substitutos para quem tem restrição alimentar.
+            ("Risoto de cogumelos", "Pratos Principais", "Risoto cremoso de cogumelos (vegetariano, sem glúten).",
+                [("Arroz agulhinha", 0.1m), ("Creme de leite", 0.02m), ("Manteiga", 0.005m)]),
+            ("Legumes grelhados", "Pratos Principais", "Batata, tomate e legumes da estação grelhados (vegano, sem glúten).",
+                [("Batata", 0.12m), ("Tomate", 0.06m), ("Óleo de soja", 0.005m)]),
+            ("Salada de frutas", "Sobremesas", "Frutas frescas da estação (vegana).", [("Morango", 0.08m)])
         ];
 
         _itens = [];
@@ -364,6 +383,14 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             item.DefinirFichaTecnica(ficha.Select(f => (_produtos[f.Produto].Id, f.Qtd)));
             _itens[nome] = item;
         }
+        void Substituto(string substituto, params string[] pratos)
+        {
+            foreach (var prato in pratos)
+                _itens[prato].DefinirSubstituto(_itens[substituto]);
+        }
+        Substituto("Risoto de cogumelos", "Filé ao molho madeira", "Picanha na brasa", "Salmão grelhado", "Frango à parmegiana");
+        Substituto("Legumes grelhados", "Risoto de cogumelos", "Penne ao sugo", "Batata gratinada");
+        Substituto("Salada de frutas", "Mousse de chocolate", "Pavê de morango", "Brigadeiro gourmet");
         db.ItensCardapio.AddRange(_itens.Values);
         await db.SaveChangesAsync(ct);
 
@@ -1360,6 +1387,27 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                     "Compra do mês", _fornecedores[doOutro ? outro! : fornecedor].Id, null));
             }
         }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Restrições alimentares no próximo evento confirmado com lista de convidados: três convidados com restrição (uma delas
+    /// fora das marcadas) e quatro vegetarianos que o cliente avisou sem dizer quem são.
+    /// </summary>
+    private async Task CriarRestricoesAlimentaresAsync(CancellationToken ct)
+    {
+        var evento = await db.Eventos.Include(e => e.Convidados).Include(e => e.RestricoesAvulsas)
+            .Where(e => e.Status == StatusEvento.Confirmado && e.Inicio > Agora && e.PacoteId != null && e.Convidados.Count >= 3)
+            .OrderBy(e => e.Inicio).FirstOrDefaultAsync(ct);
+        if (evento is null)
+            return;
+        var convidados = evento.Convidados.Where(c => c.Rsvp != StatusRsvp.Recusado).OrderBy(c => c.Nome).Take(3).ToList();
+        if (convidados.Count < 3)
+            return;
+        evento.DefinirRestricoesConvidado(convidados[0], RestricaoAlimentar.Vegetariano, null);
+        evento.DefinirRestricoesConvidado(convidados[1], RestricaoAlimentar.Vegano | RestricaoAlimentar.SemGluten, null);
+        evento.DefinirRestricoesConvidado(convidados[2], RestricaoAlimentar.SemLactose, "alergia a kiwi");
+        evento.DefinirRestricoesAvulsas([(RestricaoAlimentar.Vegetariano, 4, "mesa dos amigos da faculdade")]);
         await db.SaveChangesAsync(ct);
     }
 

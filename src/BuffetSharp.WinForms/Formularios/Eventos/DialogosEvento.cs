@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
@@ -222,10 +223,59 @@ internal static class DialogosEvento
         int? importados = null;
         var e = new EditorCampos(1);
         e.Texto("Cole a lista (uma pessoa por linha)", () => texto, v => texto = v, "Texto", 100_000, linhas: 14,
-            dica: "Nome;Telefone;Acompanhantes;Mesa");
+            dica: "Nome;Telefone;Acompanhantes;Mesa;Restrições");
         using var dialogo = new FormEdicao("Importar convidados",
-            "Formato por linha: Nome;Telefone;Acompanhantes;Mesa — somente o nome é obrigatório. Também aceita colunas copiadas do Excel.",
+            "Formato por linha: Nome;Telefone;Acompanhantes;Mesa;Restrições — somente o nome é obrigatório. Também aceita colunas copiadas " +
+            "do Excel. Restrições como \"vegano, sem lactose\" ou \"celíaco\"; o que não for reconhecido (\"alergia a kiwi\") vira observação.",
             e, async () => importados = await servico.ImportarConvidadosAsync(eventoId, texto ?? ""), 640);
         return dialogo.ShowDialog(dono) == DialogResult.OK ? importados : null;
+    }
+
+    /// <summary>Restrições alimentares de um convidado da lista.</summary>
+    public static bool RestricoesConvidado(IWin32Window dono, EventoService servico, int eventoId, Convidado convidado)
+    {
+        var restricoes = convidado.Restricoes;
+        var observacao = convidado.ObservacaoRestricao;
+        var e = new EditorCampos(1);
+        e.Marcadores("Restrições", RestricoesAlimentares.Todas, RestricoesAlimentares.Nome, () => restricoes, v => restricoes = v);
+        e.Texto("Outra restrição ou alergia", () => observacao, v => observacao = v, maximo: RestricoesAlimentares.TamanhoObservacao,
+            dica: "Ex.: alergia a kiwi");
+        using var dialogo = new FormEdicao($"Restrições de {convidado.Nome}",
+            "Vale só para o convidado: um acompanhante com restrição entra na lista como convidado ou nas restrições sem nome.",
+            e, () => servico.DefinirRestricoesConvidadoAsync(eventoId, convidado.Id, restricoes, observacao), 620);
+        return dialogo.ShowDialog(dono) == DialogResult.OK;
+    }
+
+    public sealed class LinhaRestricao
+    {
+        public int Restricao { get; set; }
+        public int Pessoas { get; set; } = 1;
+        public string? Descricao { get; set; }
+    }
+
+    /// <summary>Restrições sem nome na lista (ex.: o cliente avisou que 6 são vegetarianos).</summary>
+    public static bool RestricoesAvulsas(IWin32Window dono, EventoService servico, Evento evento)
+    {
+        var opcoes = new[] { new OpcaoGrade<int>(0, "(escolha)") }
+            .Concat(RestricoesAlimentares.Todas.Select(r => new OpcaoGrade<int>((int)r, RestricoesAlimentares.Nome(r))));
+        var grade = new GradeEditavel<LinhaRestricao>(() => new LinhaRestricao(), "Incluir restrição", "Remover", altura: 200)
+            .Opcoes("Restrição", nameof(LinhaRestricao.Restricao), opcoes, 40)
+            .Numero("Pessoas", nameof(LinhaRestricao.Pessoas), "N0", 14)
+            .Texto("Quem / detalhe", nameof(LinhaRestricao.Descricao), 46, EventoRestricao.TamanhoDescricao);
+        var e = new EditorCampos(1);
+        e.Livre(grade.Painel);
+        e.AoCarregar(() => grade.Carregar(evento.RestricoesAvulsas.Select(r => new LinhaRestricao
+        {
+            Restricao = (int)r.Restricoes, Pessoas = r.Pessoas, Descricao = r.Descricao
+        })));
+        using var dialogo = new FormEdicao("Restrições sem nome na lista",
+            "Quantas pessoas têm cada restrição, quando o cliente não informou quem são. Somam com as restrições dos convidados da lista.",
+            e, () =>
+            {
+                grade.ConcluirEdicao();
+                return servico.DefinirRestricoesAvulsasAsync(evento.Id,
+                    grade.Itens.Select(l => ((RestricaoAlimentar)l.Restricao, l.Pessoas, l.Descricao)).ToList());
+            }, 640);
+        return dialogo.ShowDialog(dono) == DialogResult.OK;
     }
 }

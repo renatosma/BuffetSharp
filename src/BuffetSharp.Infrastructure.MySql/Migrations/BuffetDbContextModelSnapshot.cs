@@ -1026,6 +1026,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<int>("CategoriaCardapioId")
                         .HasColumnType("int");
 
+                    b.Property<int>("ContemInformado")
+                        .HasMaxLength(30)
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime(6)");
 
@@ -1038,6 +1042,9 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("varchar(120)");
 
+                    b.Property<int?>("SubstitutoId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Versao")
                         .IsConcurrencyToken()
                         .HasColumnType("int");
@@ -1048,6 +1055,8 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
 
                     b.HasIndex("Nome")
                         .IsUnique();
+
+                    b.HasIndex("SubstitutoId");
 
                     b.ToTable("ItensCardapio", (string)null);
                 });
@@ -2853,6 +2862,10 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
 
+                    b.Property<int>("Contem")
+                        .HasMaxLength(30)
+                        .HasColumnType("int");
+
                     b.Property<bool>("ControlaValidade")
                         .HasColumnType("tinyint(1)");
 
@@ -3078,6 +3091,14 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
+
+                    b.Property<string>("ObservacaoRestricao")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("Restricoes")
+                        .HasMaxLength(30)
+                        .HasColumnType("int");
 
                     b.Property<string>("Rsvp")
                         .IsRequired()
@@ -3493,6 +3514,33 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsUnique();
 
                     b.ToTable("EventoMesas", (string)null);
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoRestricao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Pessoas")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Restricoes")
+                        .HasMaxLength(30)
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventoId");
+
+                    b.ToTable("EventoRestricoes", (string)null);
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoServico", b =>
@@ -5002,7 +5050,14 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("BuffetSharp.Domain.Cardapio.ItemCardapio", "Substituto")
+                        .WithMany()
+                        .HasForeignKey("SubstitutoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("CategoriaCardapio");
+
+                    b.Navigation("Substituto");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Cardapio.PacoteItem", b =>
@@ -5859,6 +5914,15 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoRestricao", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
+                        .WithMany("RestricoesAvulsas")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Eventos.EventoServico", b =>
                 {
                     b.HasOne("BuffetSharp.Domain.Eventos.Evento", null)
@@ -6316,6 +6380,8 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Navigation("Mesas");
 
                     b.Navigation("Parcelas");
+
+                    b.Navigation("RestricoesAvulsas");
 
                     b.Navigation("Servicos");
 

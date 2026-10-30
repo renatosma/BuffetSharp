@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Eventos;
 using BuffetSharp.WinForms.Controles;
 using BuffetSharp.WinForms.Infra;
@@ -15,6 +16,23 @@ internal static class ImpressaoMesas
     /// <summary>Nome do convidado com os acompanhantes: "Ana Souza (+2)".</summary>
     public static string Nome(Convidado c) => c.Acompanhantes > 0 ? $"{c.Nome} (+{c.Acompanhantes})" : c.Nome;
 
+    /// <summary>Nome com a sigla da restrição alimentar, para o garçom: "Ana Souza (+2) [VGN+SG]" (* = outra restrição, ver a lista).</summary>
+    public static string NomeComRestricao(Convidado c) =>
+        c.Restricoes == RestricaoAlimentar.Nenhuma && c.ObservacaoRestricao is null ? Nome(c)
+        : $"{Nome(c)} [{(c.Restricoes == RestricaoAlimentar.Nenhuma ? "*" : RestricoesAlimentares.Sigla(c.Restricoes) + (c.ObservacaoRestricao is null ? "" : "*"))}]";
+
+    /// <summary>Legenda das siglas que aparecem entre os convidados.</summary>
+    private static string? Legenda(IEnumerable<Convidado> convidados)
+    {
+        var usadas = convidados.Aggregate(RestricaoAlimentar.Nenhuma, (soma, c) => soma | c.Restricoes);
+        var outras = convidados.Any(c => c.ObservacaoRestricao is not null);
+        if (usadas == RestricaoAlimentar.Nenhuma && !outras)
+            return null;
+        return "Restrições alimentares: " + string.Join(", ", RestricoesAlimentares.Separar(usadas)
+                   .Select(r => $"{RestricoesAlimentares.Sigla(r)} = {RestricoesAlimentares.Nome(r).ToLowerInvariant()}")
+                   .Concat(outras ? new[] { "* = outra restrição (na lista da recepção)" } : []));
+    }
+
     private static string Cabecalho(Evento e) => $"{e.Codigo} - {e.Titulo}  •  {e.Inicio:dd/MM/yyyy HH:mm}  •  {e.Espaco?.Nome}";
 
     /// <summary>Lista alfabética para a entrada: cada convidado com a mesa (quem avisou que não vai fica de fora).</summary>
@@ -24,12 +42,13 @@ internal static class ImpressaoMesas
         doc.Subtitulo(Cabecalho(e));
         var convidados = e.Convidados.Where(c => c.Rsvp != StatusRsvp.Recusado).OrderBy(c => c.Nome, StringComparer.CurrentCulture).ToList();
         doc.Paragrafo($"{convidados.Count} convidado(s), {convidados.Sum(c => c.Pessoas)} pessoa(s) com os acompanhantes.");
-        doc.Tabela(["Convidado", "Acomp.", "Mesa", "Presença", "Entrada"],
+        doc.Tabela(["Convidado", "Acomp.", "Mesa", "Restrição alimentar", "Presença", "Entrada"],
             convidados.Select(c => new[]
             {
-                c.Nome, c.Acompanhantes.ToString(), c.Mesa?.Descricao ?? "(sem mesa)", Textos.Exibir(c.Rsvp), c.CheckInEm?.ToString("HH:mm") ?? "[   ]"
+                c.Nome, c.Acompanhantes.ToString(), c.Mesa?.Descricao ?? "(sem mesa)", c.DescricaoRestricao ?? "", Textos.Exibir(c.Rsvp),
+                c.CheckInEm?.ToString("HH:mm") ?? "[   ]"
             }).ToList(),
-            [3.5f, 0.8f, 2.4f, 1.2f, 1f]);
+            [3.2f, 0.7f, 2f, 2.4f, 1.1f, 0.9f]);
         return doc;
     }
 
@@ -44,14 +63,16 @@ internal static class ImpressaoMesas
             e.Mesas.OrderBy(m => m.Numero).Select(m => new[]
             {
                 m.Descricao, $"{e.LugaresOcupados(m)}/{m.Lugares}",
-                string.Join(", ", e.ConvidadosDaMesa(m).OrderBy(c => c.Nome, StringComparer.CurrentCulture).Select(Nome))
+                string.Join(", ", e.ConvidadosDaMesa(m).OrderBy(c => c.Nome, StringComparer.CurrentCulture).Select(NomeComRestricao))
             }).ToList(),
             [1.6f, 0.8f, 7f]);
+        if (Legenda(e.Convidados.Where(c => c.Rsvp != StatusRsvp.Recusado)) is { } legenda)
+            doc.Paragrafo(legenda);
         var semMesa = e.ConvidadosSemMesa().OrderBy(c => c.Nome, StringComparer.CurrentCulture).ToList();
         if (semMesa.Count > 0)
         {
             doc.Secao($"Sem mesa ({semMesa.Sum(c => c.Pessoas)} pessoa(s))");
-            doc.Paragrafo(string.Join(", ", semMesa.Select(Nome)));
+            doc.Paragrafo(string.Join(", ", semMesa.Select(NomeComRestricao)));
         }
         return doc;
     }
@@ -66,7 +87,9 @@ internal static class ImpressaoMesas
             if (!primeira)
                 doc.QuebraPagina();
             primeira = false;
-            var nomes = e.ConvidadosDaMesa(mesa).OrderBy(c => c.Nome, StringComparer.CurrentCulture).Select(Nome).ToList();
+            // No cartão a restrição vai por extenso, para o garçom servir certo sem consultar a legenda.
+            var nomes = e.ConvidadosDaMesa(mesa).OrderBy(c => c.Nome, StringComparer.CurrentCulture)
+                .Select(c => c.DescricaoRestricao is { } restricao ? $"{Nome(c)} — {restricao}" : Nome(c)).ToList();
             doc.Desenho((g, area) => DesenharCartao(g, area, mesa, nomes));
         }
         return doc;

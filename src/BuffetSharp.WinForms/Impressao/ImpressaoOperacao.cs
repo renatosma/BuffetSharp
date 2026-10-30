@@ -33,12 +33,25 @@ internal static class ImpressaoOperacao
         {
             doc.Paragrafo("Evento sem pacote de cardápio: combine a produção diretamente com o cliente.");
         }
+        if (o.Restricoes.Count > 0)
+        {
+            doc.Paragrafo($"Restrições alimentares ({o.PessoasComRestricao} pessoa(s))", negrito: true);
+            doc.Tabela(["Restrição", "Pessoas", "Quem", "No lugar de"],
+                o.Restricoes.Select(r => new[]
+                {
+                    $"{r.Restricao} ({r.Sigla})", r.Pessoas.ToString(), string.Join(", ", r.Quem),
+                    r.Trocas.Count == 0 ? "todo o cardápio serve" : string.Join("; ", r.Trocas)
+                }).ToList(),
+                [1.8f, 0.8f, 3f, 3.4f], [false, true, false, false]);
+        }
+        if (o.ObservacoesRestricao.Count > 0)
+            doc.Paragrafo("Atenção: " + string.Join("; ", o.ObservacoesRestricao));
         foreach (var secao in o.Pratos.GroupBy(p => (p.OrdemSecao, p.Secao)).OrderBy(g => g.Key.OrdemSecao))
         {
             doc.Paragrafo(secao.Key.Secao, negrito: true);
             foreach (var prato in secao)
             {
-                doc.Paragrafo($"{prato.Prato} - {prato.Porcoes} porções");
+                doc.Paragrafo($"{prato.Prato} - {prato.Porcoes} porções" + (prato.Substituto ? " (substituto, para restrições)" : ""));
                 if (prato.Ingredientes.Count > 0)
                     doc.Tabela(["Insumo", "Quantidade", "Un.", "Separado"],
                         prato.Ingredientes.Select(i => new[] { i.Produto, i.Quantidade.ToString("N3"), i.Unidade, "[   ]" }).ToList(),

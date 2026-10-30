@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Application.Abstracoes;
 using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
@@ -308,9 +309,10 @@ internal sealed partial class FormEventoDetalhe : FormBase
             .Texto("Telefone", c => c.Telefone, 25)
             .Numero("Acomp.", c => c.Acompanhantes, peso: 12)
             .Texto("Mesa", c => c.Mesa?.Descricao, 20)
+            .Texto("Restrição", c => c.DescricaoRestricao, 30, c => c.DescricaoRestricao is null ? null : Tema.Alerta)
             .Status("Presença (RSVP)", c => c.Rsvp, 20)
             .Data("Check-in", c => c.CheckInEm, "dd/MM HH:mm", 20, _ => Tema.Sucesso)
-            .Busca(c => $"{c.Nome} {c.Telefone} {c.Mesa?.Descricao}");
+            .Busca(c => $"{c.Nome} {c.Telefone} {c.Mesa?.Descricao} {c.DescricaoRestricao}");
         _buscaConvidado.TextChanged += (_, _) => _convidados.Filtrar(_buscaConvidado.Text);
 
         var cadastro = BarraAba();
@@ -326,6 +328,11 @@ internal sealed partial class FormEventoDetalhe : FormBase
                 adicionar.PerformClick();
             }
         };
+        BotaoAba(cadastro, "Restrições sem nome...", Icones.Aviso, async () =>
+        {
+            if (DialogosEvento.RestricoesAvulsas(this, _eventos, Evento))
+                await CarregarAsync();
+        });
         BotaoAba(cadastro, "Importar lista...", Icones.Lista, async () =>
         {
             if (await DialogosEvento.ImportarConvidadosAsync(this, _eventos, _eventoId) is { } quantidade)
@@ -349,6 +356,11 @@ internal sealed partial class FormEventoDetalhe : FormBase
         }, edicao: false);
         BotaoAba(acoes, "Confirmou presença", Icones.Aceitar, () => DefinirRsvpAsync(StatusRsvp.Confirmado));
         BotaoAba(acoes, "Não vai", Icones.Cancelar, () => DefinirRsvpAsync(StatusRsvp.Recusado));
+        BotaoAba(acoes, "Restrição alimentar", Icones.Aviso, async () =>
+        {
+            if (_convidados.Selecionado is { } c && DialogosEvento.RestricoesConvidado(this, _eventos, _eventoId, c))
+                await CarregarAsync();
+        });
         BotaoAba(acoes, "Remover", Icones.Excluir, async () =>
         {
             if (_convidados.Selecionado is { } c && Mensagens.Confirmar(this, $"Remover {c.Nome} da lista?"))
@@ -977,13 +989,21 @@ internal sealed partial class FormEventoDetalhe : FormBase
         else
             foreach (var item in e.Pacote.Itens.Select(i => i.ItemCardapio!).OrderBy(i => i.CategoriaCardapioId).ThenBy(i => i.Nome))
                 _cardapioLista.Items.Add("•  " + item.Nome);
+        // Quem tem restrição: o que troca (o substituto) ou o que a cozinha precisa resolver.
+        var plano = e.PlanejarCardapio(e.PessoasAtendidas);
+        foreach (var grupo in plano.Trocas.GroupBy(t => t.Grupo))
+        {
+            _cardapioLista.Items.Add($"{grupo.Key.Pessoas} {RestricoesAlimentares.Nome(grupo.Key.Restricoes).ToLowerInvariant()}:");
+            foreach (var troca in grupo)
+                _cardapioLista.Items.Add($"     {troca.Prato.Nome} → {troca.Substituto?.Nome ?? "sem substituto (a cozinha prepara)"}");
+        }
 
         _servicos.Carregar(e.Servicos);
         _insumosPrevistos.Carregar(e.Pacote is null
             ? []
-            : e.Pacote.CalcularConsumo(e.PessoasAtendidas).Select(c =>
+            : plano.Consumo().Select(c =>
             {
-                var produto = e.Pacote.Itens.SelectMany(i => i.ItemCardapio!.Ingredientes).First(f => f.ProdutoId == c.Key).Produto!;
+                var produto = plano.Porcoes.Keys.SelectMany(i => i.Ingredientes).First(f => f.ProdutoId == c.Key).Produto!;
                 return new InsumoPrevisto(produto.Nome, c.Value, produto.UnidadeMedida?.Sigla ?? "", Math.Round(c.Value * produto.CustoMedio, 2));
             }).OrderByDescending(i => i.Custo));
 
@@ -1006,7 +1026,10 @@ internal sealed partial class FormEventoDetalhe : FormBase
         _resumoConvidados.Text = $"Na lista: {e.TotalPessoasNaLista} pessoas  •  confirmadas: {e.PessoasConfirmadas}  •  presentes: {e.PessoasPresentes}" +
                                  (e.ExcedentesApurados ? $"  •  apurados: {e.PresentesApurados} ({TextoExcedentes(e)})"
                                      : e.PessoasPresentes > e.QuantidadeConvidados ? $"  ⚠ {e.PessoasPresentes - e.QuantidadeConvidados} além do contratado: apure os excedentes no Financeiro"
-                                     : e.TotalPessoasNaLista > e.QuantidadeConvidados ? $"  ⚠ acima do contratado ({e.QuantidadeConvidados})" : "");
+                                     : e.TotalPessoasNaLista > e.QuantidadeConvidados ? $"  ⚠ acima do contratado ({e.QuantidadeConvidados})" : "")
+                                 + (e.GruposRestricao() is { Count: > 0 } grupos
+                                     ? "  •  restrições: " + string.Join(", ", grupos.Select(g => $"{g.Pessoas} {RestricoesAlimentares.Sigla(g.Restricoes)}"))
+                                     : "");
         _resumoConvidados.ForeColor = !e.ExcedentesApurados && Math.Max(e.TotalPessoasNaLista, e.PessoasPresentes) > e.QuantidadeConvidados ? Tema.Alerta : Tema.Texto;
 
         var selecionadoMaterial = _materiais.Selecionado?.MaterialId;

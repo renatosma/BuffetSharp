@@ -1,3 +1,4 @@
+using BuffetSharp.Domain.Cardapio;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using BuffetSharp.Domain.Auditoria;
@@ -18,8 +19,13 @@ internal static class Textos
 
     public static string Moeda(decimal valor) => valor.ToString("C2", PtBr);
 
+    /// <summary>Primeira letra maiúscula ("glúten" → "Glúten").</summary>
+    public static string Maiuscula(string texto) => texto.Length == 0 ? texto : char.ToUpper(texto[0], PtBr) + texto[1..];
+
     public static string Exibir(Enum valor) => valor switch
     {
+        RestricaoAlimentar restricao => RestricoesAlimentares.Nome(restricao),
+        ConteudoAlimentar conteudo => Maiuscula(RestricoesAlimentares.Nome(conteudo)),
         TipoPessoa.Fisica => "Pessoa Física",
         TipoPessoa.Juridica => "Pessoa Jurídica",
         StatusOrcamento.Rascunho => "Rascunho",
