@@ -14,6 +14,7 @@ public sealed class OrcamentoService(
     BuffetOptions opcoes,
     ISessaoUsuario sessao,
     DescontoService descontos,
+    MargemService margens,
     TimeProvider relogio)
 {
     private DateTime Agora => relogio.GetLocalNow().DateTime;
@@ -77,6 +78,8 @@ public sealed class OrcamentoService(
             DescontoConcedidoPor = o.DescontoConcedidoPor,
             DescontoDecididoPor = o.DescontoDecididoPor,
             RespostaDesconto = o.RespostaDesconto,
+            MargemAprovada = o.MargemAprovada,
+            Custos = o.Custos,
             CondicaoPagamentoId = o.CondicaoPagamentoId,
             FormaPagamentoId = o.FormaPagamentoId,
             Observacoes = o.Observacoes,
@@ -138,7 +141,6 @@ public sealed class OrcamentoService(
         orcamento.AplicarDesconto(input.PercentualDesconto);
         orcamento.DefinirValorTabela(ValorTabela(orcamento, ajuste, pacote, espaco,
             input.Servicos.Sum(s => Math.Round(s.Quantidade * servicos[s.ServicoAdicionalId].Preco, 2))));
-        var avisar = await descontos.ConferirOrcamentoAsync(db, orcamento, input.PedidoDesconto, ct);
 
         if (input.CondicaoPagamentoId != orcamento.CondicaoPagamentoId)
         {
@@ -166,12 +168,18 @@ public sealed class OrcamentoService(
             orcamento.DefinirVendedor(input.VendedorId);
         }
 
+        // Custos previstos com a composição, o vendedor e a forma já definidos; a margem mínima entra na alçada.
+        orcamento.DefinirCustos(await margens.CalcularAsync(db, orcamento, ct));
+        var avisar = await descontos.ConferirOrcamentoAsync(db, orcamento, input.PedidoDesconto, ct);
+
         await db.SaveChangesAsync(ct);
         input.Versao = orcamento.Versao;
         input.PedidoDesconto = null;
         input.SituacaoDesconto = orcamento.SituacaoDesconto;
         input.ValorTabela = orcamento.ValorTabela;
         input.PercentualDescontoAutorizado = orcamento.PercentualDescontoAutorizado;
+        input.MargemAprovada = orcamento.MargemAprovada;
+        input.Custos = orcamento.Custos;
         if (avisar)
             await descontos.AvisarAprovadoresAsync(orcamento.Id, ct);
         return orcamento.Id;
@@ -217,6 +225,7 @@ public sealed class OrcamentoService(
         var original = await db.Orcamentos.AsNoTracking().Include(o => o.Servicos).FirstOrDefaultAsync(o => o.Id == id, ct)
                        ?? throw new RegraNegocioException("Orçamento não encontrado.");
         var copia = original.Duplicar(Hoje, opcoes.DiasValidadeOrcamento);
+        copia.DefinirCustos(await margens.CalcularAsync(db, copia, ct));
         // A cópia não herda a aprovação: acima da alçada de quem duplica, volta a pedir (com o motivo do original).
         var avisar = await descontos.ConferirOrcamentoAsync(db, copia,
             new PedidoDesconto { Motivo = original.MotivoDesconto ?? $"Cópia do {original.Codigo}" }, ct);

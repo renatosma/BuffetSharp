@@ -32,7 +32,11 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly AberturaOrcamento _abertura;
     private readonly TabelaPrecoService _precos;
     private readonly DescontoService _descontos;
+    private readonly MargemService _margens;
     private readonly Navegador _navegador;
+
+    /// <summary>Custos dos cadastros para a margem prevista (null até carregar).</summary>
+    private ParametrosMargem? _parametrosMargem;
 
     /// <summary>Desconto máximo (%) que o usuário logado pode dar sem aprovação.</summary>
     private decimal _limiteDesconto = 100;
@@ -73,6 +77,9 @@ internal sealed class FormOrcamentoEdicao : FormBase
     private readonly Label _porPessoa = new() { AutoSize = true, ForeColor = Tema.TextoSuave };
     private readonly Label _alertas = new() { AutoSize = true, ForeColor = Tema.Alerta, MaximumSize = new Size(260, 0) };
     private readonly Label _alcada = new() { AutoSize = true, MaximumSize = new Size(260, 0), Margin = new Padding(0, 6, 0, 0) };
+    private readonly Label _margem = new() { AutoSize = true, MaximumSize = new Size(260, 0), Margin = new Padding(0, 6, 0, 0) };
+    private readonly Button _custos = Tema.BotaoSecundario("Custos (interno)", Icones.Calculadora);
+    private ComboBox _vendedor = null!;
     private readonly ListBox _composicao = new() { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, IntegralHeight = false };
 
     private NumericUpDown _convidados = null!, _meia = null!, _isentos = null!, _percentualMeia = null!;
@@ -87,10 +94,11 @@ internal sealed class FormOrcamentoEdicao : FormBase
 
     public FormOrcamentoEdicao(OrcamentoService servico, DisponibilidadeService disponibilidade, IConsultasLookup lookups,
         IConsultasEstoqueCardapio cardapio, BuffetOptions opcoes, ICadastroService<CondicaoPagamento> condicoesPagamento,
-        AberturaOrcamento abertura, TabelaPrecoService precos, DescontoService descontos, Navegador navegador)
+        AberturaOrcamento abertura, TabelaPrecoService precos, DescontoService descontos, MargemService margens, Navegador navegador)
     {
         _precos = precos;
         _descontos = descontos;
+        _margens = margens;
         _navegador = navegador;
         _entrarEspera.Click += async (_, _) => await ExecutarAsync(EntrarNaEsperaAsync, _entrarEspera, cursorEspera: false);
         _servico = servico;
@@ -117,7 +125,9 @@ internal sealed class FormOrcamentoEdicao : FormBase
         _salvar.Click += async (_, _) => await SalvarAsync(enviar: false);
         _salvarEnviar.Click += async (_, _) => await SalvarAsync(enviar: true);
         _imprimir.Click += async (_, _) => await ExecutarAsync(ImprimirAsync, _imprimir, cursorEspera: false);
-        acoes.Controls.AddRange([fechar, _salvar, _salvarEnviar, _imprimir]);
+        _custos.Click += (_, _) => ImprimirCustos();
+        _custos.Visible = margens.PodeVerCustos;
+        acoes.Controls.AddRange([fechar, _salvar, _salvarEnviar, _imprimir, _custos]);
         CancelButton = fechar;
 
         Controls.Add(_corpo);
@@ -162,6 +172,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
         total.Controls.Add(_porPessoa);
         total.Controls.Add(_alertas);
         total.Controls.Add(_alcada);
+        total.Controls.Add(_margem);
 
         var composicao = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0) };
         composicao.Controls.Add(_composicao);
@@ -190,6 +201,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
             _formas = await _lookups.ListarAsync(TipoLookup.FormasPagamento);
             _formasInativas = await _lookups.ListarAsync(TipoLookup.FormasPagamento, somenteAtivos: false);
             _limiteDesconto = await _descontos.MeuLimiteAsync();
+            _parametrosMargem = await _margens.ParametrosAsync();
 
             _input = _abertura.OrcamentoId > 0 ? await _servico.ObterAsync(_abertura.OrcamentoId) : _servico.Novo();
             if (_abertura.OrcamentoId == 0)
@@ -241,7 +253,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
         _inicio = e.Hora("Início", () => i.HoraInicio, v => i.HoraInicio = v);
         _fim = e.Hora("Término (pode passar da meia-noite)", () => i.HoraFim, v => i.HoraFim = v);
         e.Data("Proposta válida até", () => i.ValidoAte, v => i.ValidoAte = v ?? i.ValidoAte, nameof(i.ValidoAte));
-        e.Lista("Vendedor (comissão)", vendedores, () => i.VendedorId, v => i.VendedorId = v, nameof(i.VendedorId), permitirVazio: true, span: 2);
+        _vendedor = e.Lista("Vendedor (comissão)", vendedores, () => i.VendedorId, v => i.VendedorId = v, nameof(i.VendedorId), permitirVazio: true, span: 2);
 
         e.Secao("Convidados");
         _convidados = e.Inteiro("Convidados", () => i.Convidados, v => i.Convidados = v, nameof(i.Convidados), 1, 10_000);
@@ -384,6 +396,8 @@ internal sealed class FormOrcamentoEdicao : FormBase
         foreach (var numero in new[] { _meia, _percentualMeia, _valorPessoa, _valorLocacao, _percentual })
             numero.ValueChanged += (_, _) => Recalcular();
         _condicao.SelectedIndexChanged += (_, _) => Recalcular();
+        foreach (var combo in new[] { _forma, _vendedor, _tipoEvento })
+            combo.SelectedIndexChanged += (_, _) => Recalcular();
         // A condição traz a forma sugerida (ex.: "30% + 5x" no cartão); só preenche se a forma ainda estiver vazia.
         _condicao.SelectionChangeCommitted += (_, _) =>
         {
@@ -511,6 +525,7 @@ internal sealed class FormOrcamentoEdicao : FormBase
             alertas.Add($"⚠ Nesta data o mínimo é de {minimo} convidados pagantes.");
         _alertas.Text = string.Join(Environment.NewLine, alertas);
         AtualizarAlcada(resumo.Total, faixasValidas ? faixas : faixas.Total);
+        AtualizarMargem(resumo, convidados);
 
         var condicao = _condicao.SelectedItem is ItemLookup { Id: > 0 } item ? _condicoes.FirstOrDefault(c => c.Id == item.Id) : null;
         _simulacaoPagamento.Text = condicao is null
@@ -545,6 +560,53 @@ internal sealed class FormOrcamentoEdicao : FormBase
                        (autorizado ? $"{Environment.NewLine}✔ Aprovado por {_input.DescontoDecididoPor}."
                            : efetivo > _limiteDesconto ? $"{Environment.NewLine}⚠ Passa da sua alçada ({_limiteDesconto:0.##}%): vai precisar de aprovação." : "");
         _alcada.ForeColor = !autorizado && efetivo > _limiteDesconto ? Tema.Alerta : Tema.TextoSuave;
+    }
+
+    private static int? Id(ComboBox combo) => combo.SelectedItem is ItemLookup { Id: > 0 } item ? item.Id : null;
+
+    /// <summary>Custos previstos com o que está na tela (pelos mesmos parâmetros que o serviço usa ao salvar).</summary>
+    private (CustosOrcamento Custos, PercentuaisReceita Percentuais)? CustosNaTela(decimal total, int convidados)
+    {
+        if (_parametrosMargem is not { } parametros || _vendedor is null)
+            return null;
+        var servicos = _servicos.Select(s => (s.ServicoAdicionalId, s.Quantidade)).ToList();
+        return (parametros.Calcular(total, Id(_pacote), convidados, Id(_tipoEvento) ?? 0, Id(_espaco), servicos, Id(_vendedor), Id(_forma)),
+            parametros.Percentuais(Id(_vendedor), Id(_forma)));
+    }
+
+    /// <summary>
+    /// Margem prevista: administrador e financeiro veem os custos e a margem; o comercial vê o semáforo. Todos veem o desconto
+    /// máximo que ainda mantém a margem mínima.
+    /// </summary>
+    private void AtualizarMargem(ResumoValores resumo, int convidados)
+    {
+        if (_parametrosMargem is not { } parametros || CustosNaTela(resumo.Total, convidados) is not { } valores || valores.Custos.Total <= 0)
+        {
+            _margem.Text = "";
+            return;
+        }
+        var (custos, percentuais) = valores;
+        var margem = CalculadoraMargem.Percentual(resumo.Total, custos);
+        var faixa = parametros.Faixa(margem);
+        var maximo = CalculadoraMargem.DescontoMaximo(resumo.Subtotal, custos.Diretos, percentuais, parametros.MargemMinima);
+        _margem.Text = (parametros.PodeVerCustos
+                           ? $"Custos previstos: {Textos.Moeda(custos.Total)}  •  margem {Textos.Moeda(resumo.Total - custos.Total)} ({TextosMargem.Percentual(margem)})"
+                           : $"Margem: {TextosMargem.Semaforo(faixa)}")
+                       + (faixa == FaixaMargem.AbaixoDaMinima ? $"{Environment.NewLine}⚠ Abaixo da mínima: vai precisar da aprovação do administrador." : "")
+                       + $"{Environment.NewLine}Desconto máximo para a margem mínima: {maximo:0.##}%";
+        _margem.ForeColor = TextosMargem.Cor(faixa);
+    }
+
+    private void ImprimirCustos()
+    {
+        if (_parametrosMargem is not { } parametros)
+            return;
+        var faixas = Faixas();
+        var resumo = CalculadoraValores.Calcular(_valorPessoa.Value, faixas, _valorLocacao.Value, _servicos.Sum(s => s.Total), _percentual.Value, RegraFaixas());
+        if (CustosNaTela(resumo.Total, faixas.Total) is not { } valores)
+            return;
+        var (custos, percentuais) = valores;
+        TextosMargem.Interna(_input, resumo.Total, custos, percentuais, parametros, resumo.Subtotal, _opcoes.NomeEmpresa).Visualizar(this);
     }
 
     private async Task AtualizarComposicaoAsync()

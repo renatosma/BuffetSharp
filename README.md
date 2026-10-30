@@ -331,6 +331,18 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   No orçamento, o valor por pessoa e a locação sugeridos já vêm com o ajuste da data, que é refeito quando a data, o
   pacote ou o espaço mudam (o valor negociado à mão não é tocado). A proposta impressa mostra as regras da data e o preço
   de tabela. O Calendário de preços (Comercial) mostra o ajuste de cada dia do mês, para um pacote e espaço.
+- **Margem no orçamento**: ao salvar, o orçamento congela os custos previstos: insumos do pacote (ficha técnica ×
+  pessoas, pelo custo médio), equipe estimada do tipo de evento (custo por convidado mais um fixo, no cadastro de tipos de
+  evento), custo do espaço por evento e custo de cada serviço adicional (nos cadastros), comissão do vendedor, impostos
+  (`Buffet:Margem:AliquotaImpostos`, 8%) e taxa da forma de pagamento. Enquanto se edita, o administrador e o financeiro
+  veem os custos e a margem em R$ e %, e o comercial vê só o semáforo (verde a partir da meta, amarelo entre a mínima e a
+  meta, vermelho abaixo da mínima; `MargemMinima` 20% e `MargemMeta` 30%). Todos veem o desconto máximo que ainda mantém
+  a margem mínima. Abaixo da mínima, o orçamento entra na alçada como o desconto, mas só o administrador aprova (pela fila
+  ou com a senha na hora). "Custos (interno)" imprime a composição de custos para a gerência. A lista de orçamentos tem a
+  coluna Margem (percentual ou semáforo), o Relatório de margem (Comercial, para administrador e financeiro) agrupa por
+  vendedor, pacote ou tipo de evento, e na central do evento "Margem prevista × realizada" compara o orçamento com o
+  evento: insumos baixados, equipe escalada, serviços e despesas lançados, materiais, comissão, impostos e taxa das
+  parcelas recebidas.
 - **Alçada de desconto**: cada usuário pode dar sozinho um desconto até o seu limite, informado no cadastro de usuários
   ou, em branco, o do perfil (`Buffet:AlcadaDesconto`: administrador 100%, comercial e financeiro 5%, operacional 0%).
   O desconto do orçamento é o efetivo sobre a tabela da data: o campo de desconto somado ao preço negociado abaixo da
@@ -459,7 +471,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **481 testes** (xUnit v3): 437 de domínio, integração e bancos, e 44 das telas.
+São **490 testes** (xUnit v3): 444 de domínio, integração e bancos, e 46 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

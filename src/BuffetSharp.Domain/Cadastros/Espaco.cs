@@ -20,6 +20,10 @@ public class Espaco : Entidade, IAtivavel
     [Range(0, 10_000_000, ErrorMessage = "Valor de locação inválido.")]
     public decimal ValorLocacao { get; set; }
 
+    /// <summary>Custo de usar o espaço num evento (limpeza, energia, manutenção), para a margem do orçamento.</summary>
+    [Range(0, 10_000_000, ErrorMessage = "Custo do espaço inválido.")]
+    public decimal CustoPorEvento { get; set; }
+
     /// <summary>Onde fica o espaço (citado no contrato). Vazio: usa o endereço da empresa.</summary>
     public Endereco Endereco { get; set; } = new();
 
@@ -73,6 +77,10 @@ public class ServicoAdicional : Entidade, IAtivavel
 
     [Range(0, 10_000_000, ErrorMessage = "Preço inválido.")]
     public decimal Preco { get; set; }
+
+    /// <summary>Quanto o serviço custa ao buffet (ex.: o DJ terceirizado), por unidade, para a margem do orçamento.</summary>
+    [Range(0, 10_000_000, ErrorMessage = "Custo inválido.")]
+    public decimal Custo { get; set; }
 
     /// <summary>Quando verdadeiro, o preço é multiplicado pela quantidade de convidados.</summary>
     public bool CobradoPorPessoa { get; set; }

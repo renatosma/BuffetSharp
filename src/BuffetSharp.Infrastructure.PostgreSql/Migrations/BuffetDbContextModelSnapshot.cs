@@ -666,6 +666,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("criadoem");
 
+                    b.Property<decimal>("CustoPorEvento")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("custoporevento");
+
                     b.Property<string>("Descricao")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -1155,6 +1160,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("criadoem");
 
+                    b.Property<decimal>("Custo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("custo");
+
                     b.Property<string>("Descricao")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -1206,6 +1216,16 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("criadoem");
+
+                    b.Property<decimal>("CustoEquipeFixo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("custoequipefixo");
+
+                    b.Property<decimal>("CustoEquipePorPessoa")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("custoequipeporpessoa");
 
                     b.Property<string>("Descricao")
                         .HasMaxLength(300)
@@ -2205,6 +2225,41 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("criadoem");
 
+                    b.Property<decimal>("CustoComissao")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("custocomissao");
+
+                    b.Property<decimal>("CustoEquipe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("custoequipe");
+
+                    b.Property<decimal>("CustoEspaco")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("custoespaco");
+
+                    b.Property<decimal>("CustoImpostos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("custoimpostos");
+
+                    b.Property<decimal>("CustoInsumos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("custoinsumos");
+
+                    b.Property<decimal>("CustoServicos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("custoservicos");
+
+                    b.Property<decimal>("CustoTaxa")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("custotaxa");
+
                     b.Property<DateTime?>("DecididoEm")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("decididoem");
@@ -2254,6 +2309,11 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("inicio");
+
+                    b.Property<decimal?>("MargemAprovada")
+                        .HasPrecision(7, 2)
+                        .HasColumnType("numeric(7,2)")
+                        .HasColumnName("margemaprovada");
 
                     b.Property<int?>("MinimoConvidadosData")
                         .HasColumnType("integer")

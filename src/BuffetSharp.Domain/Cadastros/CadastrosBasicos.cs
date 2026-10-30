@@ -18,7 +18,17 @@ public class TipoEvento : Entidade, IAtivavel
     [MaxLength(300)]
     public string? Descricao { get; set; }
 
+    /// <summary>Custo estimado da equipe por convidado (garçons, cozinha...), para a margem do orçamento.</summary>
+    [Range(0, 100_000, ErrorMessage = "Custo de equipe inválido.")]
+    public decimal CustoEquipePorPessoa { get; set; }
+
+    /// <summary>Custo fixo de equipe por evento (coordenação, montagem), somado ao por convidado.</summary>
+    [Range(0, 10_000_000, ErrorMessage = "Custo de equipe inválido.")]
+    public decimal CustoEquipeFixo { get; set; }
+
     public bool Ativo { get; set; } = true;
+
+    public decimal CustoEquipe(int convidados) => CustoEquipeFixo + CustoEquipePorPessoa * convidados;
 
     public override string ToString() => Nome;
 }

@@ -45,7 +45,8 @@ internal sealed class ConsultasComercial(FabricaConexao conexoes) : IConsultasCo
         SELECT o.Id, o.ClienteId, c.Nome AS Cliente, t.Nome AS TipoEvento, p.Nome AS Pacote, es.Nome AS Espaco, o.Inicio,
                o.QuantidadeConvidados, o.ValorTotal, o.Status, o.ValidoAte, ev.Id AS EventoId, o.CriadoEm,
                u.Nome AS Vendedor, ue.EnviadoEm AS UltimoEnvio, ue.Canal AS CanalUltimoEnvio, o.SituacaoDesconto,
-               o.PercentualDescontoAutorizado
+               o.PercentualDescontoAutorizado,
+               o.CustoInsumos + o.CustoEquipe + o.CustoServicos + o.CustoEspaco + o.CustoComissao + o.CustoImpostos + o.CustoTaxa AS CustoPrevisto
           FROM Orcamentos o
           JOIN Clientes c ON c.Id = o.ClienteId
           JOIN TiposEvento t ON t.Id = o.TipoEventoId

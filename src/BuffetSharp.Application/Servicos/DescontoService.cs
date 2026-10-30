@@ -15,10 +15,16 @@ namespace BuffetSharp.Application.Servicos;
 /// Desconto acima da alçada de quem está salvando: a tela pede o motivo e, se houver alguém com alçada por perto, o login e a
 /// senha dele para aprovar na hora.
 /// </summary>
-public sealed class AlcadaDescontoException(decimal percentual, decimal limite, decimal valor, string mensagem) : RegraNegocioException(mensagem)
+public sealed class AlcadaDescontoException(decimal percentual, decimal limite, decimal valor, string mensagem,
+    decimal? margem = null, decimal? margemMinima = null) : RegraNegocioException(mensagem)
 {
     public decimal Percentual { get; } = percentual;
     public decimal Limite { get; } = limite;
+
+    /// <summary>Margem prevista abaixo da mínima (só o administrador aprova); nula quando o problema é só o desconto.</summary>
+    public decimal? Margem { get; } = margem;
+
+    public decimal? MargemMinima { get; } = margemMinima;
 
     /// <summary>Desconto em reais (no orçamento, abaixo da tabela; no recebimento, o maior desconto dado).</summary>
     public decimal Valor { get; } = valor;
@@ -26,7 +32,7 @@ public sealed class AlcadaDescontoException(decimal percentual, decimal limite, 
 
 public sealed record AprovacaoDescontoResumo(int OrcamentoId, string Codigo, string Cliente, DateTime DataEvento, string? Vendedor,
     string? SolicitadoPor, DateTime? SolicitadoEm, decimal ValorTabela, decimal ValorTotal, decimal Percentual, string? Motivo,
-    bool PodeAprovar)
+    bool PodeAprovar, decimal? Margem = null)
 {
     public decimal Valor => Math.Max(0, ValorTabela - ValorTotal);
 }
@@ -94,7 +100,7 @@ public sealed class DescontoService(
     /// Confere login e senha de quem aprova na hora (num contexto à parte, para a senha errada contar mesmo sem gravar o
     /// resto) e devolve o login e o limite dele.
     /// </summary>
-    internal async Task<(string Login, decimal Limite)> AutorizarAsync(string? login, string? senha, CancellationToken ct)
+    internal async Task<(string Login, decimal Limite, bool AprovaMargem)> AutorizarAsync(string? login, string? senha, CancellationToken ct)
     {
         Validador.Garantir(!string.IsNullOrWhiteSpace(login) && !string.IsNullOrEmpty(senha), "Informe o login e a senha de quem aprova o desconto.");
         await using var db = fabrica.Criar();
@@ -109,8 +115,17 @@ public sealed class DescontoService(
             log.LogWarning("Senha errada na aprovação de desconto por {Login}", usuario.Login);
             throw new RegraNegocioException("O login ou a senha de quem aprova não conferem.");
         }
-        return (usuario.Login, Limite(usuario));
+        return (usuario.Login, Limite(usuario), usuario.Perfil == PerfilUsuario.Administrador);
     }
+
+    /// <summary>Só administrador e financeiro veem os números da margem (o comercial vê o semáforo).</summary>
+    private bool PodeVerCustos => sessao.Usuario is not { } usuario || usuario.PossuiPerfil(PerfilUsuario.Financeiro);
+
+    /// <summary>Margem mínima configurada (nula se desligada).</summary>
+    private decimal? MargemMinima => opcoes.Margem.MargemMinima > 0 ? opcoes.Margem.MargemMinima : null;
+
+    /// <summary>Só o administrador aceita margem abaixo da mínima; sem sessão (rotinas automáticas), não há restrição.</summary>
+    private bool SessaoAprovaMargem => sessao.Usuario is not { } usuario || usuario.EhAdministrador;
 
     /// <summary>
     /// Confere a alçada do orçamento que está sendo salvo. Acima do limite e sem pedido, avisa a tela
@@ -121,25 +136,34 @@ public sealed class DescontoService(
     {
         var limite = await LimiteDaSessaoAsync(db, ct);
         var usuario = sessao.Usuario?.Login;
-        if (orcamento.ConferirAlcada(limite, usuario, Agora) != ConferenciaAlcada.PrecisaAprovacao)
+        var minima = MargemMinima;
+        if (orcamento.ConferirAlcada(limite, usuario, Agora, minima, SessaoAprovaMargem) != ConferenciaAlcada.PrecisaAprovacao)
             return false;
 
         var percentual = orcamento.DescontoEfetivoPercentual;
+        var margem = orcamento.MargemPercentual is { } m && m < minima ? m : (decimal?)null;
         if (pedido is null)
             throw new AlcadaDescontoException(percentual, limite, orcamento.DescontoEfetivoValor,
-                $"O desconto efetivo de {percentual:0.##}% sobre a tabela passa da sua alçada ({limite:0.##}%).");
+                percentual > limite
+                    ? $"O desconto efetivo de {percentual:0.##}% sobre a tabela passa da sua alçada ({limite:0.##}%)." +
+                      (margem is null ? "" : " A margem prevista também fica abaixo da mínima.")
+                    : PodeVerCustos
+                        ? $"A margem prevista de {margem:0.#}% fica abaixo da mínima ({minima:0.#}%): precisa da aprovação do administrador."
+                        : "A margem prevista fica abaixo da mínima: precisa da aprovação do administrador.",
+                margem, minima);
 
         if (!pedido.AprovarNaHora)
         {
-            orcamento.SolicitarAprovacaoDesconto(pedido.Motivo, usuario, Agora);
+            orcamento.SolicitarAprovacaoDesconto(pedido.Motivo, usuario, Agora, minima);
             return true;
         }
         Validador.Garantir(!string.IsNullOrWhiteSpace(pedido.Motivo), "Informe o motivo do desconto acima da sua alçada.");
-        var (aprovador, limiteAprovador) = await AutorizarAsync(pedido.Login, pedido.Senha, ct);
+        var (aprovador, limiteAprovador, aprovaMargem) = await AutorizarAsync(pedido.Login, pedido.Senha, ct);
         Validador.Garantir(percentual <= limiteAprovador,
             $"O desconto de {percentual:0.##}% também passa da alçada de {aprovador} ({limiteAprovador:0.##}%).");
-        orcamento.SolicitarAprovacaoDesconto(pedido.Motivo, usuario, Agora);
-        orcamento.AprovarDesconto(aprovador, limiteAprovador, "Aprovado na hora, com a senha", Agora);
+        Validador.Garantir(margem is null || aprovaMargem, $"A margem de {margem:0.#}% está abaixo da mínima: só o administrador aprova.");
+        orcamento.SolicitarAprovacaoDesconto(pedido.Motivo, usuario, Agora, minima);
+        orcamento.AprovarDesconto(aprovador, limiteAprovador, "Aprovado na hora, com a senha", Agora, aprovaMargem);
         return false;
     }
 
@@ -156,7 +180,7 @@ public sealed class DescontoService(
             throw new AlcadaDescontoException(percentual, limite, baixa.Titulos.Sum(t => t.Desconto),
                 $"O desconto de {percentual:0.##}% no recebimento passa da sua alçada ({limite:0.##}%): precisa da senha de quem pode aprovar.");
         Validador.Garantir(!string.IsNullOrWhiteSpace(pedido.Motivo), "Informe o motivo do desconto acima da sua alçada.");
-        var (aprovador, limiteAprovador) = await AutorizarAsync(pedido.Login, pedido.Senha, ct);
+        var (aprovador, limiteAprovador, _) = await AutorizarAsync(pedido.Login, pedido.Senha, ct);
         Validador.Garantir(percentual <= limiteAprovador,
             $"O desconto de {percentual:0.##}% também passa da alçada de {aprovador} ({limiteAprovador:0.##}%).");
         baixa.AprovarDesconto(aprovador, pedido.Motivo);
@@ -175,15 +199,16 @@ public sealed class DescontoService(
             .Select(o => new
             {
                 o.Id, Cliente = o.Cliente!.Nome, o.Inicio, Vendedor = o.Vendedor != null ? o.Vendedor.Nome : null, o.DescontoConcedidoPor,
-                o.DescontoConcedidoEm, o.ValorTabela, o.ValorTotal, o.PercentualDescontoAutorizado, o.MotivoDesconto
+                o.DescontoConcedidoEm, o.ValorTabela, o.ValorTotal, o.PercentualDescontoAutorizado, o.MotivoDesconto, o.MargemAprovada
             }).ToListAsync(ct);
+        var aprovaMargem = SessaoAprovaMargem;
         return pendentes.Select(o => new AprovacaoDescontoResumo(o.Id, $"ORC-{o.Id:D5}", o.Cliente, o.Inicio, o.Vendedor,
             o.DescontoConcedidoPor, o.DescontoConcedidoEm, o.ValorTabela, o.ValorTotal, o.PercentualDescontoAutorizado, o.MotivoDesconto,
-            o.PercentualDescontoAutorizado <= limite)).ToList();
+            o.PercentualDescontoAutorizado <= limite && (o.MargemAprovada is null || aprovaMargem), o.MargemAprovada)).ToList();
     }
 
     public Task AprovarAsync(int orcamentoId, string? observacao, CancellationToken ct = default) =>
-        DecidirAsync(orcamentoId, (o, login, limite) => o.AprovarDesconto(login, limite, observacao, Agora), ct);
+        DecidirAsync(orcamentoId, (o, login, limite) => o.AprovarDesconto(login, limite, observacao, Agora, SessaoAprovaMargem), ct);
 
     public Task RecusarAsync(int orcamentoId, string? motivo, CancellationToken ct = default) =>
         DecidirAsync(orcamentoId, (o, login, _) => o.RecusarDesconto(login, motivo, Agora), ct);
@@ -197,6 +222,8 @@ public sealed class DescontoService(
         var limite = await LimiteDaSessaoAsync(db, ct);
         Validador.Garantir(orcamento.PercentualDescontoAutorizado <= limite,
             $"O desconto de {orcamento.PercentualDescontoAutorizado:0.##}% passa da sua alçada ({limite:0.##}%).");
+        Validador.Garantir(orcamento.MargemAprovada is null || SessaoAprovaMargem,
+            $"A margem de {orcamento.MargemAprovada:0.#}% está abaixo da mínima: só o administrador decide.");
         decidir(orcamento, logado.Login, limite);
         await db.SaveChangesAsync(ct);
         await AvisarSolicitanteAsync(db, orcamento, ct);
@@ -209,7 +236,9 @@ public sealed class DescontoService(
             Tipo = TipoLembrete.AprovacaoDesconto,
             ReferenciaId = p.OrcamentoId,
             Data = p.SolicitadoEm ?? Agora,
-            Titulo = $"{p.Codigo}: desconto de {p.Percentual:0.##}% aguardando a sua aprovação",
+            Titulo = p.Margem is { } margem && p.Percentual == 0
+                ? $"{p.Codigo}: margem de {margem:0.#}% (abaixo da mínima) aguardando a sua aprovação"
+                : $"{p.Codigo}: desconto de {p.Percentual:0.##}% aguardando a sua aprovação",
             Detalhe = $"{p.Cliente} • pedido por {p.SolicitadoPor ?? "?"}: {p.Motivo}",
             Pessoa = p.Cliente,
             Valor = p.Valor,
@@ -233,11 +262,13 @@ public sealed class DescontoService(
         var texto = $"""
             Pedido de aprovação de desconto no {orcamento.Codigo} ({orcamento.Cliente?.Nome}, evento em {orcamento.DataEvento:dd/MM/yyyy}).
             Desconto efetivo de {orcamento.PercentualDescontoAutorizado:0.##}% sobre a tabela ({Moeda(orcamento.DescontoEfetivoValor)}): tabela {Moeda(orcamento.ValorTabela)}, proposta {Moeda(orcamento.ValorTotal)}.
+            {(orcamento.MargemAprovada is { } margem ? $"Margem prevista de {margem:0.#}%, abaixo da mínima: só o administrador aprova." : "")}
             Pedido por {orcamento.DescontoConcedidoPor}: {orcamento.MotivoDesconto}
             Aprove ou recuse em Comercial › Aprovações de desconto.
             """;
         var avisados = 0;
-        foreach (var usuario in usuarios.Where(u => u.Login != orcamento.DescontoConcedidoPor && Limite(u) >= orcamento.PercentualDescontoAutorizado))
+        foreach (var usuario in usuarios.Where(u => u.Login != orcamento.DescontoConcedidoPor && Limite(u) >= orcamento.PercentualDescontoAutorizado
+                                                     && (orcamento.MargemAprovada is null || u.Perfil == PerfilUsuario.Administrador)))
             if (await AvisarAsync(usuario, $"Aprovação de desconto: {orcamento.Codigo}", texto, ct))
                 avisados++;
         return avisados;

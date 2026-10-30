@@ -30,7 +30,9 @@ internal static class DefinicoesCadastros
         Singular = "tipo de evento",
         Descricao = "Classificação usada em orçamentos, eventos e relatórios de faturamento.",
         Consulta = q => q.OrderBy(x => x.Nome),
-        Colunas = g => g.Texto("Nome", x => x.Nome, 40).Texto("Descrição", x => x.Descricao, 80).SimNao("Ativo", x => x.Ativo, 15),
+        Colunas = g => g.Texto("Nome", x => x.Nome, 40).Texto("Descrição", x => x.Descricao, 80)
+            .Moeda("Equipe / pessoa", x => x.CustoEquipePorPessoa, 18).Moeda("Equipe fixa", x => x.CustoEquipeFixo, 18)
+            .SimNao("Ativo", x => x.Ativo, 15),
         TextoBusca = x => $"{x.Nome} {x.Descricao}",
         Nome = x => x.Nome,
         ColunasEditor = 1,
@@ -39,6 +41,9 @@ internal static class DefinicoesCadastros
         {
             e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 80);
             e.Texto("Descrição", () => x.Descricao, v => x.Descricao = v, nameof(x.Descricao), 300, linhas: 3);
+            e.Secao("Equipe estimada (para a margem do orçamento)");
+            e.Decimal("Custo da equipe por convidado (R$)", () => x.CustoEquipePorPessoa, v => x.CustoEquipePorPessoa = v, nameof(x.CustoEquipePorPessoa));
+            e.Decimal("Custo fixo da equipe por evento (R$)", () => x.CustoEquipeFixo, v => x.CustoEquipeFixo = v, nameof(x.CustoEquipeFixo));
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
             return Task.CompletedTask;
         }
@@ -346,6 +351,7 @@ internal static class DefinicoesCadastros
         Colunas = g => g.Texto("Nome", x => x.Nome, 40)
             .Numero("Capacidade", x => x.CapacidadeMaxima, peso: 20)
             .Moeda("Locação", x => x.ValorLocacao, 22)
+            .Moeda("Custo / evento", x => x.CustoPorEvento, 20)
             .Texto("Descrição", x => x.Descricao, 70)
             .SimNao("Ativo", x => x.Ativo, 15),
         TextoBusca = x => $"{x.Nome} {x.Descricao}",
@@ -355,6 +361,7 @@ internal static class DefinicoesCadastros
             e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 100, span: 2);
             e.Inteiro("Capacidade máxima (pessoas)", () => x.CapacidadeMaxima, v => x.CapacidadeMaxima = v, nameof(x.CapacidadeMaxima), 0, 10_000);
             e.Decimal("Valor de locação (R$)", () => x.ValorLocacao, v => x.ValorLocacao = v, nameof(x.ValorLocacao));
+            e.Decimal("Custo por evento (R$) - limpeza, energia...", () => x.CustoPorEvento, v => x.CustoPorEvento = v, nameof(x.CustoPorEvento));
             e.Texto("Descrição", () => x.Descricao, v => x.Descricao = v, nameof(x.Descricao), 500, span: 2, linhas: 3);
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
             CamposEndereco(e, x.Endereco);
@@ -379,6 +386,7 @@ internal static class DefinicoesCadastros
         Consulta = q => q.OrderBy(x => x.Nome),
         Colunas = g => g.Texto("Nome", x => x.Nome, 40)
             .Moeda("Preço", x => x.Preco, 20)
+            .Moeda("Custo", x => x.Custo, 20)
             .Texto("Cobrança", x => x.CobradoPorPessoa ? "Por pessoa" : "Valor fixo", 20)
             .Texto("Descrição", x => x.Descricao, 70)
             .SimNao("Ativo", x => x.Ativo, 15),
@@ -388,6 +396,7 @@ internal static class DefinicoesCadastros
         {
             e.Texto("Nome", () => x.Nome, v => x.Nome = v ?? "", nameof(x.Nome), 100, span: 2);
             e.Decimal("Preço (R$)", () => x.Preco, v => x.Preco = v, nameof(x.Preco));
+            e.Decimal("Custo para o buffet (R$)", () => x.Custo, v => x.Custo = v, nameof(x.Custo));
             e.Marcador("Cobrado por pessoa", () => x.CobradoPorPessoa, v => x.CobradoPorPessoa = v);
             e.Texto("Descrição", () => x.Descricao, v => x.Descricao = v, nameof(x.Descricao), 500, span: 2, linhas: 3);
             e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);

@@ -665,6 +665,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("CRIADOEM");
 
+                    b.Property<decimal>("CustoPorEvento")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTOPOREVENTO");
+
                     b.Property<string>("Descricao")
                         .HasMaxLength(500)
                         .HasColumnType("NVARCHAR2(500)")
@@ -1152,6 +1157,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("CRIADOEM");
 
+                    b.Property<decimal>("Custo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTO");
+
                     b.Property<string>("Descricao")
                         .HasMaxLength(500)
                         .HasColumnType("NVARCHAR2(500)")
@@ -1203,6 +1213,16 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("CRIADOEM");
+
+                    b.Property<decimal>("CustoEquipeFixo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTOEQUIPEFIXO");
+
+                    b.Property<decimal>("CustoEquipePorPessoa")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTOEQUIPEPORPESSOA");
 
                     b.Property<string>("Descricao")
                         .HasMaxLength(300)
@@ -2200,6 +2220,41 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("CRIADOEM");
 
+                    b.Property<decimal>("CustoComissao")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTOCOMISSAO");
+
+                    b.Property<decimal>("CustoEquipe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTOEQUIPE");
+
+                    b.Property<decimal>("CustoEspaco")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTOESPACO");
+
+                    b.Property<decimal>("CustoImpostos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTOIMPOSTOS");
+
+                    b.Property<decimal>("CustoInsumos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTOINSUMOS");
+
+                    b.Property<decimal>("CustoServicos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTOSERVICOS");
+
+                    b.Property<decimal>("CustoTaxa")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)")
+                        .HasColumnName("CUSTOTAXA");
+
                     b.Property<DateTime?>("DecididoEm")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("DECIDIDOEM");
@@ -2249,6 +2304,11 @@ namespace BuffetSharp.Infrastructure.Oracle.Migrations
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("INICIO");
+
+                    b.Property<decimal?>("MargemAprovada")
+                        .HasPrecision(7, 2)
+                        .HasColumnType("DECIMAL(7,2)")
+                        .HasColumnName("MARGEMAPROVADA");
 
                     b.Property<int?>("MinimoConvidadosData")
                         .HasColumnType("NUMBER(10)")

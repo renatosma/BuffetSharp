@@ -537,6 +537,10 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
+                    b.Property<decimal>("CustoPorEvento")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Descricao")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -932,6 +936,10 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
+                    b.Property<decimal>("Custo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Descricao")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -973,6 +981,14 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal>("CustoEquipeFixo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CustoEquipePorPessoa")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Descricao")
                         .HasMaxLength(300)
@@ -1762,6 +1778,34 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
+                    b.Property<decimal>("CustoComissao")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CustoEquipe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CustoEspaco")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CustoImpostos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CustoInsumos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CustoServicos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CustoTaxa")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime?>("DecididoEm")
                         .HasColumnType("datetime2");
 
@@ -1799,6 +1843,10 @@ namespace BuffetSharp.Infrastructure.SqlServer.Migrations
 
                     b.Property<DateTime>("Inicio")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("MargemAprovada")
+                        .HasPrecision(7, 2)
+                        .HasColumnType("decimal(7,2)");
 
                     b.Property<int?>("MinimoConvidadosData")
                         .HasColumnType("int");

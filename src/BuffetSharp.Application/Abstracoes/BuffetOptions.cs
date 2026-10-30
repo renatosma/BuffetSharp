@@ -52,6 +52,22 @@ public sealed class BuffetOptions
     /// o limite do cadastro do usuário, quando informado, vale no lugar deste.
     /// </summary>
     public AlcadaDescontoOptions AlcadaDesconto { get; set; } = new();
+
+    /// <summary>Impostos sobre a receita e as margens do orçamento (seção "Buffet:Margem").</summary>
+    public MargemOptions Margem { get; set; } = new();
+}
+
+/// <summary>Parâmetros da margem prevista do orçamento.</summary>
+public sealed class MargemOptions
+{
+    /// <summary>Impostos sobre a receita (%), ex.: a alíquota do Simples.</summary>
+    public decimal AliquotaImpostos { get; set; } = 8;
+
+    /// <summary>Margem (%) abaixo da qual o orçamento precisa da aprovação do administrador (0 desliga).</summary>
+    public decimal MargemMinima { get; set; } = 20;
+
+    /// <summary>Margem (%) considerada boa: entre a mínima e esta, o semáforo fica amarelo.</summary>
+    public decimal MargemMeta { get; set; } = 30;
 }
 
 /// <summary>Desconto máximo (%) de cada perfil, para quem não tem um limite próprio no cadastro de usuários.</summary>

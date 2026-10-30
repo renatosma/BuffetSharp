@@ -244,6 +244,7 @@ internal sealed class FormPrincipal : FormBase
             new("COMERCIAL", "Orçamentos", Icones.Documento, [Adm, Com], () => n.Abrir<FormOrcamentos>()),
             new("COMERCIAL", "Aprovações de desconto", Icones.Aceitar, [Adm, Com, Fin], () => n.Abrir<FormAprovacoesDesconto>()),
             new("COMERCIAL", "Relatório de descontos", Icones.Calculadora, [Adm, Com, Fin], () => n.Abrir<FormRelatorioDescontos>()),
+            new("COMERCIAL", "Relatório de margem", Icones.Calculadora, [Adm, Fin], () => n.Abrir<FormRelatorioMargem>()),
             new("COMERCIAL", "Clientes", Icones.Contato, [Adm, Com, Fin], () => Cadastro(DefinicoesCadastros.Clientes)),
             new("COMERCIAL", "Degustações", Icones.Estrela, [Adm, Com], () => n.Abrir<FormDegustacoes>()),
             new("COMERCIAL", "Pesquisa de satisfação", Icones.Estrela, [Adm, Com], () => n.Abrir<FormPesquisasSatisfacao>()),

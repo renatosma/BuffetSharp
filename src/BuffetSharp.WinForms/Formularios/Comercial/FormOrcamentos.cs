@@ -26,7 +26,8 @@ internal sealed class FormOrcamentos : FormListagem<OrcamentoResumo>
     private readonly ComboBox _status = new() { Width = 140, DropDownStyle = ComboBoxStyle.DropDownList };
 
     public FormOrcamentos(IConsultasComercial consultas, OrcamentoService servico, IConsultasLookup lookups,
-        IConsultasEstoqueCardapio cardapio, BuffetOptions opcoes, Navegador navegador, PropostaService propostas, IEnvioEmail email)
+        IConsultasEstoqueCardapio cardapio, BuffetOptions opcoes, Navegador navegador, PropostaService propostas, IEnvioEmail email,
+        MargemService margens)
         : base("Orçamentos", "Propostas comerciais. Envie por e-mail ou WhatsApp; ao aprovar, o evento é criado e a data do espaço é reservada.")
     {
         _propostas = propostas;
@@ -73,10 +74,14 @@ internal sealed class FormOrcamentos : FormListagem<OrcamentoResumo>
             .Texto("Evento", o => o.EventoId is { } id ? $"EVT-{id:D5}" : "", 21)
             .Texto("Vendedor", o => o.Vendedor?.Split(' ')[0], 17)
             .Texto("Último envio", o => o.UltimoEnvio is { } envio ? $"{Textos.Exibir(o.CanalUltimoEnvio!.Value)} {envio:dd/MM}" : "", 27)
+            .Texto("Margem", o => margens.PodeVerCustos ? TextosMargem.Percentual(o.MargemPercentual) : TextosMargem.Semaforo(Faixa(o)), 13,
+                o => TextosMargem.Cor(Faixa(o)))
             .Texto("Desconto", o => o.SituacaoDesconto == SituacaoDesconto.DentroDaAlcada ? ""
                 : $"{o.PercentualDescontoAutorizado:0.##}% {Textos.Exibir(o.SituacaoDesconto).ToLowerInvariant()}", 22, o => Textos.Cor(o.SituacaoDesconto))
             .Busca(o => $"{o.Codigo} {o.Cliente} {o.TipoEvento} {o.Pacote} {o.Espaco} {o.Vendedor}");
     }
+
+    private FaixaMargem Faixa(OrcamentoResumo o) => CalculadoraMargem.Faixa(o.MargemPercentual, _opcoes.Margem.MargemMinima, _opcoes.Margem.MargemMeta);
 
     protected override async Task CarregarAsync()
     {

@@ -159,6 +159,26 @@ public class Orcamento : Entidade
     /// <summary>Observação da aprovação ou motivo da recusa.</summary>
     public string? RespostaDesconto { get; private set; }
 
+    /// <summary>
+    /// Margem abaixo da mínima que foi pedida (aguardando) ou autorizada pelo administrador; nula quando a margem não ficou
+    /// abaixo da mínima. Se a margem cair ainda mais, precisa de nova aprovação.
+    /// </summary>
+    public decimal? MargemAprovada { get; private set; }
+
+    // Custos previstos (congelados ao salvar, pelo custo médio dos insumos e os parâmetros de então).
+    public decimal CustoInsumos { get; private set; }
+    public decimal CustoEquipe { get; private set; }
+    public decimal CustoServicos { get; private set; }
+    public decimal CustoEspaco { get; private set; }
+    public decimal CustoComissao { get; private set; }
+    public decimal CustoImpostos { get; private set; }
+    public decimal CustoTaxa { get; private set; }
+
+    public CustosOrcamento Custos => new(CustoInsumos, CustoEquipe, CustoServicos, CustoEspaco, CustoComissao, CustoImpostos, CustoTaxa);
+
+    /// <summary>Margem prevista (%) sobre o total; nula sem custos calculados.</summary>
+    public decimal? MargemPercentual => CalculadoraMargem.Percentual(ValorTotal, Custos);
+
     public string? Observacoes { get; private set; }
     public string? MotivoRecusa { get; private set; }
     public DateTime? EnviadoEm { get; private set; }
@@ -337,44 +357,71 @@ public class Orcamento : Entidade
     /// acima, vale o que já foi autorizado antes (se o desconto não subiu) ou é preciso pedir a aprovação.
     /// </summary>
     /// <param name="limite">Desconto máximo (%) de quem está salvando.</param>
-    public ConferenciaAlcada ConferirAlcada(decimal limite, string? usuario, DateTime agora)
+    /// <summary>Registra os custos previstos (calculados pelo serviço, que conhece os cadastros).</summary>
+    public void DefinirCustos(CustosOrcamento custos)
+    {
+        GarantirEditavel();
+        (CustoInsumos, CustoEquipe, CustoServicos, CustoEspaco, CustoComissao, CustoImpostos, CustoTaxa) =
+            (custos.Insumos, custos.Equipe, custos.Servicos, custos.Espaco, custos.Comissao, custos.Impostos, custos.Taxa);
+    }
+
+    /// <summary>A margem prevista abaixo da mínima (a que precisa de aprovação), ou nula.</summary>
+    private decimal? MargemAbaixo(decimal? margemMinima) =>
+        margemMinima is { } minima && MargemPercentual is { } margem && margem < minima ? margem : null;
+
+    /// <summary>
+    /// Confere o desconto efetivo contra o limite de quem está salvando e, se informada, a margem prevista contra a mínima.
+    /// Dentro do limite (e da margem, ou se quem salva aprova margem), fica autorizado por ele; acima, vale o que já foi
+    /// autorizado antes (se o desconto não subiu nem a margem caiu) ou é preciso pedir a aprovação.
+    /// </summary>
+    /// <param name="limite">Desconto máximo (%) de quem está salvando.</param>
+    /// <param name="margemMinima">Margem mínima (%); nula não confere a margem.</param>
+    /// <param name="aprovaMargem">Quem salva pode aceitar margem abaixo da mínima (o administrador).</param>
+    public ConferenciaAlcada ConferirAlcada(decimal limite, string? usuario, DateTime agora, decimal? margemMinima = null, bool aprovaMargem = false)
     {
         var efetivo = DescontoEfetivoPercentual;
-        var autorizado = SituacaoDesconto is SituacaoDesconto.DentroDaAlcada or SituacaoDesconto.Aprovado && efetivo <= PercentualDescontoAutorizado;
-        if (autorizado)
+        var abaixo = MargemAbaixo(margemMinima);
+        var margemCoberta = abaixo is null || MargemAprovada is { } aprovada && abaixo >= aprovada;
+        if (SituacaoDesconto is SituacaoDesconto.DentroDaAlcada or SituacaoDesconto.Aprovado && efetivo <= PercentualDescontoAutorizado && margemCoberta)
             return ConferenciaAlcada.Liberado;
-        if (efetivo <= limite)
+        if (efetivo <= limite && (abaixo is null || aprovaMargem))
         {
             SituacaoDesconto = SituacaoDesconto.DentroDaAlcada;
             PercentualDescontoAutorizado = efetivo;
+            MargemAprovada = abaixo;
             MotivoDesconto = null;
-            (DescontoConcedidoPor, DescontoConcedidoEm) = efetivo > 0 ? (usuario, (DateTime?)agora) : (null, null);
+            (DescontoConcedidoPor, DescontoConcedidoEm) = efetivo > 0 || abaixo is not null ? (usuario, (DateTime?)agora) : (null, null);
             (DescontoDecididoPor, DescontoDecididoEm, RespostaDesconto) = (null, null, null);
             return ConferenciaAlcada.Liberado;
         }
         return SituacaoDesconto is SituacaoDesconto.Aguardando or SituacaoDesconto.Recusado && efetivo == PercentualDescontoAutorizado
+                                                                                           && MargemAprovada == abaixo
             ? ConferenciaAlcada.Pendente
             : ConferenciaAlcada.PrecisaAprovacao;
     }
 
-    /// <summary>Pede a aprovação do desconto efetivo atual, que passou do limite de quem o deu.</summary>
-    public void SolicitarAprovacaoDesconto(string? motivo, string? usuario, DateTime agora)
+    /// <summary>Pede a aprovação do desconto efetivo atual (e da margem, se abaixo da mínima), que passou do limite de quem o deu.</summary>
+    public void SolicitarAprovacaoDesconto(string? motivo, string? usuario, DateTime agora, decimal? margemMinima = null)
     {
         GarantirEditavel();
         Validador.Garantir(!string.IsNullOrWhiteSpace(motivo), "Informe o motivo do desconto acima da sua alçada.");
         SituacaoDesconto = SituacaoDesconto.Aguardando;
         PercentualDescontoAutorizado = DescontoEfetivoPercentual;
+        MargemAprovada = MargemAbaixo(margemMinima);
         MotivoDesconto = Texto(motivo);
         (DescontoConcedidoPor, DescontoConcedidoEm) = (usuario, agora);
         (DescontoDecididoPor, DescontoDecididoEm, RespostaDesconto) = (null, null, null);
     }
 
     /// <param name="limiteAprovador">Desconto máximo (%) de quem aprova.</param>
-    public void AprovarDesconto(string aprovador, decimal limiteAprovador, string? observacao, DateTime agora)
+    /// <param name="aprovaMargem">Quem aprova pode aceitar margem abaixo da mínima (o administrador).</param>
+    public void AprovarDesconto(string aprovador, decimal limiteAprovador, string? observacao, DateTime agora, bool aprovaMargem = true)
     {
         Validador.Garantir(SituacaoDesconto == SituacaoDesconto.Aguardando, $"O desconto do {Codigo} não está aguardando aprovação.");
         Validador.Garantir(PercentualDescontoAutorizado <= limiteAprovador,
             $"O desconto de {PercentualDescontoAutorizado:0.##}% passa da alçada de quem aprova ({limiteAprovador:0.##}%).");
+        Validador.Garantir(MargemAprovada is null || aprovaMargem,
+            $"A margem de {MargemAprovada:0.#}% está abaixo da mínima: só o administrador aprova.");
         SituacaoDesconto = SituacaoDesconto.Aprovado;
         (DescontoDecididoPor, DescontoDecididoEm, RespostaDesconto) = (aprovador, agora, Texto(observacao));
     }
@@ -394,7 +441,9 @@ public class Orcamento : Entidade
     /// <summary>Barra o envio ao cliente e a aprovação enquanto o desconto acima da alçada não for aprovado.</summary>
     public void GarantirDescontoLiberado() =>
         Validador.Garantir(!DescontoBloqueia, SituacaoDesconto == SituacaoDesconto.Aguardando
-            ? $"O desconto de {PercentualDescontoAutorizado:0.##}% está aguardando a aprovação de quem tem alçada."
+            ? MargemAprovada is { } margem && PercentualDescontoAutorizado == 0
+                ? $"A margem de {margem:0.#}% (abaixo da mínima) está aguardando a aprovação do administrador."
+                : $"O desconto de {PercentualDescontoAutorizado:0.##}% está aguardando a aprovação de quem tem alçada."
             : $"O desconto de {PercentualDescontoAutorizado:0.##}% foi recusado ({RespostaDesconto}). Baixe o desconto antes de continuar.");
 
     public void Enviar(DateTime agora)
@@ -480,6 +529,13 @@ public class Orcamento : Entidade
             ValorEspaco = ValorEspaco,
             PercentualDesconto = PercentualDesconto,
             ValorTabela = ValorTabela,
+            CustoInsumos = CustoInsumos,
+            CustoEquipe = CustoEquipe,
+            CustoServicos = CustoServicos,
+            CustoEspaco = CustoEspaco,
+            CustoComissao = CustoComissao,
+            CustoImpostos = CustoImpostos,
+            CustoTaxa = CustoTaxa,
             AjustePessoaPercentual = AjustePessoaPercentual,
             AjusteLocacaoPercentual = AjusteLocacaoPercentual,
             AjusteDescricao = AjusteDescricao,

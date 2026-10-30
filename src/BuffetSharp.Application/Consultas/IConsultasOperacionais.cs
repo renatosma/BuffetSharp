@@ -36,6 +36,11 @@ public sealed record OrcamentoResumo
     public CanalEnvio? CanalUltimoEnvio { get; init; }
     public SituacaoDesconto SituacaoDesconto { get; init; }
     public decimal PercentualDescontoAutorizado { get; init; }
+
+    /// <summary>Soma dos custos previstos (0 se o orçamento ainda não teve os custos calculados).</summary>
+    public decimal CustoPrevisto { get; init; }
+
+    public decimal? MargemPercentual => CustoPrevisto <= 0 || ValorTotal <= 0 ? null : Math.Round((ValorTotal - CustoPrevisto) / ValorTotal * 100, 1);
     public string Codigo => $"ORC-{Id:D5}";
 }
 

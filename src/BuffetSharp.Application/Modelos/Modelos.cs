@@ -129,6 +129,12 @@ public sealed class OrcamentoInput
     public string? DescontoConcedidoPor { get; set; }
     public string? DescontoDecididoPor { get; set; }
     public string? RespostaDesconto { get; set; }
+
+    /// <summary>Margem abaixo da mínima pedida ou autorizada (nula se não ficou abaixo).</summary>
+    public decimal? MargemAprovada { get; set; }
+
+    /// <summary>Custos previstos gravados no último salvamento.</summary>
+    public CustosOrcamento Custos { get; set; } = CustosOrcamento.Nenhum;
     public string Codigo { get; set; } = "(novo)";
     public StatusOrcamento Status { get; set; } = StatusOrcamento.Rascunho;
     public string? MotivoRecusa { get; set; }

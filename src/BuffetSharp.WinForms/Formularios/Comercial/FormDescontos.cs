@@ -19,6 +19,8 @@ internal static class DialogosAlcada
         var e = new EditorCampos(2);
         e.Informacao("Desconto", () => $"{alcada.Percentual:0.##}% ({Textos.Moeda(alcada.Valor)})");
         e.Informacao("Sua alçada", () => $"{alcada.Limite:0.##}%");
+        if (alcada.Margem is not null)
+            e.Informacao("Margem", () => "abaixo da mínima: só o administrador aprova", span: 2);
         e.Texto("Motivo do desconto", () => null, v => pedido.Motivo = v, maximo: Orcamento.TamanhoMotivoDesconto, span: 2, linhas: 2);
         e.Secao(permitePedido
             ? "Aprovar agora (opcional): quem tem alçada informa o login e a senha"
@@ -89,6 +91,7 @@ internal sealed class FormAprovacoesDesconto : FormListagem<AprovacaoDescontoRes
             .Moeda("Proposta", p => p.ValorTotal, 13)
             .Texto("Desconto", p => $"{p.Percentual:0.##}%", 9, p => p.PodeAprovar ? Tema.Alerta : Tema.Perigo)
             .Moeda("Abaixo da tabela", p => p.Valor, 13)
+            .Texto("Margem", p => p.Margem is { } m ? $"{m:0.#}% (baixa)" : "", 11, p => p.Margem is null ? null : Tema.Perigo)
             .Texto("Motivo", p => p.Motivo, 32)
             .Texto("Sua alçada", p => p.PodeAprovar ? "pode aprovar" : "acima da sua", 12, p => p.PodeAprovar ? null : Tema.Neutro)
             .Busca(p => $"{p.Codigo} {p.Cliente} {p.Vendedor} {p.SolicitadoPor} {p.Motivo}");

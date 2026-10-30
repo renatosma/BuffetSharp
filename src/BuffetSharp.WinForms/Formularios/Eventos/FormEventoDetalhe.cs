@@ -712,6 +712,10 @@ internal sealed partial class FormEventoDetalhe : FormBase
                 Evento.Cliente?.Nome ?? "Cliente");
         }, edicao: false);
         BotaoAba(barra, "Convidados excedentes", Icones.Pessoas, ApurarExcedentesAsync, edicao: false);
+        var margens = _navegador.Servico<MargemService>();
+        if (margens.PodeVerCustos)
+            BotaoAba(barra, "Margem prevista × realizada", Icones.Calculadora, async () =>
+                Comercial.TextosMargem.Comparativo(await margens.ComparativoAsync(_eventoId), _opcoes.NomeEmpresa).Visualizar(this), edicao: false);
         BotaoAba(barra, "Desfazer excedentes", Icones.Desfazer, async () =>
         {
             if (!Evento.ExcedentesApurados)

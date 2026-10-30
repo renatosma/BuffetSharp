@@ -19,6 +19,7 @@ internal sealed class OrcamentoConfig : IEntityTypeConfiguration<Orcamento>
         b.Property(x => x.Observacoes).HasMaxLength(2000);
         b.Property(x => x.MotivoRecusa).HasMaxLength(500);
         b.Property(x => x.PercentualDescontoAutorizado).HasPrecision(6, 2);
+        b.Property(x => x.MargemAprovada).HasPrecision(7, 2);
         b.Property(x => x.MotivoDesconto).HasMaxLength(Orcamento.TamanhoMotivoDesconto);
         b.Property(x => x.RespostaDesconto).HasMaxLength(Orcamento.TamanhoMotivoDesconto);
         b.Property(x => x.DescontoConcedidoPor).HasMaxLength(60);

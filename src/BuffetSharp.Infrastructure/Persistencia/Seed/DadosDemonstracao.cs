@@ -90,17 +90,19 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
 
     private async Task CriarCadastrosBasicosAsync(CancellationToken ct)
     {
+        // Equipe estimada (por convidado e fixa por evento), para a margem prevista do orçamento.
         _tipos = new[]
         {
-            ("Casamento", "Cerimônia e/ou recepção de casamento"),
-            ("Aniversário Infantil", "Festas infantis com recreação"),
-            ("Aniversário Adulto", "Comemorações de aniversário"),
-            ("15 Anos", "Festa de debutante"),
-            ("Corporativo", "Confraternizações, lançamentos e convenções"),
-            ("Formatura", "Bailes e jantares de formatura"),
-            ("Bodas", "Bodas de prata, ouro e afins"),
-            ("Batizado", "Batizados e celebrações religiosas")
-        }.Select(t => new TipoEvento { Nome = t.Item1, Descricao = t.Item2 }).ToDictionary(t => t.Nome);
+            ("Casamento", "Cerimônia e/ou recepção de casamento", 22m, 900m),
+            ("Aniversário Infantil", "Festas infantis com recreação", 14m, 500m),
+            ("Aniversário Adulto", "Comemorações de aniversário", 18m, 600m),
+            ("15 Anos", "Festa de debutante", 20m, 800m),
+            ("Corporativo", "Confraternizações, lançamentos e convenções", 16m, 700m),
+            ("Formatura", "Bailes e jantares de formatura", 20m, 900m),
+            ("Bodas", "Bodas de prata, ouro e afins", 18m, 600m),
+            ("Batizado", "Batizados e celebrações religiosas", 15m, 500m)
+        }.Select(t => new TipoEvento { Nome = t.Item1, Descricao = t.Item2, CustoEquipePorPessoa = t.Item3, CustoEquipeFixo = t.Item4 })
+            .ToDictionary(t => t.Nome);
         db.TiposEvento.AddRange(_tipos.Values);
 
         var categorias = new[] { "Carnes", "Aves", "Pescados", "Hortifrúti", "Laticínios", "Mercearia", "Bebidas", "Confeitaria", "Descartáveis" }
@@ -146,10 +148,10 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
 
         _espacos =
         [
-            new Espaco { Nome = "Salão Cristal", CapacidadeMaxima = 250, ValorLocacao = 9500, Descricao = "Salão principal com pé-direito duplo, lustres de cristal e pista de dança." },
-            new Espaco { Nome = "Salão Jardim", CapacidadeMaxima = 160, ValorLocacao = 6500, Descricao = "Ambiente integrado ao jardim com pergolado e área de cerimônia ao ar livre." },
-            new Espaco { Nome = "Espaço Kids", CapacidadeMaxima = 90, ValorLocacao = 3800, Descricao = "Brinquedoteca, cama elástica e área para recreação monitorada." },
-            new Espaco { Nome = "Lounge Gourmet", CapacidadeMaxima = 60, ValorLocacao = 2800, Descricao = "Espaço intimista com cozinha show para eventos menores." }
+            new Espaco { Nome = "Salão Cristal", CapacidadeMaxima = 250, ValorLocacao = 9500, CustoPorEvento = 1800, Descricao = "Salão principal com pé-direito duplo, lustres de cristal e pista de dança." },
+            new Espaco { Nome = "Salão Jardim", CapacidadeMaxima = 160, ValorLocacao = 6500, CustoPorEvento = 1300, Descricao = "Ambiente integrado ao jardim com pergolado e área de cerimônia ao ar livre." },
+            new Espaco { Nome = "Espaço Kids", CapacidadeMaxima = 90, ValorLocacao = 3800, CustoPorEvento = 700, Descricao = "Brinquedoteca, cama elástica e área para recreação monitorada." },
+            new Espaco { Nome = "Lounge Gourmet", CapacidadeMaxima = 60, ValorLocacao = 2800, CustoPorEvento = 500, Descricao = "Espaço intimista com cozinha show para eventos menores." }
         ];
         db.Espacos.AddRange(_espacos);
 
@@ -166,6 +168,8 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             new ServicoAdicional { Nome = "Cabine de Fotos", Preco = 1900, Descricao = "Cabine com impressão instantânea e acessórios." },
             new ServicoAdicional { Nome = "Mestre de Cerimônias", Preco = 1300, Descricao = "Condução de cerimonial e roteiro do evento." }
         }.ToDictionary(s => s.Nome);
+        foreach (var servico in _servicos.Values)
+            servico.Custo = Math.Round(servico.Preco * 0.6m, 2); // terceirizados: o buffet fica com 40%
         db.ServicosAdicionais.AddRange(_servicos.Values);
 
         _fornecedores = new[]
@@ -659,10 +663,19 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         // aprovou; nos rascunhos, o pedido ainda está na fila.
         var momentoCriacao = criacao.ToDateTime(new TimeOnly(10, 0));
         orcamento.DefinirValorTabela(orcamento.Resumo.Subtotal);
-        if (orcamento.ConferirAlcada(new AlcadaDescontoOptions().Comercial, vendedor.Login, momentoCriacao) == ConferenciaAlcada.PrecisaAprovacao)
+
+        // Custos previstos e margem (abaixo da mínima, só o administrador aprova).
+        var margem = new MargemOptions();
+        var custoServicos = _servicos.Values.ToDictionary(s => s.Id, s => s.Custo);
+        orcamento.DefinirCustos(CalculadoraMargem.Calcular(orcamento.ValorTotal, p.Pacote.CustoPorPessoa * orcamento.QuantidadeConvidados,
+            p.Tipo.CustoEquipe(orcamento.QuantidadeConvidados),
+            orcamento.Servicos.Sum(s => s.Quantidade * custoServicos.GetValueOrDefault(s.ServicoAdicionalId ?? 0)), p.Espaco.CustoPorEvento,
+            new PercentuaisReceita(vendedor.PercentualComissao, margem.AliquotaImpostos, 0)));
+        if (orcamento.ConferirAlcada(new AlcadaDescontoOptions().Comercial, vendedor.Login, momentoCriacao, margem.MargemMinima) ==
+            ConferenciaAlcada.PrecisaAprovacao)
         {
             orcamento.SolicitarAprovacaoDesconto(Escolher(["Cliente fechando com a concorrência", "Cliente antigo, já fez outros eventos",
-                "Data de baixa procura", "Indicação de cliente"]), vendedor.Login, momentoCriacao);
+                "Data de baixa procura", "Indicação de cliente"]), vendedor.Login, momentoCriacao, margem.MargemMinima);
             if (p.Destino != Destino.Rascunho)
                 orcamento.AprovarDesconto("admin", 100, null, momentoCriacao.AddHours(2));
         }
