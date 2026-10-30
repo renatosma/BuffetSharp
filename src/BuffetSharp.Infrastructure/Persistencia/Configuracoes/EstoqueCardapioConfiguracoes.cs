@@ -113,6 +113,8 @@ internal sealed class FichaTecnicaItemConfig : IEntityTypeConfiguration<FichaTec
         b.ToTable("FichasTecnicas");
         b.HasKey(x => new { x.ItemCardapioId, x.ProdutoId });
         b.Property(x => x.QuantidadePorPessoa).HasPrecision(18, 4);
+        b.Property(x => x.PorHora);
+        b.Property(x => x.SoAdultos);
         b.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
     }
 }

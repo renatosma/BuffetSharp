@@ -53,14 +53,27 @@ public class ItemCardapio : Entidade, IAtivavel
         SubstitutoId = substituto?.Id;
     }
 
-    /// <summary>Custo de insumos por pessoa (requer os produtos carregados).</summary>
-    public decimal CustoPorPessoa => _ingredientes.Sum(i => i.CustoPorPessoa);
+    /// <summary>Custo de insumos por pessoa, na referência (todos adultos, 5 horas); requer os produtos carregados.</summary>
+    public decimal CustoPorPessoa => CustoInsumos.Referencia;
+
+    /// <summary>Custo dos insumos separado pelo que muda com a duração e com os adultos (requer os produtos carregados).</summary>
+    public CustoInsumos CustoInsumos => new(
+        _ingredientes.Where(f => !f.PorHora && !f.SoAdultos).Sum(f => f.CustoUnitario),
+        _ingredientes.Where(f => f.PorHora && !f.SoAdultos).Sum(f => f.CustoUnitario),
+        _ingredientes.Where(f => !f.PorHora && f.SoAdultos).Sum(f => f.CustoUnitario),
+        _ingredientes.Where(f => f.PorHora && f.SoAdultos).Sum(f => f.CustoUnitario));
 
     /// <summary>
     /// Substitui a ficha técnica preservando as linhas já existentes (para o EF detectar
     /// inclusões, alterações e exclusões corretamente).
     /// </summary>
-    public void DefinirFichaTecnica(IEnumerable<(int ProdutoId, decimal QuantidadePorPessoa)> ingredientes)
+    public void DefinirFichaTecnica(IEnumerable<(int ProdutoId, decimal QuantidadePorPessoa)> ingredientes) =>
+        DefinirFichaTecnica(ingredientes.Select(i => (i.ProdutoId, i.QuantidadePorPessoa, false, false)));
+
+    /// <param name="ingredientes">
+    /// Por insumo: quantidade por pessoa (ou por pessoa e hora, se <c>PorHora</c>) e se só os adultos consomem (alcoólicos).
+    /// </param>
+    public void DefinirFichaTecnica(IEnumerable<(int ProdutoId, decimal QuantidadePorPessoa, bool PorHora, bool SoAdultos)> ingredientes)
     {
         var novos = ingredientes.ToList();
         Validador.Garantir(novos.All(i => i.QuantidadePorPessoa > 0),
@@ -70,13 +83,14 @@ public class ItemCardapio : Entidade, IAtivavel
 
         _ingredientes.RemoveAll(atual => novos.All(n => n.ProdutoId != atual.ProdutoId));
 
-        foreach (var (produtoId, quantidade) in novos)
+        foreach (var (produtoId, quantidade, porHora, soAdultos) in novos)
         {
             var existente = _ingredientes.FirstOrDefault(i => i.ProdutoId == produtoId);
             if (existente is null)
-                _ingredientes.Add(new FichaTecnicaItem(produtoId, quantidade));
-            else
-                existente.QuantidadePorPessoa = quantidade;
+                _ingredientes.Add(existente = new FichaTecnicaItem(produtoId, quantidade));
+            existente.QuantidadePorPessoa = quantidade;
+            existente.PorHora = porHora;
+            existente.SoAdultos = soAdultos;
         }
     }
 
@@ -99,8 +113,22 @@ public class FichaTecnicaItem
     public int ProdutoId { get; private set; }
     public Produto? Produto { get; private set; }
 
-    /// <summary>Quantidade do insumo (na unidade do produto) consumida por convidado.</summary>
+    /// <summary>Quantidade do insumo (na unidade do produto) consumida por convidado (ou por convidado e hora, se <see cref="PorHora"/>).</summary>
     public decimal QuantidadePorPessoa { get; internal set; }
 
-    public decimal CustoPorPessoa => QuantidadePorPessoa * (Produto?.CustoMedio ?? 0);
+    /// <summary>A quantidade é por hora de evento (bebidas: quanto mais longo, mais se bebe).</summary>
+    public bool PorHora { get; internal set; }
+
+    /// <summary>Só os adultos consomem (bebidas alcoólicas): as crianças (meia e isentos) ficam de fora.</summary>
+    public bool SoAdultos { get; internal set; }
+
+    /// <summary>Custo por unidade de consumo (por pessoa, por pessoa e hora, por adulto...).</summary>
+    public decimal CustoUnitario => QuantidadePorPessoa * (Produto?.CustoMedio ?? 0);
+
+    /// <summary>Custo por pessoa na referência (todos adultos, 5 horas).</summary>
+    public decimal CustoPorPessoa => CustoUnitario * (PorHora ? ContextoConsumo.HorasReferencia : 1);
+
+    /// <summary>Quanto usar para as porções do prato, pela duração e pela parte de adultos do evento.</summary>
+    public decimal Quantidade(int porcoes, ContextoConsumo contexto) =>
+        QuantidadePorPessoa * porcoes * (SoAdultos ? contexto.FatorAdultos : 1) * (PorHora ? contexto.Horas : 1);
 }

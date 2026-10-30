@@ -43,8 +43,13 @@ public class Pacote : Entidade, IAtivavel, IValidatableObject
 
     public RegraFaixasEtarias RegraFaixas => new(IdadeMaximaIsento, IdadeMaximaMeia, PercentualMeia);
 
-    /// <summary>Custo de insumos por pessoa (requer itens e fichas técnicas carregados).</summary>
-    public decimal CustoPorPessoa => _itens.Sum(i => i.ItemCardapio?.CustoPorPessoa ?? 0);
+    /// <summary>Custo de insumos por pessoa na referência: todos adultos, 5 horas (requer itens e fichas técnicas carregados).</summary>
+    public decimal CustoPorPessoa => CustoInsumos.Referencia;
+
+    /// <summary>Custo dos insumos separado pelo que muda com a duração e com os adultos.</summary>
+    public CustoInsumos CustoInsumos => _itens.Select(i => i.ItemCardapio?.CustoInsumos ?? CustoInsumos.Nenhum)
+        .Aggregate(CustoInsumos.Nenhum, (soma, c) => new CustoInsumos(soma.PorPessoa + c.PorPessoa, soma.PorPessoaHora + c.PorPessoaHora,
+            soma.PorAdulto + c.PorAdulto, soma.PorAdultoHora + c.PorAdultoHora));
 
     public decimal MargemPercentual =>
         PrecoPorPessoa == 0 ? 0 : Math.Round((PrecoPorPessoa - CustoPorPessoa) / PrecoPorPessoa * 100, 2);
@@ -60,15 +65,18 @@ public class Pacote : Entidade, IAtivavel, IValidatableObject
     /// <summary>
     /// Consumo total de insumos para a quantidade de convidados: ProdutoId → quantidade.
     /// </summary>
-    public Dictionary<int, decimal> CalcularConsumo(int convidados)
+    public Dictionary<int, decimal> CalcularConsumo(int convidados) => CalcularConsumo(ContextoConsumo.Padrao(convidados));
+
+    /// <summary>Consumo pela duração e pelos adultos do evento (bebidas por hora e alcoólicas só para adultos).</summary>
+    public Dictionary<int, decimal> CalcularConsumo(ContextoConsumo contexto)
     {
-        Validador.Garantir(convidados > 0, "A quantidade de convidados deve ser maior que zero.");
+        Validador.Garantir(contexto.Pessoas > 0, "A quantidade de convidados deve ser maior que zero.");
 
         return _itens
             .Where(i => i.ItemCardapio is not null)
             .SelectMany(i => i.ItemCardapio!.Ingredientes)
             .GroupBy(f => f.ProdutoId)
-            .ToDictionary(g => g.Key, g => Math.Round(g.Sum(f => f.QuantidadePorPessoa) * convidados, 3));
+            .ToDictionary(g => g.Key, g => Math.Round(g.Sum(f => f.Quantidade(contexto.Pessoas, contexto)), 3));
     }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)

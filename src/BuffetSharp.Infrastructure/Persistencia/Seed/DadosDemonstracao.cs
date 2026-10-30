@@ -39,6 +39,7 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
     private Dictionary<string, Pacote> _pacotes = [];
     private Dictionary<string, ServicoAdicional> _servicos = [];
     private Dictionary<string, FormaPagamento> _formas = [];
+    private List<RegraEquipe> _regrasEquipe = [];
     private Dictionary<string, Fornecedor> _fornecedores = [];
     private List<Espaco> _espacos = [];
     private readonly Dictionary<int, List<IMesaPlanta>> _plantas = [];
@@ -136,7 +137,8 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         }.ToDictionary(f => f.Nome);
         db.FormasPagamento.AddRange(_formas.Values);
 
-        db.Cargos.AddRange(
+        var cargos = new[]
+        {
             new Cargo { Nome = "Garçom", ValorDiariaPadrao = 180 },
             new Cargo { Nome = "Cozinheiro(a)", ValorDiariaPadrao = 260 },
             new Cargo { Nome = "Auxiliar de Cozinha", ValorDiariaPadrao = 150 },
@@ -144,7 +146,25 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             new Cargo { Nome = "Recepcionista", ValorDiariaPadrao = 170 },
             new Cargo { Nome = "Barman", ValorDiariaPadrao = 230 },
             new Cargo { Nome = "Segurança", ValorDiariaPadrao = 200 },
-            new Cargo { Nome = "Copeiro(a)", ValorDiariaPadrao = 140 });
+            new Cargo { Nome = "Copeiro(a)", ValorDiariaPadrao = 140 }
+        }.ToDictionary(c => c.Nome);
+        db.Cargos.AddRange(cargos.Values);
+
+        // Dimensionamento da equipe: a regra geral e o que muda nos tipos de evento com mais serviço de bar e segurança.
+        RegraEquipe Regra(string? tipo, string cargo, int porConvidados, int minimo) => new()
+        {
+            TipoEvento = tipo is null ? null : _tipos[tipo], Cargo = cargos[cargo], ConvidadosPorProfissional = porConvidados, Minimo = minimo
+        };
+        _regrasEquipe =
+        [
+            Regra(null, "Garçom", 15, 2), Regra(null, "Cozinheiro(a)", 60, 1), Regra(null, "Auxiliar de Cozinha", 50, 1),
+            Regra(null, "Maître", 0, 1), Regra(null, "Recepcionista", 150, 1), Regra(null, "Copeiro(a)", 80, 1),
+            Regra("Casamento", "Garçom", 12, 4), Regra("Casamento", "Barman", 80, 1), Regra("Casamento", "Segurança", 150, 1),
+            Regra("15 Anos", "Barman", 0, 1), Regra("15 Anos", "Segurança", 150, 1),
+            Regra("Formatura", "Barman", 100, 1), Regra("Formatura", "Segurança", 100, 1),
+            Regra("Aniversário Infantil", "Garçom", 20, 2)
+        ];
+        db.RegrasEquipe.AddRange(_regrasEquipe);
 
         _espacos =
         [
@@ -367,10 +387,11 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
                 [("Morango", 0.05m), ("Leite condensado", 0.15m), ("Creme de leite", 0.03m)]),
             ("Brigadeiro gourmet", "Sobremesas", "Três brigadeiros gourmet por convidado.",
                 [("Chocolate meio amargo", 0.015m), ("Leite condensado", 0.1m), ("Manteiga", 0.003m)]),
-            ("Refrigerantes", "Bebidas", "Refrigerantes variados (normal e zero).", [("Refrigerante 2L", 0.35m), ("Guardanapo de papel", 0.02m)]),
-            ("Sucos naturais", "Bebidas", "Laranja, uva e abacaxi com hortelã.", [("Suco natural", 0.3m)]),
-            ("Água mineral", "Bebidas", "Com e sem gás.", [("Água mineral 500ml", 1m)]),
-            ("Cerveja", "Bebidas", "Cerveja long neck gelada.", [("Cerveja long neck", 3m)]),
+            // Bebidas por pessoa e hora (ajustadas abaixo): num evento de 5 horas, o mesmo de antes.
+            ("Refrigerantes", "Bebidas", "Refrigerantes variados (normal e zero).", [("Refrigerante 2L", 0.07m), ("Guardanapo de papel", 0.02m)]),
+            ("Sucos naturais", "Bebidas", "Laranja, uva e abacaxi com hortelã.", [("Suco natural", 0.06m)]),
+            ("Água mineral", "Bebidas", "Com e sem gás.", [("Água mineral 500ml", 0.2m)]),
+            ("Cerveja", "Bebidas", "Cerveja long neck gelada.", [("Cerveja long neck", 0.6m)]),
             ("Espumante para brinde", "Bebidas", "Taça de espumante para o brinde.", [("Espumante", 0.15m)]),
             // Fora dos pacotes: substitutos para quem tem restrição alimentar.
             ("Risoto de cogumelos", "Pratos Principais", "Risoto cremoso de cogumelos (vegetariano, sem glúten).",
@@ -387,6 +408,19 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
             item.DefinirFichaTecnica(ficha.Select(f => (_produtos[f.Produto].Id, f.Qtd)));
             _itens[nome] = item;
         }
+        // Bebidas por hora; as alcoólicas só para adultos.
+        void Bebida(string item, string produto, bool porHora, bool soAdultos)
+        {
+            var id = _produtos[produto].Id;
+            _itens[item].DefinirFichaTecnica(_itens[item].Ingredientes.Select(f => (f.ProdutoId, f.QuantidadePorPessoa,
+                f.ProdutoId == id ? porHora : f.PorHora, f.ProdutoId == id ? soAdultos : f.SoAdultos)).ToList());
+        }
+        Bebida("Refrigerantes", "Refrigerante 2L", porHora: true, soAdultos: false);
+        Bebida("Sucos naturais", "Suco natural", porHora: true, soAdultos: false);
+        Bebida("Água mineral", "Água mineral 500ml", porHora: true, soAdultos: false);
+        Bebida("Cerveja", "Cerveja long neck", porHora: true, soAdultos: true);
+        Bebida("Espumante para brinde", "Espumante", porHora: false, soAdultos: true);
+
         void Substituto(string substituto, params string[] pratos)
         {
             foreach (var prato in pratos)
@@ -667,8 +701,9 @@ internal sealed class DadosDemonstracao(BuffetDbContext db, TimeProvider relogio
         // Custos previstos e margem (abaixo da mínima, só o administrador aprova).
         var margem = new MargemOptions();
         var custoServicos = _servicos.Values.ToDictionary(s => s.Id, s => s.Custo);
-        orcamento.DefinirCustos(CalculadoraMargem.Calcular(orcamento.ValorTotal, p.Pacote.CustoPorPessoa * orcamento.QuantidadeConvidados,
-            p.Tipo.CustoEquipe(orcamento.QuantidadeConvidados),
+        var consumo = ContextoConsumo.De(orcamento.QuantidadeConvidados, orcamento.QuantidadesPorFaixa.Inteira, orcamento.Inicio, orcamento.Fim);
+        orcamento.DefinirCustos(CalculadoraMargem.Calcular(orcamento.ValorTotal, p.Pacote.CustoInsumos.Calcular(consumo),
+            DimensionamentoEquipe.Calcular(_regrasEquipe, p.Tipo.Id, orcamento.QuantidadeConvidados).Sum(n => n.Custo),
             orcamento.Servicos.Sum(s => s.Quantidade * custoServicos.GetValueOrDefault(s.ServicoAdicionalId ?? 0)), p.Espaco.CustoPorEvento,
             new PercentuaisReceita(vendedor.PercentualComissao, margem.AliquotaImpostos, 0)));
         if (orcamento.ConferirAlcada(new AlcadaDescontoOptions().Comercial, vendedor.Login, momentoCriacao, margem.MargemMinima) ==

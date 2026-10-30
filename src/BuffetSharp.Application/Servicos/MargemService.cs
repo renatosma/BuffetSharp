@@ -1,4 +1,5 @@
 using BuffetSharp.Application.Abstracoes;
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Estoque;
@@ -15,8 +16,9 @@ namespace BuffetSharp.Application.Servicos;
 /// de impostos e as margens mínima e meta. A tela usa os mesmos parâmetros para mostrar a margem enquanto se edita.
 /// </summary>
 public sealed record ParametrosMargem(
-    IReadOnlyDictionary<int, decimal> CustoPacotePorPessoa,
+    IReadOnlyDictionary<int, CustoInsumos> CustoPacote,
     IReadOnlyDictionary<int, (decimal Fixo, decimal PorPessoa)> EquipePorTipo,
+    IReadOnlyList<RegraEquipe> RegrasEquipe,
     IReadOnlyDictionary<int, decimal> CustoEspaco,
     IReadOnlyDictionary<int, decimal> CustoServico,
     IReadOnlyDictionary<int, decimal> ComissaoVendedor,
@@ -30,15 +32,26 @@ public sealed record ParametrosMargem(
         new(vendedorId is { } v ? ComissaoVendedor.GetValueOrDefault(v) : 0, AliquotaImpostos,
             formaPagamentoId is { } f ? TaxaForma.GetValueOrDefault(f) : 0);
 
+    /// <summary>
+    /// Equipe: pelo dimensionamento (quantos de cada cargo × diária do cargo) quando há regra para o tipo de evento; sem regra,
+    /// pelo custo estimado do tipo de evento.
+    /// </summary>
+    public decimal CustoEquipe(int tipoEventoId, int convidados)
+    {
+        if (DimensionamentoEquipe.TemRegras(RegrasEquipe, tipoEventoId))
+            return DimensionamentoEquipe.Calcular(RegrasEquipe, tipoEventoId, convidados).Sum(n => n.Custo);
+        var estimada = EquipePorTipo.GetValueOrDefault(tipoEventoId);
+        return estimada.Fixo + estimada.PorPessoa * convidados;
+    }
+
     /// <summary>Custos previstos para a receita e a composição informadas.</summary>
-    /// <param name="convidados">Todas as pessoas (os isentos também comem e são servidos).</param>
-    public CustosOrcamento Calcular(decimal receita, int? pacoteId, int convidados, int tipoEventoId, int? espacoId,
+    /// <param name="consumo">Pessoas (os isentos também comem e são servidos), adultos e horas do evento.</param>
+    public CustosOrcamento Calcular(decimal receita, int? pacoteId, ContextoConsumo consumo, int tipoEventoId, int? espacoId,
         IEnumerable<(int ServicoId, decimal Quantidade)> servicos, int? vendedorId, int? formaPagamentoId)
     {
-        var equipe = EquipePorTipo.GetValueOrDefault(tipoEventoId);
         return CalculadoraMargem.Calcular(receita,
-            (pacoteId is { } p ? CustoPacotePorPessoa.GetValueOrDefault(p) : 0) * convidados,
-            equipe.Fixo + equipe.PorPessoa * convidados,
+            pacoteId is { } p ? CustoPacote.GetValueOrDefault(p, CustoInsumos.Nenhum).Calcular(consumo) : 0,
+            CustoEquipe(tipoEventoId, consumo.Pessoas),
             servicos.Sum(s => s.Quantidade * CustoServico.GetValueOrDefault(s.ServicoId)),
             espacoId is { } e ? CustoEspaco.GetValueOrDefault(e) : 0,
             Percentuais(vendedorId, formaPagamentoId));
@@ -99,8 +112,9 @@ public sealed class MargemService(IBuffetDbContextFactory fabrica, BuffetOptions
             .Include(p => p.Itens).ThenInclude(i => i.ItemCardapio!).ThenInclude(i => i.Ingredientes).ThenInclude(f => f.Produto)
             .ToListAsync(ct);
         return new ParametrosMargem(
-            pacotes.ToDictionary(p => p.Id, p => p.CustoPorPessoa),
+            pacotes.ToDictionary(p => p.Id, p => p.CustoInsumos),
             await db.TiposEvento.AsNoTracking().ToDictionaryAsync(t => t.Id, t => (t.CustoEquipeFixo, t.CustoEquipePorPessoa), ct),
+            await DimensionamentoService.RegrasAsync(db, ct),
             await db.Espacos.AsNoTracking().ToDictionaryAsync(e => e.Id, e => e.CustoPorEvento, ct),
             await db.ServicosAdicionais.AsNoTracking().ToDictionaryAsync(s => s.Id, s => s.Custo, ct),
             await db.Usuarios.AsNoTracking().ToDictionaryAsync(u => u.Id, u => u.PercentualComissao, ct),
@@ -110,7 +124,8 @@ public sealed class MargemService(IBuffetDbContextFactory fabrica, BuffetOptions
 
     /// <summary>Custos previstos do orçamento como está (composição, vendedor e forma já definidos).</summary>
     internal async Task<CustosOrcamento> CalcularAsync(IBuffetDbContext db, Orcamento orcamento, CancellationToken ct) =>
-        (await ParametrosAsync(db, ct)).Calcular(orcamento.ValorTotal, orcamento.PacoteId, orcamento.QuantidadeConvidados,
+        (await ParametrosAsync(db, ct)).Calcular(orcamento.ValorTotal, orcamento.PacoteId,
+            ContextoConsumo.De(orcamento.QuantidadeConvidados, orcamento.QuantidadesPorFaixa.Inteira, orcamento.Inicio, orcamento.Fim),
             orcamento.TipoEventoId, orcamento.EspacoId, orcamento.Servicos.Where(s => s.ServicoAdicionalId is not null)
                 .Select(s => (s.ServicoAdicionalId!.Value, s.Quantidade)),
             orcamento.VendedorId, orcamento.FormaPagamentoId);

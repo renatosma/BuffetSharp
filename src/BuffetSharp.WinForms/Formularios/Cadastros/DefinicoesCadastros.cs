@@ -473,6 +473,35 @@ internal static class DefinicoesCadastros
         }
     };
 
+    public static readonly DefinicaoCadastro<RegraEquipe> RegrasEquipe = new()
+    {
+        Titulo = "Equipe por tipo de evento",
+        Singular = "regra de equipe",
+        Descricao = "Quantas pessoas de cada cargo o evento precisa: 1 a cada N convidados, com um mínimo. Sem tipo de evento é a regra " +
+                    "geral; a regra do tipo substitui a geral para o mesmo cargo. Usado no dimensionamento da equipe e na margem do orçamento.",
+        Consulta = q => q.Include(x => x.TipoEvento).Include(x => x.Cargo).OrderBy(x => x.TipoEventoId).ThenBy(x => x.Cargo!.Nome),
+        Colunas = g => g.Texto("Tipo de evento", x => x.TipoEvento?.Nome ?? "(geral)", 26, x => x.TipoEvento is null ? Tema.TextoSuave : null)
+            .Texto("Cargo", x => x.Cargo?.Nome, 24)
+            .Texto("Regra", x => x.Descricao, 34)
+            .Moeda("Diária do cargo", x => x.Cargo?.ValorDiariaPadrao, 16)
+            .SimNao("Ativo", x => x.Ativo, 12),
+        TextoBusca = x => $"{x.TipoEvento?.Nome ?? "geral"} {x.Cargo?.Nome}",
+        Nome = x => $"{x.Cargo?.Nome} ({x.TipoEvento?.Nome ?? "geral"})",
+        ColunasEditor = 2,
+        LarguraEditor = 620,
+        Campos = async (e, x, contexto) =>
+        {
+            var tipos = await contexto.Lookups.ListarAsync(TipoLookup.TiposEvento, somenteAtivos: false);
+            var cargos = await contexto.Lookups.ListarAsync(TipoLookup.Cargos, somenteAtivos: false);
+            e.Lista("Tipo de evento (vazio = regra geral)", tipos, () => x.TipoEventoId, v => x.TipoEventoId = v, nameof(x.TipoEventoId), permitirVazio: true);
+            e.Lista("Cargo", cargos, () => x.CargoId, v => x.CargoId = v ?? 0, nameof(x.CargoId));
+            e.Inteiro("1 a cada (convidados; 0 = só o mínimo)", () => x.ConvidadosPorProfissional, v => x.ConvidadosPorProfissional = v,
+                nameof(x.ConvidadosPorProfissional), 0, 10_000);
+            e.Inteiro("Mínimo por evento", () => x.Minimo, v => x.Minimo = v, nameof(x.Minimo), 0, 1_000);
+            e.Marcador("Ativo", () => x.Ativo, v => x.Ativo = v);
+        }
+    };
+
     public static readonly DefinicaoCadastro<RegraPreco> RegrasPreco = new()
     {
         Titulo = "Preços por data",

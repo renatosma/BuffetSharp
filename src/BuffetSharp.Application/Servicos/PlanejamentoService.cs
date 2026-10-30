@@ -34,7 +34,8 @@ public sealed class PlanejamentoService(IBuffetDbContextFactory fabrica)
         foreach (var evento in eventos.Where(e => e.Pacote is not null))
         {
             // As porções de quem tem restrição saem do prato e vão para o substituto (e os insumos dele).
-            foreach (var (produtoId, quantidade) in evento.PlanejarCardapio(evento.QuantidadeConvidados).Consumo())
+            foreach (var (produtoId, quantidade) in evento.PlanejarCardapio(evento.QuantidadeConvidados)
+                         .Consumo(evento.ContextoConsumo(evento.QuantidadeConvidados)))
             {
                 consumo[produtoId] = consumo.GetValueOrDefault(produtoId) + quantidade;
                 if (!porProduto.TryGetValue(produtoId, out var eventosDoProduto))
@@ -117,10 +118,10 @@ public sealed class PlanejamentoService(IBuffetDbContextFactory fabrica)
         var plano = e.PlanejarCardapio(e.QuantidadeConvidados);
         var doPacote = new HashSet<ItemCardapio>(e.Pacote?.Itens.Select(i => i.ItemCardapio).OfType<ItemCardapio>() ?? [],
             ReferenceEqualityComparer.Instance);
-        return Ordem(e, plano, doPacote);
+        return Ordem(e, plano, doPacote, e.ContextoConsumo(e.QuantidadeConvidados));
     }
 
-    private static OrdemProducao Ordem(Evento e, PlanoCardapio plano, HashSet<ItemCardapio> doPacote) => new()
+    private static OrdemProducao Ordem(Evento e, PlanoCardapio plano, HashSet<ItemCardapio> doPacote, ContextoConsumo contexto) => new()
     {
         EventoId = e.Id,
         Titulo = e.Titulo,
@@ -136,7 +137,7 @@ public sealed class PlanejamentoService(IBuffetDbContextFactory fabrica)
             .OrderBy(p => doPacote.Contains(p.Key) ? 0 : 1).ThenBy(p => p.Key.CategoriaCardapio?.Ordem ?? 99).ThenBy(p => p.Key.Nome)
             .Select(p => new PratoProducao(p.Key.CategoriaCardapio?.Nome ?? "Outros", p.Key.CategoriaCardapio?.Ordem ?? 99, p.Key.Nome, p.Value,
                 p.Key.Ingredientes.OrderBy(f => f.Produto?.Nome)
-                    .Select(f => new IngredienteProducao(f.Produto?.Nome ?? "?", Math.Round(f.QuantidadePorPessoa * p.Value, 3),
+                    .Select(f => new IngredienteProducao(f.Produto?.Nome ?? "?", Math.Round(f.Quantidade(p.Value, contexto), 3),
                         f.Produto?.UnidadeMedida?.Sigla ?? ""))
                     .ToList(),
                 !doPacote.Contains(p.Key)))

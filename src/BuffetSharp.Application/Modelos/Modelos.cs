@@ -22,6 +22,12 @@ public sealed class IngredienteInput
 
     /// <summary>O que o insumo contém (do cadastro do produto).</summary>
     public Domain.Cardapio.ConteudoAlimentar Contem { get; set; }
+
+    /// <summary>A quantidade é por pessoa e hora de evento (bebidas).</summary>
+    public bool PorHora { get; set; }
+
+    /// <summary>Só os adultos consomem (alcoólicos).</summary>
+    public bool SoAdultos { get; set; }
 }
 
 public sealed class ItemCardapioInput

@@ -411,7 +411,10 @@ internal sealed class FormOrcamentoEdicao : FormBase
         };
         _data.ValueChanged += async (_, _) => await AtualizarPrecoDataAsync();
         foreach (var data in new[] { _data, _inicio, _fim })
+        {
             data.ValueChanged += (_, _) => AgendarVerificacao();
+            data.ValueChanged += (_, _) => Recalcular(); // a duração muda as bebidas e a margem
+        }
     }
 
     /// <summary>
@@ -570,7 +573,9 @@ internal sealed class FormOrcamentoEdicao : FormBase
         if (_parametrosMargem is not { } parametros || _vendedor is null)
             return null;
         var servicos = _servicos.Select(s => (s.ServicoAdicionalId, s.Quantidade)).ToList();
-        return (parametros.Calcular(total, Id(_pacote), convidados, Id(_tipoEvento) ?? 0, Id(_espaco), servicos, Id(_vendedor), Id(_forma)),
+        var (inicio, fim) = PeriodoEvento.Calcular(DateOnly.FromDateTime(_data.Value), TimeOnly.FromDateTime(_inicio.Value), TimeOnly.FromDateTime(_fim.Value));
+        var consumo = Domain.Cardapio.ContextoConsumo.De(convidados, Math.Min(convidados, Faixas().Inteira), inicio, fim);
+        return (parametros.Calcular(total, Id(_pacote), consumo, Id(_tipoEvento) ?? 0, Id(_espaco), servicos, Id(_vendedor), Id(_forma)),
             parametros.Percentuais(Id(_vendedor), Id(_forma)));
     }
 

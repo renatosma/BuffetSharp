@@ -44,7 +44,10 @@ public enum TipoLembrete
     ValidadeLote,
 
     /// <summary>Desconto acima da alçada do vendedor aguardando quem pode aprovar.</summary>
-    AprovacaoDesconto
+    AprovacaoDesconto,
+
+    /// <summary>Evento confirmado dos próximos dias com menos equipe que o dimensionado.</summary>
+    EquipeIncompleta
 }
 
 public enum CanalLembrete

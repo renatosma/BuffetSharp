@@ -37,7 +37,9 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
                     Unidade = f.Produto.UnidadeMedida?.Sigla ?? string.Empty,
                     CustoUnitario = f.Produto.CustoMedio,
                     QuantidadePorPessoa = f.QuantidadePorPessoa,
-                    Contem = f.Produto.Contem
+                    Contem = f.Produto.Contem,
+                    PorHora = f.PorHora,
+                    SoAdultos = f.SoAdultos
                 }).ToList()
         };
     }
@@ -57,7 +59,7 @@ public sealed class CardapioService(IBuffetDbContextFactory fabrica)
         item.Ativo = input.Ativo;
         item.ContemInformado = input.ContemInformado;
         Validador.Validar(item);
-        item.DefinirFichaTecnica(input.Ingredientes.Select(i => (i.ProdutoId, i.QuantidadePorPessoa)));
+        item.DefinirFichaTecnica(input.Ingredientes.Select(i => (i.ProdutoId, i.QuantidadePorPessoa, i.PorHora, i.SoAdultos)));
         if (input.SubstitutoId != item.SubstitutoId)
             item.DefinirSubstituto(input.SubstitutoId is { } substitutoId
                 ? await db.ItensCardapio.FirstOrDefaultAsync(i => i.Id == substitutoId, ct) ?? throw new RegraNegocioException("Substituto não encontrado.")

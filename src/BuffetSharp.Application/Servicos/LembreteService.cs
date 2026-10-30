@@ -33,6 +33,7 @@ public sealed class LembreteService(
     PesquisaService pesquisas,
     ValidadeService validades,
     DescontoService descontos,
+    DimensionamentoService dimensionamento,
     ISessaoUsuario sessao,
     TimeProvider relogio,
     ILogger<LembreteService> log)
@@ -74,6 +75,7 @@ public sealed class LembreteService(
         lembretes.AddRange(await pesquisas.LembretesAsync(ct));
         lembretes.AddRange(await validades.LembretesAsync(ct));
         lembretes.AddRange(await descontos.LembretesAsync(ct)); // só os que o usuário logado pode aprovar
+        lembretes.AddRange(await dimensionamento.LembretesAsync(ct));
         if (lembretes.Count == 0)
             return [];
 

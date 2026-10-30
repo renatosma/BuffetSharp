@@ -1016,9 +1016,15 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.Property<int>("ProdutoId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("PorHora")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<decimal>("QuantidadePorPessoa")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<bool>("SoAdultos")
+                        .HasColumnType("tinyint(1)");
 
                     b.HasKey("ItemCardapioId", "ProdutoId");
 
@@ -3892,6 +3898,46 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                     b.ToTable("PesquisasSatisfacao", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.RegraEquipe", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CargoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ConvidadosPorProfissional")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Minimo")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TipoEventoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CargoId");
+
+                    b.HasIndex("TipoEventoId", "CargoId");
+
+                    b.ToTable("RegrasEquipe", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Baixa", b =>
                 {
                     b.Property<int>("Id")
@@ -6041,6 +6087,24 @@ namespace BuffetSharp.Infrastructure.MySql.Migrations
                         .IsRequired();
 
                     b.Navigation("Evento");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.RegraEquipe", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Cargo", "Cargo")
+                        .WithMany()
+                        .HasForeignKey("CargoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.TipoEvento", "TipoEvento")
+                        .WithMany()
+                        .HasForeignKey("TipoEventoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Cargo");
+
+                    b.Navigation("TipoEvento");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaForma", b =>

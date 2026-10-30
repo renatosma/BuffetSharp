@@ -359,6 +359,11 @@ public class Evento : Entidade
     /// Porções de cada prato do pacote para as pessoas informadas, com os substitutos de quem tem restrição. Requer o pacote
     /// com os pratos, os insumos (e os produtos), os substitutos, os convidados e as restrições avulsas carregados.
     /// </summary>
+    /// <summary>Duração e adultos do evento para o consumo: os adultos são os que pagam inteira, na proporção das pessoas.</summary>
+    public ContextoConsumo ContextoConsumo(int pessoas) =>
+        Cardapio.ContextoConsumo.De(pessoas, QuantidadeConvidados <= 0 ? pessoas
+            : (int)Math.Round((decimal)pessoas * QuantidadesPorFaixa.Inteira / QuantidadeConvidados), Inicio, Fim);
+
     public PlanoCardapio PlanejarCardapio(int pessoas) =>
         PlanoCardapio.Calcular(Pacote?.Itens.Select(i => i.ItemCardapio).OfType<ItemCardapio>() ?? [], pessoas, GruposRestricao());
 

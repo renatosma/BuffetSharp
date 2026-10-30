@@ -319,7 +319,8 @@ internal sealed class ConsultasEstoqueCardapio(FabricaConexao conexoes) : IConsu
         const string sql = """
             SELECT i.Id, i.Nome, c.Nome AS Categoria, c.Ordem AS OrdemCategoria, i.Ativo, s.Nome AS Substituto,
                    COUNT(f.ProdutoId) AS QuantidadeIngredientes,
-                   CAST(COALESCE(SUM(f.QuantidadePorPessoa * p.CustoMedio), 0) AS DECIMAL(18, 4)) AS CustoPorPessoa
+                   CAST(COALESCE(SUM(f.QuantidadePorPessoa * p.CustoMedio * CASE WHEN f.PorHora = {verdadeiro} THEN 5 ELSE 1 END), 0)
+                        AS DECIMAL(18, 4)) AS CustoPorPessoa
               FROM ItensCardapio i
               JOIN CategoriasCardapio c ON c.Id = i.CategoriaCardapioId
               LEFT JOIN ItensCardapio s ON s.Id = i.SubstitutoId
@@ -362,7 +363,7 @@ internal sealed class ConsultasEstoqueCardapio(FabricaConexao conexoes) : IConsu
     {
         const string sql = """
             WITH CustoItem AS (
-                SELECT f.ItemCardapioId, SUM(f.QuantidadePorPessoa * p.CustoMedio) AS Custo
+                SELECT f.ItemCardapioId, SUM(f.QuantidadePorPessoa * p.CustoMedio * CASE WHEN f.PorHora = {verdadeiro} THEN 5 ELSE 1 END) AS Custo
                   FROM FichasTecnicas f JOIN Produtos p ON p.Id = f.ProdutoId
                  GROUP BY f.ItemCardapioId
             )

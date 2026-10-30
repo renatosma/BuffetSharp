@@ -253,10 +253,29 @@ internal sealed partial class FormEventoDetalhe : FormBase
                 await Recarregar(_eventos.RegistrarPresencaAsync(_eventoId, f.FuncionarioId, !f.Presente));
         }, edicao: false);
 
+        var dimensionamento = BarraAba();
+        dimensionamento.Controls.Add(_dimensionamento);
+        BotaoAba(dimensionamento, "Completar equipe", Icones.Pessoas, CompletarEquipeAsync);
+        BotaoAba(dimensionamento, "Plano de equipe e bebidas", Icones.Imprimir, async () =>
+            ImpressaoOperacao.PlanoEquipeBebidas(this, await _navegador.Servico<DimensionamentoService>().PlanoAsync(_eventoId), _opcoes.NomeEmpresa),
+            edicao: false);
+
         var painel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8) };
         painel.Controls.Add(_equipe.Controle);
+        painel.Controls.Add(dimensionamento);
         painel.Controls.Add(barra);
         return new TabPage("Equipe") { Controls = { painel } };
+    }
+
+    private readonly Label _dimensionamento = new() { AutoSize = true, Font = Tema.FonteNegrito, Margin = new Padding(0, 8, 16, 0), MaximumSize = new Size(900, 0) };
+
+    /// <summary>Escala, para cada cargo que falta, quem está livre (pelos de menor diária).</summary>
+    private async Task CompletarEquipeAsync()
+    {
+        var resultado = await _navegador.Servico<DimensionamentoService>().CompletarAsync(_eventoId);
+        await CarregarAsync();
+        Mensagens.Info(this, (resultado.Escalados.Count == 0 ? "Ninguém foi escalado." : $"Escalados: {string.Join(", ", resultado.Escalados)}.") +
+                             (resultado.Faltando.Count == 0 ? "" : $" Sem gente livre para: {string.Join(", ", resultado.Faltando)}."), "Completar equipe");
     }
 
     private async Task EscalarAsync()
@@ -1005,7 +1024,7 @@ internal sealed partial class FormEventoDetalhe : FormBase
         _servicos.Carregar(e.Servicos);
         _insumosPrevistos.Carregar(e.Pacote is null
             ? []
-            : plano.Consumo().Select(c =>
+            : plano.Consumo(e.ContextoConsumo(e.PessoasAtendidas)).Select(c =>
             {
                 var produto = plano.Porcoes.Keys.SelectMany(i => i.Ingredientes).First(f => f.ProdutoId == c.Key).Produto!;
                 return new InsumoPrevisto(produto.Nome, c.Value, produto.UnidadeMedida?.Sigla ?? "", Math.Round(c.Value * produto.CustoMedio, 2));
@@ -1015,6 +1034,10 @@ internal sealed partial class FormEventoDetalhe : FormBase
         var escalas = _navegador.Servico<EscalaService>();
         _conflitosEquipe = await escalas.ConflitosDaEquipeAsync(_eventoId);
         _equipe.Carregar(e.Equipe.OrderBy(f => f.Funcao).ThenBy(f => f.Funcionario?.Nome));
+        var dimensionado = await _navegador.Servico<DimensionamentoService>().EquipeAsync(_eventoId);
+        _dimensionamento.Text = !dimensionado.TemRegras ? "Sem regra de equipe para este tipo de evento (Cadastros › Equipe por tipo de evento)."
+            : $"Dimensionado (escalados/necessários): {dimensionado.Resumo}" + (dimensionado.Faltam > 0 ? $"  •  faltam {dimensionado.Faltam}" : "  ✓");
+        _dimensionamento.ForeColor = dimensionado.TemRegras && dimensionado.Faltam > 0 ? Tema.Alerta : Tema.Texto;
         if (e.Status == StatusEvento.Confirmado)
         {
             var escolhido = (_funcionario.SelectedItem as SituacaoFuncionario)?.FuncionarioId;

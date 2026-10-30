@@ -301,6 +301,7 @@ internal sealed class FormPrincipal : FormBase
             new("CADASTROS", "Unidades de medida", Icones.Etiqueta, [Adm, Ope], () => Cadastro(DefinicoesCadastros.UnidadesMedida)),
             new("CADASTROS", "Formas de pagamento", Icones.Cartao, [Adm, Fin], () => Cadastro(DefinicoesCadastros.FormasPagamento)),
             new("CADASTROS", "Cartões de crédito", Icones.Cartao, [Adm, Fin], () => Cadastro(DefinicoesCadastros.CartoesCredito)),
+            new("CADASTROS", "Equipe por tipo de evento", Icones.Pessoas, [Adm, Ope], () => Cadastro(DefinicoesCadastros.RegrasEquipe)),
             new("CADASTROS", "Condições de pagamento", Icones.Calendario, [Adm, Com, Fin], () => Cadastro(DefinicoesCadastros.CondicoesPagamento)),
 
             new("ADMINISTRAÇÃO", "Usuários", Icones.Cadeado, [Adm], () => n.Abrir<FormUsuarios>()),

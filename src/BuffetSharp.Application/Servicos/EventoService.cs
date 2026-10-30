@@ -57,7 +57,7 @@ public sealed class EventoService(
         return new EventoDetalhe
         {
             Evento = evento,
-            CustoInsumosEstimado = Math.Round((evento.Pacote?.CustoPorPessoa ?? 0) * evento.PessoasAtendidas, 2),
+            CustoInsumosEstimado = Math.Round(evento.Pacote?.CustoInsumos.Calcular(evento.ContextoConsumo(evento.PessoasAtendidas)) ?? 0, 2),
             DespesasVinculadas = despesas
         };
     }
@@ -612,7 +612,7 @@ public sealed class EventoService(
                 }
 
                 // Quem tem restrição comeu o substituto: os insumos dele saem no lugar dos do prato.
-                var consumo = evento.PlanejarCardapio(evento.PessoasAtendidas).Consumo();
+                var consumo = evento.PlanejarCardapio(evento.PessoasAtendidas).Consumo(evento.ContextoConsumo(evento.PessoasAtendidas));
                 var produtos = await EstoqueService.ComLotes(db.Produtos).Where(p => consumo.Keys.Contains(p.Id)).ToListAsync(ct);
                 foreach (var produto in produtos)
                 {

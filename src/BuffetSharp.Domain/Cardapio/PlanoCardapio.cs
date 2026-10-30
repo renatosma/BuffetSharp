@@ -72,9 +72,10 @@ public sealed class PlanoCardapio
     }
 
     /// <summary>Insumos a usar (Id do produto → quantidade), pelas porções de cada prato.</summary>
-    public Dictionary<int, decimal> Consumo() =>
+    /// <param name="contexto">Duração e adultos (bebidas por hora e alcoólicas); nulo usa a referência, com todos adultos.</param>
+    public Dictionary<int, decimal> Consumo(ContextoConsumo? contexto = null) =>
         _porcoes.Where(p => p.Value > 0)
-            .SelectMany(p => p.Key.Ingredientes.Select(f => (f.ProdutoId, Quantidade: f.QuantidadePorPessoa * p.Value)))
+            .SelectMany(p => p.Key.Ingredientes.Select(f => (f.ProdutoId, Quantidade: f.Quantidade(p.Value, contexto ?? ContextoConsumo.Padrao(Pessoas)))))
             .GroupBy(f => f.ProdutoId)
             .ToDictionary(g => g.Key, g => Math.Round(g.Sum(f => f.Quantidade), 3));
 }

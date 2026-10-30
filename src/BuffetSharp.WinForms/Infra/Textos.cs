@@ -149,6 +149,7 @@ internal static class Textos
         TipoLembrete.AvaliacaoGoogle => "Avaliação no Google",
         TipoLembrete.ValidadeLote => "Validade de lote",
         TipoLembrete.AprovacaoDesconto => "Aprovação de desconto",
+        TipoLembrete.EquipeIncompleta => "Equipe incompleta",
         SituacaoDesconto.DentroDaAlcada => "Dentro da alçada",
         SituacaoDesconto.Aguardando => "Aguardando",
         SituacaoDesconto.Aprovado => "Aprovado",

@@ -3,6 +3,7 @@ using BuffetSharp.Application.Consultas;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.Application.Servicos;
 using BuffetSharp.Domain.Cadastros;
+using BuffetSharp.Domain.Cardapio;
 using BuffetSharp.Domain.Comercial;
 using BuffetSharp.Domain.Comum;
 using BuffetSharp.Domain.Eventos;
@@ -60,18 +61,20 @@ public class MargemIntegracaoTests(BancoFixture banco)
         var id = await orcamentos.SalvarAsync(input, Ct);
 
         var salvo = await orcamentos.ObterAsync(id, Ct);
-        var prata = (await banco.Obter<IConsultasEstoqueCardapio>().ListarPacotesAsync(Ct)).Single(p => p.Nome == "Prata");
         var custos = salvo.Custos;
-        Assert.InRange(custos.Insumos, prata.CustoPorPessoa * 100 - 0.5m, prata.CustoPorPessoa * 100 + 0.5m); // a consulta arredonda o custo
-        Assert.Equal(700m + 16m * 100, custos.Equipe); // corporativo: R$ 700 fixos + R$ 16 por convidado
+        var parametros = await banco.Obter<MargemService>().ParametrosAsync(Ct);
+        // Das 8h às 9h30 (1,5 h), 100 adultos: as bebidas por hora entram pela duração.
+        var consumo = new ContextoConsumo(100, 100, 1.5m);
+        Assert.Equal(Math.Round(parametros.CustoPacote[input.PacoteId!.Value].Calcular(consumo), 2), custos.Insumos);
+        // Corporativo não tem regra própria: vale a geral (7 garçons, 2 cozinheiros, 2 auxiliares, maître, recepcionista e 2 copeiros).
+        Assert.Equal(7 * 180m + 2 * 260m + 2 * 150m + 380m + 170m + 2 * 140m, custos.Equipe);
         Assert.Equal(1_300m, custos.Espaco);
         var total = (await banco.Obter<IConsultasComercial>().ListarOrcamentosAsync(new FiltroOrcamentos { Texto = $"ORC-{id:D5}" }, Ct)).Single();
         Assert.Equal((Math.Round(total.ValorTotal * 0.08m, 2), Math.Round(total.ValorTotal * 0.03m, 2), Math.Round(total.ValorTotal * 0.0349m, 2)),
             (custos.Impostos, custos.Comissao, custos.Taxa));
         Assert.Equal(CalculadoraMargem.Percentual(total.ValorTotal, custos), total.MargemPercentual);
 
-        var parametros = await banco.Obter<MargemService>().ParametrosAsync(Ct);
-        Assert.Equal(custos, parametros.Calcular(total.ValorTotal, input.PacoteId, 100, input.TipoEventoId, input.EspacoId, [],
+        Assert.Equal(custos, parametros.Calcular(total.ValorTotal, input.PacoteId, consumo, input.TipoEventoId, input.EspacoId, [],
             input.VendedorId, input.FormaPagamentoId)); // a tela calcula igual ao serviço
         Assert.True(parametros.PodeVerCustos);
     }

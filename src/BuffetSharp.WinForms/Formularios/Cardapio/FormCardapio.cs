@@ -121,7 +121,9 @@ internal sealed class FormItensCardapio : FormListagem<ItemCardapioResumo>
         grade.SelectionMode = DataGridViewSelectionMode.CellSelect;
         grade.Columns.AddRange(
             new DataGridViewTextBoxColumn { HeaderText = "Insumo", DataPropertyName = nameof(IngredienteInput.Produto), ReadOnly = true, FillWeight = 50 },
-            new DataGridViewTextBoxColumn { HeaderText = "Qtd. por pessoa", DataPropertyName = nameof(IngredienteInput.QuantidadePorPessoa), FillWeight = 20, DefaultCellStyle = { Format = "N4", Alignment = DataGridViewContentAlignment.MiddleRight } },
+            new DataGridViewTextBoxColumn { HeaderText = "Qtd. por pessoa (ou por hora)", DataPropertyName = nameof(IngredienteInput.QuantidadePorPessoa), FillWeight = 20, DefaultCellStyle = { Format = "N4", Alignment = DataGridViewContentAlignment.MiddleRight } },
+            new DataGridViewCheckBoxColumn { HeaderText = "Por hora", DataPropertyName = nameof(IngredienteInput.PorHora), FillWeight = 10, ToolTipText = "Bebidas: a quantidade é por pessoa e por hora de evento" },
+            new DataGridViewCheckBoxColumn { HeaderText = "Só adultos", DataPropertyName = nameof(IngredienteInput.SoAdultos), FillWeight = 10, ToolTipText = "Alcoólicos: as crianças (meia e isentos) não entram" },
             new DataGridViewTextBoxColumn { HeaderText = "Un.", DataPropertyName = nameof(IngredienteInput.Unidade), ReadOnly = true, FillWeight = 10 },
             new DataGridViewTextBoxColumn { HeaderText = "Custo unit.", DataPropertyName = nameof(IngredienteInput.CustoUnitario), ReadOnly = true, FillWeight = 18, DefaultCellStyle = { Format = "C4", Alignment = DataGridViewContentAlignment.MiddleRight } },
             new DataGridViewTextBoxColumn { HeaderText = "Custo / pessoa", DataPropertyName = nameof(IngredienteInput.CustoPorPessoa), ReadOnly = true, FillWeight = 18, DefaultCellStyle = { Format = "C4", Alignment = DataGridViewContentAlignment.MiddleRight } });

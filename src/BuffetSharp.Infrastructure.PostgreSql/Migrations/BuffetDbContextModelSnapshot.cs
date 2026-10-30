@@ -1311,10 +1311,18 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("produtoid");
 
+                    b.Property<bool>("PorHora")
+                        .HasColumnType("boolean")
+                        .HasColumnName("porhora");
+
                     b.Property<decimal>("QuantidadePorPessoa")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("quantidadeporpessoa");
+
+                    b.Property<bool>("SoAdultos")
+                        .HasColumnType("boolean")
+                        .HasColumnName("soadultos");
 
                     b.HasKey("ItemCardapioId", "ProdutoId")
                         .HasName("pk_fichastecnicas");
@@ -5104,6 +5112,60 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                     b.ToTable("pesquisassatisfacao", (string)null);
                 });
 
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.RegraEquipe", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("atualizadoem");
+
+                    b.Property<int>("CargoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("cargoid");
+
+                    b.Property<int>("ConvidadosPorProfissional")
+                        .HasColumnType("integer")
+                        .HasColumnName("convidadosporprofissional");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("criadoem");
+
+                    b.Property<int>("Minimo")
+                        .HasColumnType("integer")
+                        .HasColumnName("minimo");
+
+                    b.Property<int?>("TipoEventoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tipoeventoid");
+
+                    b.Property<int>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("Id")
+                        .HasName("pk_regrasequipe");
+
+                    b.HasIndex("CargoId")
+                        .HasDatabaseName("ix_regrasequipe_cargoid");
+
+                    b.HasIndex("TipoEventoId", "CargoId")
+                        .HasDatabaseName("ix_regrasequipe_tipoeventoid_cargoid");
+
+                    b.ToTable("regrasequipe", (string)null);
+                });
+
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.Baixa", b =>
                 {
                     b.Property<int>("Id")
@@ -7717,6 +7779,26 @@ namespace BuffetSharp.Infrastructure.PostgreSql.Migrations
                         .HasConstraintName("fk_pesquisassatisfacao_eventos_eventoid");
 
                     b.Navigation("Evento");
+                });
+
+            modelBuilder.Entity("BuffetSharp.Domain.Eventos.RegraEquipe", b =>
+                {
+                    b.HasOne("BuffetSharp.Domain.Cadastros.Cargo", "Cargo")
+                        .WithMany()
+                        .HasForeignKey("CargoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_regrasequipe_cargos_cargoid");
+
+                    b.HasOne("BuffetSharp.Domain.Cadastros.TipoEvento", "TipoEvento")
+                        .WithMany()
+                        .HasForeignKey("TipoEventoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_regrasequipe_tiposevento_tipoeventoid");
+
+                    b.Navigation("Cargo");
+
+                    b.Navigation("TipoEvento");
                 });
 
             modelBuilder.Entity("BuffetSharp.Domain.Financeiro.BaixaForma", b =>

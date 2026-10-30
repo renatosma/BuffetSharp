@@ -55,7 +55,7 @@ internal sealed class FormLembretes : FormListagem<Lembrete>
     private static Color? Cor(TipoLembrete tipo) => tipo switch
     {
         TipoLembrete.ParcelaVencida or TipoLembrete.MaterialNaoDevolvido or TipoLembrete.Detrator => Tema.Perigo,
-        TipoLembrete.ValidadeLote or TipoLembrete.AprovacaoDesconto => Tema.Alerta,
+        TipoLembrete.ValidadeLote or TipoLembrete.AprovacaoDesconto or TipoLembrete.EquipeIncompleta => Tema.Alerta,
         TipoLembrete.Aniversario => Tema.Destaque,
         TipoLembrete.EsperaData or TipoLembrete.AvaliacaoGoogle => Tema.Sucesso,
         TipoLembrete.ContaPagarAVencer or TipoLembrete.ParcelaAVencer => Tema.Alerta,

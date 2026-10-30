@@ -23,6 +23,9 @@ internal sealed class FormAgenda : FormBase
     private IReadOnlyList<ItemAgenda> _itensMes = [];
     private IReadOnlyDictionary<DateOnly, int> _esperasMes = new Dictionary<DateOnly, int>();
 
+    /// <summary>Eventos confirmados do mês com menos equipe que o dimensionado (Id → quantos faltam).</summary>
+    private IReadOnlyDictionary<int, int> _faltasEquipe = new Dictionary<int, int>();
+
     public FormAgenda(IConsultasAgenda agenda, IConsultasLookup lookups, Navegador navegador)
     {
         _agenda = agenda;
@@ -54,7 +57,8 @@ internal sealed class FormAgenda : FormBase
         _doDia.Data("Início", i => i.Inicio, "HH:mm", 18)
             .Texto("Evento", i => i.Titulo, 60)
             .Texto("Espaço", i => i.Espaco, 30)
-            .Numero("Conv.", i => i.Convidados, peso: 14);
+            .Numero("Conv.", i => i.Convidados, peso: 14)
+            .Texto("Equipe", i => i.Origem == "Evento" && _faltasEquipe.TryGetValue(i.Id, out var faltam) ? $"faltam {faltam}" : "", 18, _ => Tema.Alerta);
         _doDia.DuploClique += AbrirItem;
 
         var lateral = Tema.Cartao(new Padding(10));
@@ -145,13 +149,16 @@ internal sealed class FormAgenda : FormBase
         _calendario.DefinirItens(_itensMes);
         _esperasMes = await _navegador.Servico<Application.Servicos.EsperaService>().PorDiaAsync(_calendario.InicioGrade, _calendario.InicioGrade.AddDays(41));
         _calendario.DefinirEsperas(_esperasMes);
+        _faltasEquipe = await _navegador.Servico<Application.Servicos.DimensionamentoService>().FaltasAsync(inicio, inicio.AddDays(42));
         MostrarDia(_calendario.DiaAtual);
     });
 
     private void MostrarDia(DateOnly dia)
     {
         _tituloDia.Text = dia.ToString("dddd, dd/MM/yyyy", Textos.PtBr) +
-                          (_esperasMes.TryGetValue(dia, out var esperas) ? $"  •  {esperas} na lista de espera" : "");
+                          (_esperasMes.TryGetValue(dia, out var esperas) ? $"  •  {esperas} na lista de espera" : "") +
+                          (_itensMes.Count(i => DateOnly.FromDateTime(i.Inicio) == dia && i.Origem == "Evento" && _faltasEquipe.ContainsKey(i.Id)) is > 0 and var incompletos
+                              ? $"  •  {incompletos} com equipe incompleta" : "");
         _doDia.Carregar(_itensMes.Where(i => DateOnly.FromDateTime(i.Inicio) == dia).OrderBy(i => i.Inicio));
     }
 

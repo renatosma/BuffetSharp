@@ -331,6 +331,18 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   No orçamento, o valor por pessoa e a locação sugeridos já vêm com o ajuste da data, que é refeito quando a data, o
   pacote ou o espaço mudam (o valor negociado à mão não é tocado). A proposta impressa mostra as regras da data e o preço
   de tabela. O Calendário de preços (Comercial) mostra o ajuste de cada dia do mês, para um pacote e espaço.
+- **Dimensionamento de equipe e bebidas**: em Cadastros › Equipe por tipo de evento, cada cargo tem a regra "1 a cada N
+  convidados, com mínimo" (ex.: garçom 1 a cada 15, mínimo 2; maître 1 por evento). Sem tipo de evento é a regra geral, e a
+  regra do tipo substitui a geral para o mesmo cargo (ex.: no casamento, garçom 1 a cada 12 e um barman). Na aba Equipe do
+  evento aparecem os escalados e os necessários de cada cargo; "Completar equipe" escala quem está livre (sem conflito de
+  escala nem indisponibilidade), pelos de menor diária, e diz o que ficou faltando. O evento confirmado dos próximos 7 dias
+  (`Lembretes:DiasEquipe`) com equipe incompleta vira lembrete para o operacional, e a agenda mostra quantos faltam em cada
+  evento do dia. Na ficha técnica, cada insumo pode ser "por hora" (bebidas: quanto mais longo o evento, mais se bebe) e
+  "só adultos" (alcoólicos: meia e isentos ficam de fora); o consumo, a ordem de produção, a lista de compras, a baixa do
+  estoque e a margem usam a duração e os adultos do evento (as listas de itens e pacotes mostram o custo por pessoa num
+  evento de 5 horas). Com regra para o tipo de evento, o custo de equipe da margem do orçamento é o dimensionamento × a
+  diária de cada cargo (sem regra, vale o custo estimado do tipo de evento). "Plano de equipe e bebidas" imprime, para a
+  coordenação, a equipe por cargo (necessários, escalados e quem) e as bebidas com a quantidade e a embalagem de compra.
 - **Margem no orçamento**: ao salvar, o orçamento congela os custos previstos: insumos do pacote (ficha técnica ×
   pessoas, pelo custo médio), equipe estimada do tipo de evento (custo por convidado mais um fixo, no cadastro de tipos de
   evento), custo do espaço por evento e custo de cada serviço adicional (nos cadastros), comissão do vendedor, impostos
@@ -471,7 +483,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **490 testes** (xUnit v3): 444 de domínio, integração e bancos, e 46 das telas.
+São **498 testes** (xUnit v3): 451 de domínio, integração e bancos, e 47 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

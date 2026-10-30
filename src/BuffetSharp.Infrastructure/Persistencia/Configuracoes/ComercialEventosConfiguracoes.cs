@@ -104,6 +104,17 @@ internal sealed class EventoFuncionarioConfig : IEntityTypeConfiguration<EventoF
     }
 }
 
+internal sealed class RegraEquipeConfig : IEntityTypeConfiguration<RegraEquipe>
+{
+    public void Configure(EntityTypeBuilder<RegraEquipe> b)
+    {
+        b.ToTable("RegrasEquipe");
+        b.HasOne(x => x.TipoEvento).WithMany().HasForeignKey(x => x.TipoEventoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Cargo).WithMany().HasForeignKey(x => x.CargoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.TipoEventoId, x.CargoId });
+    }
+}
+
 internal sealed class EventoRestricaoConfig : IEntityTypeConfiguration<EventoRestricao>
 {
     public void Configure(EntityTypeBuilder<EventoRestricao> b)

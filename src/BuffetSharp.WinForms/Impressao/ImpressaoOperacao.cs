@@ -1,3 +1,4 @@
+using BuffetSharp.Application.Servicos;
 using BuffetSharp.Application.Modelos;
 using BuffetSharp.WinForms.Infra;
 
@@ -64,6 +65,37 @@ internal static class ImpressaoOperacao
             doc.Paragrafo(o.Observacoes);
         }
         doc.Espaco(18);
+    }
+
+    /// <summary>Folha da coordenação: a equipe por cargo (necessária × escalada) e as bebidas do evento.</summary>
+    public static void PlanoEquipeBebidas(IWin32Window dono, PlanoEquipeBebidas plano, string empresa)
+    {
+        var doc = new DocumentoImpresso($"Plano de equipe e bebidas - {plano.Evento}", empresa);
+        doc.Subtitulo($"{plano.Inicio:dd/MM/yyyy HH:mm} às {plano.Fim:HH:mm} ({plano.Contexto.Horas:0.#} h)  •  {plano.Espaco}  •  " +
+                      $"{plano.Contexto.Pessoas} pessoas, {plano.Contexto.Adultos} adultos");
+        doc.Secao("Equipe");
+        if (!plano.Equipe.TemRegras)
+            doc.Paragrafo("Sem regra de equipe para este tipo de evento.");
+        else
+            doc.Tabela(["Cargo", "Necessários", "Escalados", "Quem", "Regra"],
+                plano.Equipe.Equipe.Select(l => new[]
+                {
+                    l.Cargo, l.Necessarios.ToString(), l.Faltam > 0 ? $"{l.Escalados} (faltam {l.Faltam})" : l.Escalados.ToString(),
+                    string.Join(", ", l.Nomes), l.Regra
+                }).ToList(),
+                [1.6f, 1, 1.2f, 4, 2.2f], [false, true, true, false, false]);
+        doc.Secao("Bebidas");
+        if (plano.Bebidas.Count == 0)
+            doc.Paragrafo("O cardápio do evento não tem a seção de bebidas.");
+        else
+            doc.Tabela(["Bebida", "Quantidade", "Un.", "Embalagem de compra", "Base"],
+                plano.Bebidas.Select(b => new[]
+                {
+                    b.Produto, b.Quantidade.ToString("N1"), b.Unidade, b.Embalagem ?? "",
+                    string.Join(", ", new[] { b.PorHora ? "por hora" : null, b.SoAdultos ? "só adultos" : null }.OfType<string>())
+                }).ToList(),
+                [3, 1.2f, 0.8f, 2.4f, 1.6f], [false, true, false, false, false]);
+        doc.Visualizar(dono);
     }
 
     public static void PedidoCompra(IWin32Window dono, ListaCompras lista, IEnumerable<ItemListaCompras> itens, string empresa)

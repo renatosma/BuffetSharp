@@ -18,7 +18,7 @@ public class WhatsAppIntegracaoTests(BancoFixture banco)
     private LembreteService Servico(IEnvioWhatsApp envio, WhatsAppOptions opcoesWhatsApp, bool automatico = true) =>
         new(banco.Obter<IBuffetDbContextFactory>(), banco.Obter<IConsultasLembretes>(), banco.Obter<IEnvioEmail>(), envio, opcoesWhatsApp,
             banco.Obter<BuffetOptions>(), new LembretesOptions { WhatsAppAutomatico = automatico }, banco.Obter<PixService>(),
-            banco.Obter<EsperaService>(), banco.Obter<PesquisaService>(), banco.Obter<ValidadeService>(), banco.Obter<DescontoService>(), banco.Obter<ISessaoUsuario>(), TimeProvider.System, banco.Obter<ILogger<LembreteService>>());
+            banco.Obter<EsperaService>(), banco.Obter<PesquisaService>(), banco.Obter<ValidadeService>(), banco.Obter<DescontoService>(), banco.Obter<DimensionamentoService>(), banco.Obter<ISessaoUsuario>(), TimeProvider.System, banco.Obter<ILogger<LembreteService>>());
 
     [Fact]
     public async Task Lembretes_saem_uma_vez_pelo_whatsapp_so_no_horario()
