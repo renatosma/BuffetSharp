@@ -261,6 +261,8 @@ internal sealed class FormPrincipal : FormBase
 
             new("CARDÁPIO", "Itens do cardápio", Icones.Lista, [Adm, Com, Ope], () => n.Abrir<FormItensCardapio>()),
             new("CARDÁPIO", "Pacotes", Icones.Biblioteca, [Adm, Com, Ope], () => n.Abrir<FormPacotes>()),
+            new("CARDÁPIO", "Simulador de preço", Icones.Calculadora, [Adm, Fin],
+                () => n.Abrir("simulador:", () => n.Criar<FormSimuladorPreco>(new AberturaSimulador(null)))),
             new("CARDÁPIO", "Reajuste de preços", Icones.Calculadora, [Adm, Com], () => n.Abrir<FormReajustes>()),
 
             new("ESTOQUE", "Produtos", Icones.Carrinho, [Adm, Ope], () => Cadastro(DefinicoesCadastros.Produtos)),

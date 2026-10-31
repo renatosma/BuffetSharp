@@ -331,6 +331,14 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
   No orçamento, o valor por pessoa e a locação sugeridos já vêm com o ajuste da data, que é refeito quando a data, o
   pacote ou o espaço mudam (o valor negociado à mão não é tocado). A proposta impressa mostra as regras da data e o preço
   de tabela. O Calendário de preços (Comercial) mostra o ajuste de cada dia do mês, para um pacote e espaço.
+- **Simulador de preço do pacote** (Cardápio › Simulador de preço, ou "Simular preço" nos pacotes; administrador e
+  financeiro): monta a composição a partir de um pacote ou marcando os itens do cardápio e escolhe o cenário (tipo de
+  evento, convidados, duração, % de adultos, comissão, taxa da forma de pagamento e margem alvo). Mostra o custo direto por
+  pessoa (insumos pela ficha técnica, com as bebidas por hora e só para adultos, e equipe pelo dimensionamento do tipo de
+  evento), o preço mínimo (margem mínima) e o sugerido (margem alvo), arredondados para cima nos 10 centavos, e a margem do
+  preço atual do pacote, numa tabela de 50 a 300 convidados (a equipe se dilui com mais gente). Considera que todos pagam
+  inteira e os impostos da configuração. "Aplicar preço sugerido ao pacote" muda o preço (os orçamentos já feitos não
+  mudam) e "Criar pacote com esta composição" cria um pacote novo com o preço sugerido.
 - **Sobras e desperdício**: depois do encerramento, o botão "Sobras" da central do evento registra quanto sobrou de cada
   prato produzido (as porções vêm do plano do cardápio, com os substitutos) e o destino: descarte, doação (com a
   instituição), refeição da equipe ou cliente levou. Só o descarte conta como desperdício. Na mesma tela, os insumos levados
@@ -494,7 +502,7 @@ BuffetSharp.Domain                   Entidades e regras de negócio (sem depend�
 dotnet test
 ```
 
-São **509 testes** (xUnit v3): 461 de domínio, integração e bancos, e 48 das telas.
+São **514 testes** (xUnit v3): 465 de domínio, integração e bancos, e 49 das telas.
 
 - **Domínio**: CPF/CNPJ, cálculo do orçamento, ciclo de vida, parcelas, estoque e consumo do pacote, condições de
   pagamento, modelos de contrato, valor por extenso, conversão de embalagens, contatos adicionais, faixas etárias,

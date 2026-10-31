@@ -169,11 +169,18 @@ internal sealed class FormPacotes : FormListagem<PacoteResumo>
     private readonly IConsultasEstoqueCardapio _consultas;
     private readonly CardapioService _servico;
 
-    public FormPacotes(IConsultasEstoqueCardapio consultas, CardapioService servico)
+    public FormPacotes(IConsultasEstoqueCardapio consultas, CardapioService servico, MargemService margens, Navegador navegador)
         : base("Pacotes", "Combinações de itens com preço por pessoa. A margem considera o custo atual dos insumos (custo médio).")
     {
         _consultas = consultas;
         _servico = servico;
+        if (margens.PodeVerCustos)
+            Botao("Simular preço", Icones.Calculadora, () =>
+            {
+                var pacoteId = Selecionado()?.Id;
+                navegador.Abrir($"simulador:{pacoteId}", () => navegador.Criar<FormSimuladorPreco>(new AberturaSimulador(pacoteId)));
+                return Task.CompletedTask;
+            }, "Preço por pessoa para a margem, por número de convidados");
 
         Botao("Novo", Icones.Adicionar, () => EditarAsync(0), "Novo pacote", destaque: true);
         Botao("Editar", Icones.Editar, () => Selecionado() is { } p ? EditarAsync(p.Id) : Task.CompletedTask);
