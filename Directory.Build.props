@@ -8,7 +8,7 @@
     <NeutralLanguage>pt-BR</NeutralLanguage>
     <Authors>BuffetSharp</Authors>
     <Product>BuffetSharp - Sistema de Gestão para Buffets</Product>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
   </PropertyGroup>
 
   <!-- Configuração local dos testes (banco e senha), usada pelo Visual Studio e pelo "dotnet test" quando existir. -->
